@@ -264,8 +264,8 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
       // Execution timeout (fail if generation takes too long)
       const executionTimeout = setTimeout(() => {
           if (ws.readyState === WebSocket.OPEN) ws.close();
-          reject(new Error('Timeout: ComfyUI 生成时间过长 (超过2分钟)'));
-      }, 120000); // 2 minutes timeout
+          reject(new Error('Timeout: ComfyUI 生成时间过长 (超过20分钟)'));
+      }, 1200000); // 20 minutes timeout
 
       ws.onopen = async () => {
           connectionEstablished = true;
@@ -432,8 +432,8 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
       // Long timeout for video generation
       const executionTimeout = setTimeout(() => {
           if (ws.readyState === WebSocket.OPEN) ws.close();
-          reject(new Error('Timeout: ComfyUI 生成时间过长 (超过10分钟)'));
-      }, 600000); 
+          reject(new Error('Timeout: ComfyUI 生成时间过长 (超过40分钟)'));
+      }, 2400000); 
 
       ws.onopen = async () => {
           connectionEstablished = true;
