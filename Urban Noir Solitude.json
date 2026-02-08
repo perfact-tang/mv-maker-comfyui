@@ -1,0 +1,47 @@
+{
+  "proposal_id": 1,
+  "direction_name": "Urban Noir Solitude",
+  "basics": {
+    "outline": "A cinematic journey through a rainy, neon-lit city at night. The protagonist walks alone, not in sadness but in supreme confidence. The city is cold, but she is the warm center. The 'Castlevania' is her high-rise apartment overlooking the chaos.",
+    "shooting_method": "Slow tracking shots, shallow depth of field (bokeh city lights), smooth gimbal movements to match the groovy bass. Low key lighting with neon accents (cyan and magenta).",
+    "art_style_description": "Cinematic Realism, Wong Kar-wai inspired, moody, high contrast, wet pavement reflections, velvet textures."
+  },
+  "storyboard": [
+    {
+      "segment_id": 1,
+      "movielength": "00:00-01:05",
+      "content_narrative": "[Intro - Verse 1] ",
+      "prompts": {
+        "first_frame": "Cinematic shot, medium close-up, elegant woman sitting by a rain-streaked window at night, city lights bokeh in background, neo-soul vibe, warm rhodes piano atmosphere, moody lighting, 8k resolution.",
+        "last_frame": "Woman standing up, silhouette against the city window, dropping a heavy winter coat, confident posture, red light highlighting her profile, urban night aesthetic."
+      }
+    },
+    {
+      "segment_id": 2,
+      "movielength": "01:05-01:39",
+      "content_narrative": "[Chorus] She enters her 'throne room' (a stylized living space). She sits on a velvet armchair. The lighting shifts to warm gold and deep purple. She looks directly at the camera, regal.",
+      "prompts": {
+        "first_frame": "Wide shot, modern luxury apartment interior, dark velvet armchair as a throne, purple and gold ambient lighting, protagonist walking towards the chair, sophisticated atmosphere.",
+        "last_frame": "Close-up, protagonist sitting on the velvet chair, regal expression, looking into camera, soft rim lighting, 'King of the Night' vibe, smooth jazz aesthetic."
+      }
+    },
+    {
+      "segment_id": 3,
+      "movielength": "01:39-02:26",
+      "content_narrative": "[Verse 2 - Male Rap] The camera pans to a mirror or reflection where we see the 'Male' persona (the King) rapping. He is cool, relaxed, maybe smoking or holding a drink. The female protagonist vibes with him in the reflection.",
+      "prompts": {
+        "first_frame": "Over-the-shoulder shot, looking into a large ornate mirror, reflection shows a stylish man in a suit instead of the woman, sultry vibe, low light, smoke swirling.",
+        "last_frame": "Split composition, real world woman and mirror reflection man vibing to the beat, duality, self-reconciliation, groovy atmosphere, warm electric piano colors."
+      }
+    },
+    {
+      "segment_id": 4,
+      "movielength": "02:26-02:50",
+      "content_narrative": "[Outro] The camera pulls back out of the window, showing the building standing tall like a modern castle in the city. The lights go out slowly.",
+      "prompts": {
+        "first_frame": "Exterior shot, camera pulling back from the window, rain falling, the apartment is a warm glowing box in a cold blue city.",
+        "last_frame": "Wide cityscape, one tall building stands out like a fortress, 'Castlevania' text overlay in elegant serif font, screen fades to black."
+      }
+    }
+  ]
+}

@@ -1,0 +1,269 @@
+{
+  "proposal_id": 1,
+  "direction_name": "Urban Noir Solitude",
+  "basics": {
+    "outline": "A cinematic journey through a rainy, neon-lit city at night. The protagonist walks alone, not in sadness but in supreme confidence. The city is cold, but she is the warm center. The 'Castlevania' is her high-rise apartment overlooking the chaos.",
+    "shooting_method": "Slow tracking shots, shallow depth of field (bokeh city lights), smooth gimbal movements to match the groovy bass. Low key lighting with neon accents (cyan and magenta).",
+    "art_style_description": "Cinematic Realism, Wong Kar-wai inspired, moody, high contrast, wet pavement reflections, velvet textures."
+  },
+  "storyboard": [
+    {
+      "segment_id": 1,
+      "movielength": "00:00-01:05",
+      "content_narrative": "[Intro - Verse 1] ",
+      "prompts": {
+        "first_frame": "Cinematic shot, medium close-up, elegant woman sitting by a rain-streaked window at night, city lights bokeh in background, neo-soul vibe, warm rhodes piano atmosphere, moody lighting, 8k resolution.",
+        "last_frame": "Woman standing up, silhouette against the city window, dropping a heavy winter coat, confident posture, red light highlighting her profile, urban night aesthetic."
+      },
+      "mvinfo": [
+        {
+          "timestamp": "00:00 - 00:05",
+          "type": "New_Scene",
+          "lyrics": "[Short Intro](Warm Rhodes piano chords, a soft finger snap)(Female voice: \"Ooh, mmm, lazy humming...\")",
+          "image_prompt": "Cinematic shot, medium close-up, elegant woman sitting by a rain-streaked window at night, city lights bokeh in background, neo-soul vibe, warm rhodes piano atmosphere, moody lighting, cyan and magenta neon accents, 8k resolution, Wong Kar-wai style.",
+          "video_prompt": "Slow zoom in, the woman hums softly with subtle head movement, rain falling heavily on the glass, neon lights flickering in the background, soft focus shifts, high quality."
+        },
+        {
+          "timestamp": "00:05 - 00:10",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "Camera slowly tracks around her, she looks out at the rainy city, her reflection visible in the wet glass, moody atmosphere, slow smooth motion."
+        },
+        {
+          "timestamp": "00:10 - 00:15",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "She closes her eyes, enjoying the music, snaps her fingers softly to the beat, warm light highlights her face against the cold blue city background."
+        },
+        {
+          "timestamp": "00:15 - 00:20",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "She turns slightly, showing her profile, deep in thought, city lights blur into beautiful bokeh in the background, cinematic lighting."
+        },
+        {
+          "timestamp": "00:20 - 00:25",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "[Verse 1 - Rap](Female)I had that fire once, yeah, a burning sun in my chest",
+          "video_prompt": "She looks down at her hands, expression of nostalgia, faint reflection of red neon light on her skin, symbolizing the fire she once had."
+        },
+        {
+          "timestamp": "00:25 - 00:30",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "Young knight, red blood,",
+          "video_prompt": "Camera focuses on her eyes, intense gaze, slight zoom in, red light intensifies in the background, dramatic lighting contrast."
+        },
+        {
+          "timestamp": "00:30 - 00:35",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "never thought about the rest But the world is a winter, and people... they're just cold",
+          "video_prompt": "She shivers slightly as if cold, wraps her arms around herself, blue and cyan tones dominate the lighting, conveying a winter feeling."
+        },
+        {
+          "timestamp": "00:35 - 00:40",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "Leaving me in the silence, watching the story unfold",
+          "video_prompt": "She turns away from the window, becoming a silhouette against the bright city lights, the room behind her is dark and silent."
+        },
+        {
+          "timestamp": "00:40 - 00:45",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "They walked away, and the room got so wide",
+          "video_prompt": "Wide shot of the room from behind her, showing the empty space, she stands alone in the silence, cinematic composition."
+        },
+        {
+          "timestamp": "00:45 - 00:50",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "But that's when I found the king living inside The cold didn't break me, it just made me refined",
+          "video_prompt": "She straightens her posture, a look of confidence returns to her face, lighting shifts from cold blue to warm gold, revealing her strength."
+        },
+        {
+          "timestamp": "00:50 - 00:55",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "I left their noisy world so far behind",
+          "video_prompt": "She walks slowly across the room, leaving the window and the noisy world behind, focus follows her movement, velvet textures visible in room."
+        },
+        {
+          "timestamp": "00:55 - 01:00",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "I'm not hiding, I'm just finding my peace",
+          "video_prompt": "She touches the velvet fabric of a furniture piece, calm and peaceful expression, smooth camera movement following her hand."
+        },
+        {
+          "timestamp": "01:00 - 01:05",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "In the shadows, where the heart finds release [Chorus - Melodic & Groovy](Female)I built my Castlevania, high above the rain",
+          "video_prompt": "She approaches a large armchair, transitioning to the next scene, atmosphere becomes regal and settled."
+        }
+      ]
+    },
+    {
+      "segment_id": 2,
+      "movielength": "01:05-01:39",
+      "content_narrative": "[Chorus] She enters her 'throne room' (a stylized living space). She sits on a velvet armchair. The lighting shifts to warm gold and deep purple. She looks directly at the camera, regal.",
+      "prompts": {
+        "first_frame": "Wide shot, modern luxury apartment interior, dark velvet armchair as a throne, purple and gold ambient lighting, protagonist walking towards the chair, sophisticated atmosphere.",
+        "last_frame": "Close-up, protagonist sitting on the velvet chair, regal expression, looking into camera, soft rim lighting, 'King of the Night' vibe, smooth jazz aesthetic."
+      },
+      "mvinfo": [
+        {
+          "timestamp": "01:05 - 01:10",
+          "type": "New_Scene",
+          "lyrics": "Found the beauty in the quiet, found the power in the pain",
+          "image_prompt": "Wide shot, modern luxury apartment interior, dark velvet armchair as a throne, purple and gold ambient lighting, protagonist standing near the chair, sophisticated atmosphere, cinematic realism.",
+          "video_prompt": "She sits down gracefully on the velvet armchair, slow motion, the fabric moves elegantly, lighting emphasizes the purple and gold tones."
+        },
+        {
+          "timestamp": "01:10 - 01:15",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "She settles into the chair, leans back comfortably, embodying the 'King of the Night', relaxed and regal posture."
+        },
+        {
+          "timestamp": "01:15 - 01:20",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "I’m the King of the Night, lounging on my own throne",
+          "video_prompt": "Medium shot, she looks directly at the camera with a confident smile, regal posture, soft rim lighting creating a halo effect."
+        },
+        {
+          "timestamp": "01:20 - 01:25",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "In this velvet darkness, I’m never alone",
+          "video_prompt": "Camera pans slowly, showing the dark, rich textures of the room, she remains the focal point in the velvet darkness."
+        },
+        {
+          "timestamp": "01:25 - 01:30",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "Yeah, I'm the King... my own King.",
+          "video_prompt": "Close up on her face, dramatic lighting, she looks empowered, singing along with the lyrics, 'my own King', confident expression."
+        },
+        {
+          "timestamp": "01:30 - 01:35",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "King of the night, mmm...",
+          "video_prompt": "She rests her head on her hand, relaxed, dominating the space, deep purple shadows surround her, moody and atmospheric."
+        },
+        {
+          "timestamp": "01:35 - 01:39",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "[music] [Verse 2 - Rap](Male)No more chasing shadows, no more begging for a light",
+          "video_prompt": "Camera moves towards a large ornate mirror in the room, preparing for the transition to the reflection scene."
+        }
+      ]
+    },
+    {
+      "segment_id": 3,
+      "movielength": "01:39-02:26",
+      "content_narrative": "[Verse 2 - Male Rap] The camera pans to a mirror or reflection where we see the 'Male' persona (the King) rapping. He is cool, relaxed, maybe smoking or holding a drink. The female protagonist vibes with him in the reflection.",
+      "prompts": {
+        "first_frame": "Over-the-shoulder shot, looking into a large ornate mirror, reflection shows a stylish man in a suit instead of the woman, sultry vibe, low light, smoke swirling.",
+        "last_frame": "Split composition, real world woman and mirror reflection man vibing to the beat, duality, self-reconciliation, groovy atmosphere, warm electric piano colors."
+      },
+      "mvinfo": [
+        {
+          "timestamp": "01:39 - 01:44",
+          "type": "New_Scene",
+          "lyrics": "I’m the one who sets the mood, I’m the owner of the night Self-reconciliation, yeah, we’re vibing, me and me",
+          "image_prompt": "Over-the-shoulder shot, looking into a large ornate mirror, reflection shows a stylish man in a suit instead of the woman, sultry vibe, low light, smoke swirling, cinematic duality.",
+          "video_prompt": "The man in the reflection gestures as if rapping, cool and relaxed vibe, smoke swirls around him, the woman watches her reflection."
+        },
+        {
+          "timestamp": "01:44 - 01:49",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "In this castle of my mind, I’m finally free",
+          "video_prompt": "Reflection man adjusts his tie or holds a drink, relaxed demeanor, the real woman mimics the vibe, rhythmic movement to the beat."
+        },
+        {
+          "timestamp": "01:49 - 01:54",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "People’s indifference? That was just a gift To let my spirit drift, to let the heavy fog lift",
+          "video_prompt": "Smoke swirls around the reflection creating a 'fog', the man waves it away, cool and indifferent expression."
+        },
+        {
+          "timestamp": "01:54 - 01:59",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "Brick by brick. Stone by stone. A kingdom for the soul.",
+          "video_prompt": "Camera focuses on the boundary between the real woman and the reflection, blurring the line between them, building the image brick by brick."
+        },
+        {
+          "timestamp": "01:59 - 02:04",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "No crown of gold, just a heart that’s whole. [Chorus - Melodic & Groovy](Female)I built my Castlevania, high above the rain",
+          "video_prompt": "The reflection starts to fade or merge, woman touches the mirror glass, a moment of self-reconciliation and connection."
+        },
+        {
+          "timestamp": "02:04 - 02:09",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "Found the beauty in the quiet, found the power in the pain",
+          "video_prompt": "Back to the woman's face in the mirror (or real), peaceful expression, soft lighting returns, 'beauty in the quiet'."
+        },
+        {
+          "timestamp": "02:09 - 02:14",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "I’m the King of the Night,",
+          "video_prompt": "She turns away from the mirror, walking back towards the center of the room, leaving the reflection behind."
+        },
+        {
+          "timestamp": "02:14 - 02:19",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "lounging on my own throne In this velvet darkness, I’m never alone",
+          "video_prompt": "She sways slowly to the beat, dancing alone in the room, happy and content in her solitude."
+        },
+        {
+          "timestamp": "02:19 - 02:24",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "Silhouette of her dancing against the window, strong presence, 'never alone' vibe, city lights in background."
+        },
+        {
+          "timestamp": "02:24 - 02:26",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "[Outro](Music strips back, just the bass and piano)(Female lazy humming fades out)(Male whisper: \"My night. My way.\")",
+          "video_prompt": "She stops dancing, walks to the window and looks out one last time, 'my night, my way'."
+        }
+      ]
+    },
+    {
+      "segment_id": 4,
+      "movielength": "02:26-02:50",
+      "content_narrative": "[Outro] The camera pulls back out of the window, showing the building standing tall like a modern castle in the city. The lights go out slowly.",
+      "prompts": {
+        "first_frame": "Exterior shot, camera pulling back from the window, rain falling, the apartment is a warm glowing box in a cold blue city.",
+        "last_frame": "Wide cityscape, one tall building stands out like a fortress, 'Castlevania' text overlay in elegant serif font, screen fades to black."
+      },
+      "mvinfo": [
+        {
+          "timestamp": "02:26 - 02:31",
+          "type": "New_Scene",
+          "lyrics": "(No lyrics)",
+          "image_prompt": "Exterior shot, view of the apartment window from outside, rain falling, the apartment is a warm glowing box in a cold blue city, cinematic night scene.",
+          "video_prompt": "Camera starts close to the window seeing her inside, then begins to slowly pull back, rain falling heavily."
+        },
+        {
+          "timestamp": "02:31 - 02:36",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "Continued pull back, revealing more of the building facade, rain intensifies, the warm light of the window contrasts with the cold city."
+        },
+        {
+          "timestamp": "02:36 - 02:41",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "The building stands tall like a modern fortress, other lights in the city flicker or go out, emphasizing the isolation and height."
+        },
+        {
+          "timestamp": "02:41 - 02:46",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "Wide shot of the cityscape, the 'Castlevania' building is the main subject, majestic and tall against the night sky."
+        },
+        {
+          "timestamp": "02:46 - 02:50",
+          "type": "Last_Frame_Continuity",
+          "lyrics": "(No lyrics)",
+          "video_prompt": "The lights in the apartment slowly turn off, the building fades into the night, screen fades to black."
+        }
+      ]
+    }
+  ]
+}
