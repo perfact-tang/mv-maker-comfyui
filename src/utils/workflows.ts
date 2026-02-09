@@ -88,7 +88,7 @@ export const VIDEO_GENERATION_WORKFLOW = {
   },
   "52": {
     "inputs": {
-      "image": "iShot_2026-02-08_21.28.27.png"
+      "image": "iShot_mv-maker-comfyui_21.28.27.png"
     },
     "class_type": "LoadImage",
     "_meta": {
@@ -194,7 +194,7 @@ export const VIDEO_GENERATION_WORKFLOW = {
     "inputs": {
       "frame_rate": 16,
       "loop_count": 0,
-      "filename_prefix": "2026-02-08/wan22_",
+      "filename_prefix": "mv-maker-comfyui/wan22_",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 19,
@@ -298,7 +298,7 @@ export const VIDEO_GENERATION_WORKFLOW = {
     "inputs": {
       "frame_rate": 32,
       "loop_count": 0,
-      "filename_prefix": "Video/2026-02-08/213353",
+      "filename_prefix": "Video/mv-maker-comfyui/213353",
       "format": "video/h264-mp4",
       "pix_fmt": "yuv420p",
       "crf": 15,
@@ -358,7 +358,7 @@ export const VIDEO_GENERATION_WORKFLOW = {
   },
   "81": {
     "inputs": {
-      "filename_prefix": "Video/2026-02-08/213353LASTFRAME",
+      "filename_prefix": "Video/mv-maker-comfyui/213353LASTFRAME",
       "images": [
         "79",
         0

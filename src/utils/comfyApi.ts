@@ -405,23 +405,19 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
   const wsAddress = serverAddress;
   const apiBaseUrl = useProxy ? '/comfy-api' : `http://${serverAddress}`;
 
+  // Check if the workflow expects a saved image (persistent output)
+  // This helps us decide whether to wait for a 'SaveImage' result or accept a 'PreviewImage' result.
+  const hasSaveImageNode = workflow && typeof workflow === 'object' 
+    ? Object.values(workflow).some((node: any) => node.class_type === 'SaveImage') 
+    : false;
+
   return new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://${wsAddress}/ws?clientId=${clientId}`);
       let promptId: string | null = null;
       let connectionEstablished = false;
       const outputs: { video?: string, images: string[] } = { images: [] };
-      let expectedOutputs = 0; 
-      // We don't strictly know how many outputs to expect without analyzing the workflow,
-      // but we can listen for "execution_success" or just collect "executed" events.
-      // For now, let's wait a bit after the last execution or use a timeout? 
-      // Actually, standard ComfyUI doesn't send a "all done" signal for the whole prompt explicitly other than queue empty, 
-      // but for a single prompt, we can track executed nodes.
-      // A better approach for this specific task: we know we want video and last frame. 
-      // We can resolve when we have both, or when the process is idle.
-      // But to be generic, let's just wait for the specific nodes if we knew them, or collect everything.
-      
-      // Since we are implementing this for a specific user request, let's look for specific node types in the output.
-      
+      let gracePeriodTimeout: NodeJS.Timeout | null = null;
+
       const connectionTimeout = setTimeout(() => {
           if (!connectionEstablished) {
              ws.close();
@@ -510,11 +506,32 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
               // For now, let's resolve immediately if we find a video, but we need the last frame too.
               // Let's wait for both if possible.
               if (outputs.video && outputs.images.length > 0) {
+                 // Check if we have an 'output' type image, which is preferred for persistence.
+                 const hasOutputImage = outputs.images.some(url => url.includes('type=output'));
+
+                 // If we expect a saved image but don't have it (only have temp/preview),
+                 // we should wait a bit longer for the SaveImage output to arrive.
+                 if (hasSaveImageNode && !hasOutputImage) {
+                     if (!gracePeriodTimeout) {
+                         console.log('[Frontend] Got video+preview, waiting up to 10s for SaveImage output...');
+                         gracePeriodTimeout = setTimeout(() => {
+                             console.warn('[Frontend] SaveImage timeout, resolving with available outputs.');
+                             if (ws.readyState === WebSocket.OPEN) ws.close();
+                             resolve(outputs);
+                         }, 10000);
+                     }
+                     // Continue waiting for the next message
+                     return;
+                 }
+
                  // We have both video and at least one image (last frame).
+                 // If we were waiting for SaveImage, clear the fallback timeout
+                 if (gracePeriodTimeout) clearTimeout(gracePeriodTimeout);
+
                  clearTimeout(executionTimeout);
                  // Give it a small delay to ensure all events are processed
                  setTimeout(() => {
-                     ws.close();
+                     if (ws.readyState === WebSocket.OPEN) ws.close();
                      resolve(outputs);
                  }, 500);
               }

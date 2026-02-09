@@ -76,6 +76,11 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
                 
                 // 2. Trigger Video Generation (I2V)
                 await cardRef.triggerGenerateVideo();
+
+                // Wait 30 seconds for data stability (e.g. last frame availability)
+                // 刚完成一个视频生成后，先等到30秒，让尾帧的数据获得到以后再开始下一个AI生视频或者AI生图
+                console.log(`[Batch] Video ${i} generated. Waiting 30s before next step...`);
+                await new Promise(resolve => setTimeout(resolve, 30000));
             }
         }
       }

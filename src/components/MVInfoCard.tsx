@@ -101,9 +101,11 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       }
       
       if (outputs.images && outputs.images.length > 0) {
-        // Assuming the last image is the last frame if multiple are returned, 
-        // but our workflow only has one SaveImage (Node 81) for last frame.
-        const lastFrameUrl = outputs.images[0];
+        // Assuming the last image is the last frame if multiple are returned.
+        // We prioritize the image saved to 'output' (SaveImage node) over 'temp' (PreviewImage node)
+        // to ensure we have a persistent URL for the JSON data.
+        const lastFrameUrl = outputs.images.find(url => url.includes('type=output')) || outputs.images[0];
+        
         setGeneratedLastFrame(lastFrameUrl);
         updateMVInfoAsset(segmentId, infoIndex, 'last_frame', lastFrameUrl);
         

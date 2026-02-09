@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, ChevronDown, Download, Sparkles } from 'lucide-react';
+import { Printer, ChevronDown, Download, Sparkles, LogOut } from 'lucide-react';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 
 interface HeaderProps {
@@ -9,7 +9,13 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll }) => {
-  const { selectedWorkflow, setSelectedWorkflow, mvData } = useGlobalSettings();
+  const { selectedWorkflow, setSelectedWorkflow, mvData, setMvData } = useGlobalSettings();
+
+  const handleReset = () => {
+    if (confirm('确定要关闭当前项目吗？\n\n虽然我们会自动保存进度，但建议在关闭前先手动保存 JSON 备份。')) {
+      setMvData(null);
+    }
+  };
 
   const handleSaveJson = () => {
     if (!mvData) return;
@@ -82,6 +88,15 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
           >
             <Download size={16} />
             保存项目 JSON
+          </button>
+
+          <button 
+            onClick={handleReset}
+            className="bg-red-900/50 hover:bg-red-900/80 text-red-200 font-bold text-sm flex items-center gap-2 px-4 py-2 rounded border border-red-500/30 transition-all hover:shadow-[0_0_15px_rgba(255,0,0,0.3)]"
+            title="关闭并返回上传页"
+          >
+            <LogOut size={16} />
+            关闭
           </button>
         </div>
       </div>
