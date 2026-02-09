@@ -760,7 +760,7 @@ export const SMOOTH_V1_WORKFLOW = {
      "inputs": { 
        "frame_rate": 16, 
        "loop_count": 0, 
-       "filename_prefix": "2026-02-09/wan22_", 
+       "filename_prefix": "mv-maker-comfyui/wan22_",
        "format": "video/h264-mp4", 
        "pix_fmt": "yuv420p", 
        "crf": 19, 
@@ -864,7 +864,7 @@ export const SMOOTH_V1_WORKFLOW = {
      "inputs": { 
        "frame_rate": 32, 
        "loop_count": 0, 
-       "filename_prefix": "Video/2026-02-09/231104", 
+       "filename_prefix": "Video/mv-maker-comfyui/231104",
        "format": "video/h264-mp4", 
        "pix_fmt": "yuv420p", 
        "crf": 15, 
@@ -924,7 +924,7 @@ export const SMOOTH_V1_WORKFLOW = {
    }, 
    "81": { 
      "inputs": { 
-       "filename_prefix": "Video/2026-02-09/231104LASTFRAME", 
+       "filename_prefix": "Video/mv-maker-comfyui/213353LASTFRAME",
        "images": [ 
          "79", 
          0 
@@ -1119,9 +1119,320 @@ export const SMOOTH_V1_WORKFLOW = {
    } 
 };
 
+export const WAN22_WORKFLOW = { 
+  "84": { 
+    "inputs": { 
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", 
+      "type": "wan", 
+      "device": "default" 
+    }, 
+    "class_type": "CLIPLoader", 
+    "_meta": { 
+      "title": "加载CLIP" 
+    } 
+  }, 
+  "85": { 
+    "inputs": { 
+      "add_noise": "disable", 
+      "noise_seed": 0, 
+      "steps": 4, 
+      "cfg": 1, 
+      "sampler_name": "euler", 
+      "scheduler": "simple", 
+      "start_at_step": 2, 
+      "end_at_step": 4, 
+      "return_with_leftover_noise": "disable", 
+      "model": [ 
+        "103", 
+        0 
+      ], 
+      "positive": [ 
+        "98", 
+        0 
+      ], 
+      "negative": [ 
+        "98", 
+        1 
+      ], 
+      "latent_image": [ 
+        "86", 
+        0 
+      ] 
+    }, 
+    "class_type": "KSamplerAdvanced", 
+    "_meta": { 
+      "title": "K采样器（高级）" 
+    } 
+  }, 
+  "86": { 
+    "inputs": { 
+      "add_noise": "enable", 
+      "noise_seed": 1087771616731883, 
+      "steps": 4, 
+      "cfg": 1, 
+      "sampler_name": "euler", 
+      "scheduler": "simple", 
+      "start_at_step": 0, 
+      "end_at_step": 2, 
+      "return_with_leftover_noise": "enable", 
+      "model": [ 
+        "104", 
+        0 
+      ], 
+      "positive": [ 
+        "98", 
+        0 
+      ], 
+      "negative": [ 
+        "98", 
+        1 
+      ], 
+      "latent_image": [ 
+        "98", 
+        2 
+      ] 
+    }, 
+    "class_type": "KSamplerAdvanced", 
+    "_meta": { 
+      "title": "K采样器（高级）" 
+    } 
+  }, 
+  "87": { 
+    "inputs": { 
+      "samples": [ 
+        "85", 
+        0 
+      ], 
+      "vae": [ 
+        "90", 
+        0 
+      ] 
+    }, 
+    "class_type": "VAEDecode", 
+    "_meta": { 
+      "title": "VAE解码" 
+    } 
+  }, 
+  "89": { 
+    "inputs": { 
+      "text": "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走", 
+      "clip": [ 
+        "84", 
+        0 
+      ] 
+    }, 
+    "class_type": "CLIPTextEncode", 
+    "_meta": { 
+      "title": "CLIP Text Encode (Negative Prompt)" 
+    } 
+  }, 
+  "90": { 
+    "inputs": { 
+      "vae_name": "wan_2.1_vae.safetensors" 
+    }, 
+    "class_type": "VAELoader", 
+    "_meta": { 
+      "title": "加载VAE" 
+    } 
+  }, 
+  "93": { 
+    "inputs": { 
+      "text": "Slow camera zoom in, the woman lies still, snow falling gently, mist swirling, dreamlike atmosphere, high quality, steadycam.", 
+      "clip": [ 
+        "84", 
+        0 
+      ] 
+    }, 
+    "class_type": "CLIPTextEncode", 
+    "_meta": { 
+      "title": "CLIP Text Encode (Positive Prompt)" 
+    } 
+  }, 
+  "94": { 
+    "inputs": { 
+      "fps": 16, 
+      "images": [ 
+        "87", 
+        0 
+      ] 
+    }, 
+    "class_type": "CreateVideo", 
+    "_meta": { 
+      "title": "创建视频" 
+    } 
+  }, 
+  "95": { 
+    "inputs": { 
+      "unet_name": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors", 
+      "weight_dtype": "default" 
+    }, 
+    "class_type": "UNETLoader", 
+    "_meta": { 
+      "title": "UNet加载器" 
+    } 
+  }, 
+  "96": { 
+    "inputs": { 
+      "unet_name": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors", 
+      "weight_dtype": "default" 
+    }, 
+    "class_type": "UNETLoader", 
+    "_meta": { 
+      "title": "UNet加载器" 
+    } 
+  }, 
+  "97": { 
+    "inputs": { 
+      "image": "IMG.png" 
+    }, 
+    "class_type": "LoadImage", 
+    "_meta": { 
+      "title": "加载图像" 
+    } 
+  }, 
+  "98": { 
+    "inputs": { 
+      "width": 960, 
+      "height": 512, 
+      "length": 81, 
+      "batch_size": 1, 
+      "positive": [ 
+        "93", 
+        0 
+      ], 
+      "negative": [ 
+        "89", 
+        0 
+      ], 
+      "vae": [ 
+        "90", 
+        0 
+      ], 
+      "start_image": [ 
+        "97", 
+        0 
+      ] 
+    }, 
+    "class_type": "WanImageToVideo", 
+    "_meta": { 
+      "title": "图像到视频（Wan）" 
+     } 
+   }, 
+   "101": { 
+     "inputs": { 
+       "lora_name": "lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors", 
+       "strength_model": 3, 
+       "model": [ 
+         "95", 
+         0 
+       ] 
+     }, 
+     "class_type": "LoraLoaderModelOnly", 
+     "_meta": { 
+       "title": "LoRA加载器（仅模型）" 
+     } 
+   }, 
+   "102": { 
+     "inputs": { 
+       "lora_name": "lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors", 
+       "strength_model": 1.5, 
+       "model": [ 
+         "96", 
+         0 
+       ] 
+     }, 
+     "class_type": "LoraLoaderModelOnly", 
+     "_meta": { 
+       "title": "LoRA加载器（仅模型）" 
+     } 
+   }, 
+   "103": { 
+     "inputs": { 
+       "shift": 5.000000000000001, 
+       "model": [ 
+         "102", 
+         0 
+       ] 
+     }, 
+     "class_type": "ModelSamplingSD3", 
+     "_meta": { 
+       "title": "采样算法（SD3）" 
+     } 
+   }, 
+   "104": { 
+     "inputs": { 
+       "shift": 5.000000000000001, 
+       "model": [ 
+         "101", 
+         0 
+       ] 
+     }, 
+     "class_type": "ModelSamplingSD3", 
+     "_meta": { 
+       "title": "采样算法（SD3）" 
+     } 
+   }, 
+   "108": { 
+     "inputs": { 
+       "filename_prefix": "Video/mv-maker-comfyui/000033",
+       "format": "auto", 
+       "codec": "auto", 
+       "video-preview": "", 
+       "video": [ 
+         "94", 
+         0 
+       ] 
+     }, 
+     "class_type": "SaveVideo", 
+     "_meta": { 
+       "title": "保存视频" 
+     } 
+   }, 
+   "116": { 
+     "inputs": { 
+       "from_direction": "end", 
+       "count": 1, 
+       "image": [ 
+         "87", 
+         0 
+       ] 
+     }, 
+     "class_type": "Pick From Batch (mtb)", 
+     "_meta": { 
+       "title": "Pick From Batch (mtb)" 
+     } 
+   }, 
+   "117": { 
+     "inputs": { 
+       "filename_prefix": "Video/mv-maker-comfyui/213353LASTFRAME",
+       "images": [ 
+         "116", 
+         0 
+       ] 
+     }, 
+     "class_type": "SaveImage", 
+     "_meta": { 
+       "title": "保存图像" 
+     } 
+   }, 
+   "118": { 
+     "inputs": { 
+       "images": [ 
+         "116", 
+         0 
+       ] 
+     }, 
+     "class_type": "PreviewImage", 
+     "_meta": { 
+       "title": "预览图像" 
+     } 
+   } 
+};
+
 export const VIDEO_WORKFLOWS = {
   'SmoothV2': SMOOTH_V2_WORKFLOW,
   'SmoothV1': SMOOTH_V1_WORKFLOW,
+  'Wan22': WAN22_WORKFLOW,
 };
 
 // Backwards compatibility or default export if needed, but we should switch to using VIDEO_WORKFLOWS

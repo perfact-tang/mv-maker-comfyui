@@ -148,6 +148,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
                     >
                       <option value="SmoothV2">SmoothV2</option>
                       <option value="SmoothV1">SmoothV1</option>
+                      <option value="Wan22">Wan22</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>

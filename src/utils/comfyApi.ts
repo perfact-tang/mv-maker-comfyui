@@ -463,24 +463,52 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
               if (message.type === 'executed' && message.data.prompt_id === promptId) {
                   const { output } = message.data;
                   
-                  // Handle Images (SaveImage)
+                  // Helper to determine if a file is a video based on extension
+                  const isVideoFile = (filename: string) => /\.(mp4|webm|mov|avi|mkv)$/i.test(filename);
+
+                  // Handle Images (SaveImage) and check for videos disguised as images
                   if (output.images) {
                       output.images.forEach((img: any) => {
                           const url = `${apiBaseUrl}/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}`;
-                          outputs.images.push(url);
+                          if (isVideoFile(img.filename)) {
+                              outputs.video = url;
+                          } else {
+                              outputs.images.push(url);
+                          }
                       });
                   }
 
-                  // Handle Videos (VHS_VideoCombine)
+                  // Handle Videos (VHS_VideoCombine / SaveVideo)
                   // VHS usually returns "gifs" or "images" with video filenames in some versions, 
                   // or sometimes it's under a different key. 
-                  // Let's check 'gifs' as well which VHS often uses for video outputs in the API response.
                   if (output.gifs) {
                       output.gifs.forEach((vid: any) => {
                           const url = `${apiBaseUrl}/view?filename=${vid.filename}&subfolder=${vid.subfolder}&type=${vid.type}&format=${vid.format || ''}`;
                           outputs.video = url;
                       });
                   }
+                  
+                  // Some nodes might return "videos"
+                  if (output.videos) {
+                      output.videos.forEach((vid: any) => {
+                          const url = `${apiBaseUrl}/view?filename=${vid.filename}&subfolder=${vid.subfolder}&type=${vid.type}&format=${vid.format || ''}`;
+                          outputs.video = url;
+                      });
+                  }
+                  
+                  // Fallback: Check all output keys for video files (in case of custom keys)
+                  Object.keys(output).forEach(key => {
+                      if (key === 'images' || key === 'gifs' || key === 'videos') return; // already handled
+                      const val = output[key];
+                      if (Array.isArray(val)) {
+                          val.forEach((item: any) => {
+                              if (item && item.filename && isVideoFile(item.filename)) {
+                                  const url = `${apiBaseUrl}/view?filename=${item.filename}&subfolder=${item.subfolder}&type=${item.type}&format=${item.format || ''}`;
+                                  if (!outputs.video) outputs.video = url;
+                              }
+                          });
+                      }
+                  });
                   
                   // If we got a video output, we might be done, but we also want the last frame.
                   // There is no easy way to know "we are 100% done" without checking the graph.
