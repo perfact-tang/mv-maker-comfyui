@@ -33,6 +33,53 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
   const [isConfirmModalOpen, setIsConfirmModalOpen] = React.useState(false);
   const [isDownloading, setIsDownloading] = React.useState(false);
 
+  // Countdown Modal State
+  const [isCountdownOpen, setIsCountdownOpen] = React.useState(false);
+  const [countdown, setCountdown] = React.useState(30);
+  const countdownResolver = useRef<((continueGeneration: boolean) => void) | null>(null);
+  const countdownTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const startCountdown = () => {
+    return new Promise<boolean>((resolve) => {
+      setCountdown(30);
+      setIsCountdownOpen(true);
+      countdownResolver.current = resolve;
+
+      if (countdownTimer.current) clearInterval(countdownTimer.current);
+      
+      countdownTimer.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            // Auto continue when time is up
+            if (countdownTimer.current) {
+                clearInterval(countdownTimer.current);
+                countdownTimer.current = null;
+            }
+            setIsCountdownOpen(false);
+            if (countdownResolver.current) {
+                countdownResolver.current(true);
+                countdownResolver.current = null;
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    });
+  };
+
+  const handleCountdownAction = (continueGeneration: boolean) => {
+    if (countdownTimer.current) {
+      clearInterval(countdownTimer.current);
+      countdownTimer.current = null;
+    }
+    setIsCountdownOpen(false);
+    if (countdownResolver.current) {
+      countdownResolver.current(continueGeneration);
+      countdownResolver.current = null;
+    }
+  };
+
   // Check if all videos for this segment are generated
   const isAllGenerated = segment.mvinfo.every(info => 
     !info.video_prompt || (info.video_prompt && info.generated_assets?.video)
@@ -134,10 +181,16 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
                 // 2. Trigger Video Generation (I2V)
                 await cardRef.triggerGenerateVideo();
 
-                // Wait 30 seconds for data stability (e.g. last frame availability)
-                // 刚完成一个视频生成后，先等到30秒，让尾帧的数据获得到以后再开始下一个AI生视频或者AI生图
-                console.log(`[Batch] Video ${i} generated. Waiting 30s before next step...`);
-                await new Promise(resolve => setTimeout(resolve, 30000));
+                // Wait for data stability with user interaction
+                // Only wait if it's not the last one
+                if (i < segment.mvinfo.length - 1) {
+                    console.log(`[Batch] Video ${i} generated. Waiting for confirmation/timeout...`);
+                    const shouldContinue = await startCountdown();
+                    if (!shouldContinue) {
+                        console.log("Batch generation cancelled by user.");
+                        break;
+                    }
+                }
             }
         }
       }
@@ -229,6 +282,45 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
         hasGeneratedContent={true}
         totalCount={segment.mvinfo.length}
       />
+
+      {/* Countdown Modal */}
+      {isCountdownOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-neon-cyan/30 p-6 rounded-lg flex flex-col items-center gap-6 shadow-[0_0_30px_rgba(0,255,255,0.1)] max-w-sm w-full mx-4">
+            <div className="flex flex-col items-center gap-2">
+                <Loader2 size={32} className="text-neon-cyan animate-spin" />
+                <h3 className="text-xl font-bold text-white">等待下一生成</h3>
+            </div>
+            
+            <div className="text-center space-y-2">
+                <p className="text-gray-400 text-sm">
+                    为了确保数据稳定性（等待尾帧生成），系统将在
+                </p>
+                <div className="text-4xl font-mono font-bold text-neon-cyan animate-pulse">
+                    {countdown}s
+                </div>
+                <p className="text-gray-400 text-sm">
+                    后自动开始下一个视频生成。
+                </p>
+            </div>
+
+            <div className="flex gap-3 w-full">
+                <button
+                    onClick={() => handleCountdownAction(false)}
+                    className="flex-1 px-4 py-2 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors border border-gray-700"
+                >
+                    取消任务
+                </button>
+                <button
+                    onClick={() => handleCountdownAction(true)}
+                    className="flex-1 px-4 py-2 rounded bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30 transition-colors border border-neon-cyan/50 font-bold"
+                >
+                    立即继续
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-white/10 pb-4 gap-4">
         <div>

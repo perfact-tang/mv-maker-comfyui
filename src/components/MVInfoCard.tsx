@@ -45,6 +45,9 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       const imageUrl = await generateComfyImage(currentPrompt, undefined, selectedWorkflow);
       setGeneratedImage(imageUrl);
       updateMVInfoAsset(segmentId, infoIndex, 'image', imageUrl);
+
+      // Wait for 3 seconds before finishing as requested
+      await new Promise(resolve => setTimeout(resolve, 3000));
     } catch (error) {
       console.error('Generation failed:', error);
       alert('生成失败: ' + (error instanceof Error ? error.message : String(error)));
@@ -114,6 +117,9 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
           onLastFrameGenerated(lastFrameUrl);
         }
       }
+
+      // Wait for 3 seconds before finishing as requested
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
     } catch (error) {
       console.error('Video generation failed:', error);
