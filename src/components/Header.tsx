@@ -11,7 +11,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll }) => {
-  const { selectedWorkflow, setSelectedWorkflow, mvData, setMvData } = useGlobalSettings();
+  const { selectedWorkflow, setSelectedWorkflow, selectedVideoWorkflow, setSelectedVideoWorkflow, mvData, setMvData } = useGlobalSettings();
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Check if all videos are generated
@@ -111,25 +111,48 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
             </p>
           </div>
 
-          <div className="glass-card bg-black/40 border border-white/10 rounded-lg p-3 inline-flex flex-col gap-2">
-              <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-neon-cyan/50 rounded-full"></div>
-                AI 生成控制
-              </label>
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] text-gray-400 whitespace-nowrap">文生图 Workflow：</span>
-                <div className="relative min-w-[180px]">
-                  <select 
-                    value={selectedWorkflow}
-                    onChange={(e) => setSelectedWorkflow(e.target.value)}
-                    className="bg-black/50 text-xs text-gray-300 border border-white/10 rounded px-2.5 py-1.5 w-full focus:outline-none focus:border-neon-cyan appearance-none pr-8 cursor-pointer hover:border-white/20 transition-colors"
-                  >
-                    <option value="Qwen-Image-2512">Qwen-Image-2512</option>
-                    <option value="Z-Image-Turbo">Z-Image-Turbo</option>
-                  </select>
-                  <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <div className="flex flex-wrap gap-4">
+            <div className="glass-card bg-black/40 border border-white/10 rounded-lg p-3 inline-flex flex-col gap-2">
+                <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-neon-cyan/50 rounded-full"></div>
+                  AI 生成控制
+                </label>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-gray-400 whitespace-nowrap">文生图 Workflow：</span>
+                  <div className="relative min-w-[180px]">
+                    <select 
+                      value={selectedWorkflow}
+                      onChange={(e) => setSelectedWorkflow(e.target.value)}
+                      className="bg-black/50 text-xs text-gray-300 border border-white/10 rounded px-2.5 py-1.5 w-full focus:outline-none focus:border-neon-cyan appearance-none pr-8 cursor-pointer hover:border-white/20 transition-colors"
+                    >
+                      <option value="Qwen-Image-2512">Qwen-Image-2512</option>
+                      <option value="Z-Image-Turbo">Z-Image-Turbo</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
-              </div>
+            </div>
+
+            <div className="glass-card bg-black/40 border border-white/10 rounded-lg p-3 inline-flex flex-col gap-2">
+                <label className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 bg-neon-magenta/50 rounded-full"></div>
+                  AI 视频生产控制
+                </label>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-gray-400 whitespace-nowrap">视频生成 Workflow：</span>
+                  <div className="relative min-w-[180px]">
+                    <select 
+                      value={selectedVideoWorkflow}
+                      onChange={(e) => setSelectedVideoWorkflow(e.target.value)}
+                      className="bg-black/50 text-xs text-gray-300 border border-white/10 rounded px-2.5 py-1.5 w-full focus:outline-none focus:border-neon-magenta appearance-none pr-8 cursor-pointer hover:border-white/20 transition-colors"
+                    >
+                      <option value="SmoothV2">SmoothV2</option>
+                      <option value="SmoothV1">SmoothV1</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+            </div>
           </div>
         </div>
 

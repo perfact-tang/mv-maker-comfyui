@@ -1,9 +1,9 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
-import { Image, Video, Music, Loader2, X, Play } from 'lucide-react';
+import { Image, Video, Music, Loader2, X, Play, UploadCloud } from 'lucide-react';
 import { MVInfo, MVScriptData } from '../types/mv-data';
 import { generateComfyImage, executeComfyWorkflow, uploadImageToComfy } from '../utils/comfyApi';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
-import { VIDEO_GENERATION_WORKFLOW } from '../utils/workflows';
+import { VIDEO_WORKFLOWS } from '../utils/workflows';
 
 export interface MVInfoCardHandle {
   triggerGenerateImage: () => Promise<void>;
@@ -28,10 +28,24 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(info.generated_assets?.video || null);
   const [generatedLastFrame, setGeneratedLastFrame] = useState<string | null>(info.generated_assets?.last_frame || null);
   
-  const { selectedWorkflow, updateMVInfoAsset } = useGlobalSettings();
+  const { selectedWorkflow, selectedVideoWorkflow, updateMVInfoAsset } = useGlobalSettings();
   const [previewMedia, setPreviewMedia] = useState<{ type: 'image' | 'video', url: string } | null>(null);
   const promptRef = useRef<HTMLDivElement>(null);
   const videoPromptRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadImage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const imageUrl = reader.result as string;
+        setGeneratedImage(imageUrl);
+        updateMVInfoAsset(segmentId, infoIndex, 'image', imageUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleGenerate = async () => {
     if (isGenerating) return;
@@ -82,7 +96,8 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       const uploadedFilename = await uploadImageToComfy(imageBlob, filename);
 
       // 2. Prepare Workflow
-      const workflow = JSON.parse(JSON.stringify(VIDEO_GENERATION_WORKFLOW));
+      const selectedWorkflowJson = VIDEO_WORKFLOWS[selectedVideoWorkflow as keyof typeof VIDEO_WORKFLOWS] || VIDEO_WORKFLOWS['SmoothV2'];
+      const workflow = JSON.parse(JSON.stringify(selectedWorkflowJson));
 
       // Modify nodes
       // Node 52: LoadImage
@@ -221,14 +236,31 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                       <Image size={10} />
                       画面提示词 (T2I)
                     </label>
-                    <button 
-                        onClick={handleGenerate}
-                        disabled={isGenerating}
-                        className="bg-neon-cyan/10 hover:bg-neon-cyan/20 text-neon-cyan text-[10px] px-2 py-1 rounded border border-neon-cyan/30 hover:border-neon-cyan/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
-                    >
-                        {isGenerating ? <Loader2 size={10} className="animate-spin" /> : null}
-                        AI生图
-                    </button>
+                    <div className="flex gap-2">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleUploadImage}
+                        />
+                        <button 
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isGenerating}
+                            className="bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        >
+                            <UploadCloud size={10} />
+                            上传参考图
+                        </button>
+                        <button 
+                            onClick={handleGenerate}
+                            disabled={isGenerating}
+                            className="bg-neon-cyan/10 hover:bg-neon-cyan/20 text-neon-cyan text-[10px] px-2 py-1 rounded border border-neon-cyan/30 hover:border-neon-cyan/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        >
+                            {isGenerating ? <Loader2 size={10} className="animate-spin" /> : null}
+                            AI生图
+                        </button>
+                    </div>
                 </div>
                 <div 
                   ref={promptRef}

@@ -5,6 +5,8 @@ import { MVScriptData } from '../types/mv-data';
 interface GlobalSettingsState {
   selectedWorkflow: string;
   setSelectedWorkflow: (workflow: string) => void;
+  selectedVideoWorkflow: string;
+  setSelectedVideoWorkflow: (workflow: string) => void;
   mvData: MVScriptData | null;
   setMvData: (data: MVScriptData | null) => void;
   updateMVInfoAsset: (segmentId: number, infoIndex: number, assetType: 'image' | 'video' | 'last_frame', url: string) => void;
@@ -15,6 +17,8 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
     (set) => ({
       selectedWorkflow: 'Qwen-Image-2512',
       setSelectedWorkflow: (workflow) => set({ selectedWorkflow: workflow }),
+      selectedVideoWorkflow: 'SmoothV2',
+      setSelectedVideoWorkflow: (workflow) => set({ selectedVideoWorkflow: workflow }),
       mvData: null,
       setMvData: (data) => set({ mvData: data }),
       updateMVInfoAsset: (segmentId, infoIndex, assetType, url) => set((state) => {
@@ -53,6 +57,7 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
         selectedWorkflow: state.selectedWorkflow,
+        selectedVideoWorkflow: state.selectedVideoWorkflow,
         mvData: state.mvData 
       }),
     }
