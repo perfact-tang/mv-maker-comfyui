@@ -1,8 +1,10 @@
 import React, { useRef, useImperativeHandle, forwardRef } from 'react';
-import { Play, X, Sparkles, Loader2 } from 'lucide-react';
+import { Play, X, Sparkles, Loader2, FileArchive } from 'lucide-react';
 import { StoryboardSegment, MVScriptData } from '../types/mv-data';
 import { MVInfoCard, MVInfoCardHandle } from './MVInfoCard';
 import { GenerationConfirmModal } from './GenerationConfirmModal';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export interface SegmentCardHandle {
   triggerGenerateAll: (skipConfirm?: boolean, mode?: 'continue' | 'restart') => Promise<void>;
@@ -29,6 +31,61 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
   const [currentVideoIndex, setCurrentVideoIndex] = React.useState(0);
   const [isGeneratingAll, setIsGeneratingAll] = React.useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = React.useState(false);
+  const [isDownloading, setIsDownloading] = React.useState(false);
+
+  // Check if all videos for this segment are generated
+  const isAllGenerated = segment.mvinfo.every(info => 
+    !info.video_prompt || (info.video_prompt && info.generated_assets?.video)
+  );
+
+  const handleDownloadSegment = async () => {
+      setIsDownloading(true);
+      try {
+        const zip = new JSZip();
+        const videoFolder = zip.folder(`segment_${segment.segment_id}_videos`);
+        let lrcContent = `[ti:Segment ${segment.segment_id}]\n[ar:MV Maker]\n`;
+        
+        const promises: Promise<void>[] = [];
+
+        segment.mvinfo.forEach((info, index) => {
+          // Add to LRC
+          if (info.video_prompt) {
+             const startTime = info.timestamp.split(' - ')[0]; // "00:00"
+             // Format to 00:00.00 if it's just 00:00
+             const formattedTime = `[${startTime}.00]`;
+             // Clean prompt
+             const cleanPrompt = info.video_prompt.replace(/\n/g, ' ');
+             lrcContent += `${formattedTime}${cleanPrompt}\n`;
+          }
+
+          // Add video
+          if (info.generated_assets?.video) {
+             const filename = `segment_${segment.segment_id}_scene_${index + 1}.mp4`;
+             const p = fetch(info.generated_assets.video)
+               .then(res => res.blob())
+               .then(blob => {
+                 videoFolder?.file(filename, blob);
+               })
+               .catch(err => console.error("Failed to fetch video", err));
+             promises.push(p);
+          }
+        });
+
+        await Promise.all(promises);
+
+        // Add LRC
+        zip.file(`segment_${segment.segment_id}_prompts.lrc`, lrcContent);
+
+        const content = await zip.generateAsync({ type: "blob" });
+        saveAs(content, `mv_segment_${segment.segment_id}_package.zip`);
+
+      } catch (error) {
+        console.error("Error downloading segment:", error);
+        alert("下载失败，请重试");
+      } finally {
+        setIsDownloading(false);
+      }
+  };
 
   // Refs for MVInfoCards
   const cardRefs = useRef<{[key: number]: MVInfoCardHandle | null}>({});
@@ -224,6 +281,17 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
             <Play size={16} />
             <span>播放分段视频</span>
           </button>
+        )}
+
+        {isAllGenerated && (
+            <button 
+              onClick={handleDownloadSegment}
+              disabled={isDownloading}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600/10 text-green-500 border border-green-600/20 rounded-lg hover:bg-green-600/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileArchive size={16} />
+              <span>{isDownloading ? '打包中...' : '下载本段落视频'}</span>
+            </button>
         )}
       </div>
 
