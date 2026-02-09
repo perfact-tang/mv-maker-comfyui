@@ -1,4 +1,4 @@
-import React, { useState, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Image, Video, Music, Loader2, X, Play, UploadCloud } from 'lucide-react';
 import { MVInfo, MVScriptData } from '../types/mv-data';
 import { generateComfyImage, executeComfyWorkflow, uploadImageToComfy } from '../utils/comfyApi';
@@ -33,6 +33,17 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const promptRef = useRef<HTMLDivElement>(null);
   const videoPromptRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-retry logic state
+  const [isWaitingForSource, setIsWaitingForSource] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [countdown, setCountdown] = useState(10);
+  
+  // Track latest source image to ensure retry logic sees fresh data
+  const sourceImageRef = useRef<string | null>(null);
+  useEffect(() => {
+    sourceImageRef.current = generatedImage || previousLastFrame || null;
+  }, [generatedImage, previousLastFrame]);
 
   const handleUploadImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -74,10 +85,15 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     if (isGeneratingVideo) return;
     
     // Determine source image: either locally generated image or passed from previous card (for continuity)
-    const sourceImage = generatedImage || previousLastFrame;
+    // Use ref to ensure we have the latest value even if closure is stale
+    const sourceImage = sourceImageRef.current;
     
     if (!sourceImage) {
-      alert('请先生成参考图 (AI生图) 或等待上一镜头的尾帧生成');
+      if (!isWaitingForSource) {
+        setIsWaitingForSource(true);
+        setCountdown(10);
+        setRetryCount(0);
+      }
       return;
     }
 
@@ -166,6 +182,33 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     }
   };
 
+  // Auto-retry: Countdown timer
+  useEffect(() => {
+    if (!isWaitingForSource) return;
+
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      // Countdown finished, increment retry or stop
+      if (retryCount < 5) {
+        setRetryCount(c => c + 1);
+        setCountdown(10);
+      } else {
+        setIsWaitingForSource(false);
+      }
+    }
+  }, [isWaitingForSource, countdown, retryCount]);
+
+  // Auto-retry: Watch for source availability
+  useEffect(() => {
+    if (isWaitingForSource && (generatedImage || previousLastFrame)) {
+      // Found the source! Stop waiting and generate.
+      setIsWaitingForSource(false);
+      handleGenerateVideo();
+    }
+  }, [isWaitingForSource, generatedImage, previousLastFrame, handleGenerateVideo]);
+
   useImperativeHandle(ref, () => ({
     triggerGenerateImage: handleGenerate,
     triggerGenerateVideo: handleGenerateVideo
@@ -174,6 +217,26 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   return (
     <div className="glass-card rounded-lg overflow-hidden border border-white/5 flex flex-col md:flex-row group hover:border-white/20 transition duration-300">
       {/* Popups */}
+      {isWaitingForSource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 border border-neon-cyan/30 p-6 rounded-lg flex flex-col items-center gap-4 shadow-[0_0_30px_rgba(0,255,255,0.1)] min-w-[300px]">
+            <Loader2 size={32} className="text-neon-cyan animate-spin" />
+            <div className="text-center">
+              <p className="text-white font-bold mb-2">等待参考图生成...</p>
+              <p className="text-gray-400 text-sm mb-4">
+                检测中 ({retryCount}/5)... 下次重试: {countdown}秒
+              </p>
+            </div>
+            <button 
+              onClick={() => setIsWaitingForSource(false)}
+              className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 px-4 py-2 rounded text-sm transition-colors"
+            >
+              终止运行
+            </button>
+          </div>
+        </div>
+      )}
+
       {(isGenerating || isGeneratingVideo) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-900 border border-neon-cyan/30 p-6 rounded-lg flex flex-col items-center gap-4 shadow-[0_0_30px_rgba(0,255,255,0.1)]">
