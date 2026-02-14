@@ -261,11 +261,6 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
           }
       }, 5000); // 5 seconds connection timeout
 
-      // Execution timeout (fail if generation takes too long)
-      const executionTimeout = setTimeout(() => {
-          if (ws.readyState === WebSocket.OPEN) ws.close();
-          reject(new Error('Timeout: ComfyUI 生成时间过长 (超过20分钟)'));
-      }, 1200000); // 20 minutes timeout
 
       ws.onopen = async () => {
           connectionEstablished = true;
@@ -288,7 +283,7 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
               promptId = data.prompt_id;
               console.log(`[Frontend] Task submitted, ID: ${promptId}`);
           } catch (err: any) {
-              clearTimeout(executionTimeout);
+
               ws.close();
               // Add a hint about CORS if fetch fails
               const corsHint = err.message.includes('Failed to fetch') 
@@ -322,7 +317,7 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
                           // Let's use apiBaseUrl for view as well if it's a proxy.
                           const viewUrl = `${apiBaseUrl}/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}`;
                           
-                          clearTimeout(executionTimeout);
+
                           ws.close();
                           resolve(viewUrl);
                       }
@@ -330,7 +325,7 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
               }
 
               if (message.type === 'execution_error') {
-                  clearTimeout(executionTimeout);
+
                   ws.close();
                   reject(new Error(`ComfyUI 执行错误: ${JSON.stringify(message.data)}`));
               }
@@ -343,14 +338,14 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
           // If we haven't connected yet, the connectionTimeout might handle it, but onerror usually fires first on ECONNREFUSED
           if (!connectionEstablished) {
              clearTimeout(connectionTimeout);
-             clearTimeout(executionTimeout);
+
              console.error('[Frontend] WebSocket connection error:', err);
              reject(new Error(`无法连接到 ComfyUI WebSocket (${wsAddress})。\n请确保 ComfyUI 正在运行并添加了 --listen 参数。`));
           } else {
              // If error happens after connection (e.g. network drop)
              console.error('[Frontend] WebSocket runtime error:', err);
              // Don't reject immediately if it's just a transient error, but usually WS error is fatal
-             clearTimeout(executionTimeout);
+
              reject(new Error('WebSocket 连接发生错误'));
           }
       };
