@@ -306,7 +306,7 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
               if (message.type === 'executed' && message.data.prompt_id === promptId) {
                   const { node, output } = message.data;
                   // Check for SaveImage node
-                  if (node === outputNodeId) {
+                  if (node === outputNodeId && output) {
                       const images = output.images;
                       if (images && images.length > 0) {
                           const img = images[0];
@@ -458,6 +458,8 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
               if (message.type === 'executed' && message.data.prompt_id === promptId) {
                   const { output } = message.data;
                   
+                  if (!output) return; // Guard against null output
+
                   // Helper to determine if a file is a video based on extension
                   const isVideoFile = (filename: string) => /\.(mp4|webm|mov|avi|mkv)$/i.test(filename);
 
@@ -528,7 +530,9 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
               
               // For now, let's resolve immediately if we find a video, but we need the last frame too.
               // Let's wait for both if possible.
-              if (outputs.video && outputs.images.length > 0) {
+              const isReady = outputs.video && (!hasSaveImageNode || outputs.images.length > 0);
+              
+              if (isReady) {
                  // Check if we have an 'output' type image, which is preferred for persistence.
                  const hasOutputImage = outputs.images.some(url => url.includes('type=output'));
 

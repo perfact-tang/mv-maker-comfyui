@@ -115,38 +115,33 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       const selectedWorkflowJson = VIDEO_WORKFLOWS[selectedVideoWorkflow as keyof typeof VIDEO_WORKFLOWS] || VIDEO_WORKFLOWS['SmoothV2'];
       const workflow = JSON.parse(JSON.stringify(selectedWorkflowJson));
 
-      // Modify nodes
-      // Node 52 or 97: LoadImage
-      if (workflow["52"]) workflow["52"].inputs.image = uploadedFilename;
-      if (workflow["97"]) workflow["97"].inputs.image = uploadedFilename;
-      
-      // Node 88 & 89 (SmoothV2/V1) or 93 & 89 (Wan22): Prompt
-      if (workflow["88"]) workflow["88"].inputs.value = fullPrompt;
-      if (workflow["89"]) {
-        // In SmoothV2, 89 is "easy showAnything" (preview). In Wan22, 89 is Negative Prompt.
-        // We need to be careful here.
-        // Let's check the class type or title to distinguish if needed, 
-        // OR simply rely on the fact that for SmoothV2 we want to update the text/value for preview/prompt.
-        
-        // For SmoothV2: Node 89 is "easy showAnything", input is "text".
-        // For Wan22: Node 89 is "CLIPTextEncode" (Negative), input is "text". 
-        // Wait, for Wan22, Node 93 is Positive Prompt.
-        
-        if (selectedVideoWorkflow === 'Wan22') {
-           // Wan22 specific
-           if (workflow["93"]) workflow["93"].inputs.text = fullPrompt; // Positive
-           // We generally don't update negative prompt dynamically with the positive prompt text.
-           // The user prompt is positive.
-        } else {
-           // SmoothV2/V1 logic
-           if (workflow["89"]) workflow["89"].inputs.text = fullPrompt;
-        }
-      }
-      
-      // Node 82 (SmoothV2/V1) or 86 (Wan22): Seed
+      // Node 82 (SmoothV2/V1) or 86 (Wan22) or 320:277/320:276 (LTX2.3): Seed
       const seed = Math.floor(Math.random() * 1000000000000000);
-      if (workflow["82"]) workflow["82"].inputs.seed = seed;
-      if (workflow["86"]) workflow["86"].inputs.noise_seed = seed;
+      
+      if (selectedVideoWorkflow === 'LTX2.3') {
+        // LTX2.3 specific node mapping
+        if (workflow["269"]) workflow["269"].inputs.image = uploadedFilename;
+        if (workflow["320:319"]) workflow["320:319"].inputs.value = fullPrompt;
+        if (workflow["320:277"]) workflow["320:277"].inputs.noise_seed = seed;
+        if (workflow["320:276"]) workflow["320:276"].inputs.noise_seed = seed;
+      } else {
+        // Node 52 or 97: LoadImage
+        if (workflow["52"]) workflow["52"].inputs.image = uploadedFilename;
+        if (workflow["97"]) workflow["97"].inputs.image = uploadedFilename;
+        
+        // Node 88 & 89 (SmoothV2/V1) or 93 & 89 (Wan22): Prompt
+        if (workflow["88"]) workflow["88"].inputs.value = fullPrompt;
+        if (workflow["89"]) {
+          if (selectedVideoWorkflow === 'Wan22') {
+             if (workflow["93"]) workflow["93"].inputs.text = fullPrompt;
+          } else {
+             if (workflow["89"]) workflow["89"].inputs.text = fullPrompt;
+          }
+        }
+        
+        if (workflow["82"]) workflow["82"].inputs.seed = seed;
+        if (workflow["86"]) workflow["86"].inputs.noise_seed = seed;
+      }
 
       // 3. Execute
       const outputs = await executeComfyWorkflow(workflow);
