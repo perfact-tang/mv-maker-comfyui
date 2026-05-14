@@ -1,5 +1,5 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Image, Video, Music, Loader2, X, Play, UploadCloud } from 'lucide-react';
+import { AudioLines, Image, Video, Music, Loader2, X, Play, UploadCloud } from 'lucide-react';
 import { MVInfo, MVScriptData } from '../types/mv-data';
 import { generateComfyImage, executeComfyWorkflow, uploadImageToComfy } from '../utils/comfyApi';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
@@ -284,6 +284,13 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
             <Music size={12} />
             <span>{info.lyrics !== '(No lyrics)' ? info.lyrics : '纯音乐 / 无歌词'}</span>
           </div>
+          {info.generated_assets?.audio && (
+            <div className="flex items-center gap-2 text-xs text-emerald-300 bg-emerald-500/10 border border-emerald-400/20 rounded px-2 py-1">
+              <AudioLines size={12} />
+              <span className="max-w-[180px] truncate">{info.generated_assets.audio_filename || 'scene_audio.mp3'}</span>
+              <audio src={info.generated_assets.audio} controls className="h-6 w-36" />
+            </div>
+          )}
         </div>
         
         {!isNewScene && (

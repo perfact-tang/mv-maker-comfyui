@@ -10,6 +10,7 @@ interface GlobalSettingsState {
   mvData: MVScriptData | null;
   setMvData: (data: MVScriptData | null) => void;
   updateMVInfoAsset: (segmentId: number, infoIndex: number, assetType: 'image' | 'video' | 'last_frame', url: string) => void;
+  assignAudioChunks: (chunks: Array<{ url: string; filename: string }>) => void;
 }
 
 export const useGlobalSettings = create<GlobalSettingsState>()(
@@ -49,6 +50,38 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
             ...state.mvData,
             storyboard: newStoryboard
           }
+        };
+      }),
+      assignAudioChunks: (chunks) => set((state) => {
+        if (!state.mvData) return state;
+
+        let chunkIndex = 0;
+        const newStoryboard = state.mvData.storyboard.map((segment) => ({
+          ...segment,
+          mvinfo: segment.mvinfo.map((info) => {
+            const chunk = chunks[chunkIndex++];
+            const generatedAssets = { ...info.generated_assets };
+
+            if (chunk) {
+              generatedAssets.audio = chunk.url;
+              generatedAssets.audio_filename = chunk.filename;
+            } else {
+              delete generatedAssets.audio;
+              delete generatedAssets.audio_filename;
+            }
+
+            return {
+              ...info,
+              generated_assets: generatedAssets,
+            };
+          }),
+        }));
+
+        return {
+          mvData: {
+            ...state.mvData,
+            storyboard: newStoryboard,
+          },
         };
       }),
     }),

@@ -3,6 +3,7 @@ import { Printer, ChevronDown, Download, Sparkles, LogOut, FileArchive } from 'l
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { AudioUploader } from './AudioUploader';
 
 interface HeaderProps {
   title: string;
@@ -155,6 +156,8 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
                   </div>
                 </div>
             </div>
+
+            <AudioUploader proposalId={proposalId} />
           </div>
         </div>
 

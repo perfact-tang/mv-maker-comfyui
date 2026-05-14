@@ -30,5 +30,7 @@ export interface MVInfo {
     image?: string;
     video?: string;
     last_frame?: string;
+    audio?: string;
+    audio_filename?: string;
   };
 }
