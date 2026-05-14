@@ -1,7 +1,7 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { AudioLines, Image, Video, Music, Loader2, X, Play, UploadCloud } from 'lucide-react';
 import { MVInfo, MVScriptData } from '../types/mv-data';
-import { generateComfyImage, executeComfyWorkflow, uploadImageToComfy } from '../utils/comfyApi';
+import { generateComfyImage, executeComfyWorkflow, uploadAudioToComfy, uploadImageToComfy } from '../utils/comfyApi';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { VIDEO_WORKFLOWS } from '../utils/workflows';
 
@@ -97,6 +97,11 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       return;
     }
 
+    if (selectedVideoWorkflow === 'LTX2.3 V2I' && !info.generated_assets?.audio) {
+      alert('当前镜头缺少 MP3 音频分段。请先在顶部上传音频并完成 9 秒切分。');
+      return;
+    }
+
     const currentVideoPrompt = videoPromptRef.current?.innerText || info.video_prompt;
     const styleDescription = basics?.art_style_description || '';
     const fullPrompt = `${currentVideoPrompt} ${styleDescription}`.trim();
@@ -111,6 +116,14 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       const filename = `ref_img_${Date.now()}.png`;
       const uploadedFilename = await uploadImageToComfy(imageBlob, filename);
 
+      let uploadedAudioFilename: string | null = null;
+      if (selectedVideoWorkflow === 'LTX2.3 V2I' && info.generated_assets?.audio) {
+        const audioRes = await fetch(info.generated_assets.audio);
+        const audioBlob = await audioRes.blob();
+        const audioFilename = `scene_${segmentId}_${infoIndex + 1}_${Date.now()}.mp3`;
+        uploadedAudioFilename = await uploadAudioToComfy(audioBlob, audioFilename);
+      }
+
       // 2. Prepare Workflow
       const selectedWorkflowJson = VIDEO_WORKFLOWS[selectedVideoWorkflow as keyof typeof VIDEO_WORKFLOWS] || VIDEO_WORKFLOWS['SmoothV2'];
       const workflow = JSON.parse(JSON.stringify(selectedWorkflowJson));
@@ -124,6 +137,44 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
         if (workflow["320:319"]) workflow["320:319"].inputs.value = fullPrompt;
         if (workflow["320:277"]) workflow["320:277"].inputs.noise_seed = seed;
         if (workflow["320:276"]) workflow["320:276"].inputs.noise_seed = seed;
+      } else if (selectedVideoWorkflow === 'LTX2.3 V2I') {
+        // LTX2.3 V2I: image + mp3 audio + prompt workflow
+        if (workflow["269"]) workflow["269"].inputs.image = uploadedFilename;
+        if (workflow["276"] && uploadedAudioFilename) {
+          workflow["276"].inputs.audio = uploadedAudioFilename;
+          delete workflow["276"].inputs.audioUI;
+        }
+        if (workflow["340:319"]) workflow["340:319"].inputs.value = fullPrompt;
+        if (workflow["340:285"]) workflow["340:285"].inputs.noise_seed = seed;
+        if (workflow["340:286"]) workflow["340:286"].inputs.noise_seed = Math.floor(Math.random() * 1000000000000000);
+
+        // The attached workflow saves the video but does not save a last frame.
+        // Add a tiny tail-frame branch so continuation scenes can use it.
+        if (!workflow["340:342"] && workflow["340:316"]) {
+          workflow["340:342"] = {
+            inputs: {
+              from_direction: "end",
+              count: 1,
+              image: ["340:316", 0],
+            },
+            class_type: "Pick From Batch (mtb)",
+            _meta: {
+              title: "Pick Last Frame",
+            },
+          };
+        }
+        if (!workflow["340:343"]) {
+          workflow["340:343"] = {
+            inputs: {
+              filename_prefix: "video/LTX_2.3_ia2v_LASTFRAME",
+              images: ["340:342", 0],
+            },
+            class_type: "SaveImage",
+            _meta: {
+              title: "保存最后一帧",
+            },
+          };
+        }
       } else {
         // Node 52 or 97: LoadImage
         if (workflow["52"]) workflow["52"].inputs.image = uploadedFilename;

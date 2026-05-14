@@ -1,4 +1,6 @@
 
+import LTX23_V2I_WORKFLOW_JSON from './video_ltx2_3_ia2v.json';
+
 export const SMOOTH_V2_WORKFLOW = {
   "7": {
     "inputs": {
@@ -2143,6 +2145,7 @@ export const VIDEO_WORKFLOWS = {
   'SmoothV1': SMOOTH_V1_WORKFLOW,
   'Wan22': WAN22_WORKFLOW,
   'LTX2.3': LTX23_WORKFLOW,
+  'LTX2.3 V2I': LTX23_V2I_WORKFLOW_JSON,
 };
 
 // Backwards compatibility or default export if needed, but we should switch to using VIDEO_WORKFLOWS

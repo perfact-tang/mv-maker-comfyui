@@ -364,13 +364,25 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
  * @returns Promise with the uploaded filename (which might be renamed by server)
  */
 export const uploadImageToComfy = async (imageBlob: Blob, filename: string, serverUrl?: string): Promise<string> => {
+  return uploadFileToComfy(imageBlob, filename, serverUrl);
+};
+
+/**
+ * Upload an audio file to ComfyUI input storage.
+ * LoadAudio reads from the same input folder as uploaded images.
+ */
+export const uploadAudioToComfy = async (audioBlob: Blob, filename: string, serverUrl?: string): Promise<string> => {
+  return uploadFileToComfy(audioBlob, filename, serverUrl);
+};
+
+const uploadFileToComfy = async (fileBlob: Blob, filename: string, serverUrl?: string): Promise<string> => {
   const defaultUrl = import.meta.env.VITE_COMFY_API_URL || '127.0.0.1:8188';
   const serverAddress = (serverUrl || defaultUrl).replace(/^https?:\/\//, '').replace(/\/$/, '');
   const useProxy = import.meta.env.DEV;
   const apiBaseUrl = useProxy ? '/comfy-api' : `http://${serverAddress}`;
 
   const formData = new FormData();
-  formData.append('image', imageBlob, filename);
+  formData.append('image', fileBlob, filename);
   formData.append('overwrite', 'true');
 
   const response = await fetch(`${apiBaseUrl}/upload/image`, {
@@ -462,6 +474,12 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
 
                   // Helper to determine if a file is a video based on extension
                   const isVideoFile = (filename: string) => /\.(mp4|webm|mov|avi|mkv)$/i.test(filename);
+                  const handleOutputFile = (item: any) => {
+                      if (!item || !item.filename || !isVideoFile(item.filename)) return;
+
+                      const url = `${apiBaseUrl}/view?filename=${item.filename}&subfolder=${item.subfolder || ''}&type=${item.type || 'output'}&format=${item.format || ''}`;
+                      if (!outputs.video) outputs.video = url;
+                  };
 
                   // Handle Images (SaveImage) and check for videos disguised as images
                   if (output.images) {
@@ -480,16 +498,14 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
                   // or sometimes it's under a different key. 
                   if (output.gifs) {
                       output.gifs.forEach((vid: any) => {
-                          const url = `${apiBaseUrl}/view?filename=${vid.filename}&subfolder=${vid.subfolder}&type=${vid.type}&format=${vid.format || ''}`;
-                          outputs.video = url;
+                          handleOutputFile(vid);
                       });
                   }
                   
                   // Some nodes might return "videos"
                   if (output.videos) {
                       output.videos.forEach((vid: any) => {
-                          const url = `${apiBaseUrl}/view?filename=${vid.filename}&subfolder=${vid.subfolder}&type=${vid.type}&format=${vid.format || ''}`;
-                          outputs.video = url;
+                          handleOutputFile(vid);
                       });
                   }
                   
@@ -499,11 +515,10 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
                       const val = output[key];
                       if (Array.isArray(val)) {
                           val.forEach((item: any) => {
-                              if (item && item.filename && isVideoFile(item.filename)) {
-                                  const url = `${apiBaseUrl}/view?filename=${item.filename}&subfolder=${item.subfolder}&type=${item.type}&format=${item.format || ''}`;
-                                  if (!outputs.video) outputs.video = url;
-                              }
+                              handleOutputFile(item);
                           });
+                      } else if (val && typeof val === 'object') {
+                          handleOutputFile(val);
                       }
                   });
                   
