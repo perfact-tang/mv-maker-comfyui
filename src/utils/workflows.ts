@@ -2140,12 +2140,131 @@ export const LTX23_WORKFLOW = {
   }
 };
 
+/**
+ * H3 Turbo Stable 4V4A API workflow.
+ * Optional media inputs are attached at request time in MVInfoCard.
+ */
+export const H3_TURBO_STABLE_4V4A_WORKFLOW = {
+  "1": {
+    "inputs": { "unet_name": "minimax_h3_fl2va_int8_convrot.safetensors", "weight_dtype": "default" },
+    "class_type": "UNETLoader",
+    "_meta": { "title": "UNet加载器" }
+  },
+  "2": {
+    "inputs": {
+      "lora_name": "minimax_h3_turbo_4_E6_AD_A5_E5_8A_A0_E9_80_9Fema_comfyui.safetensors",
+      "strength_model": 1,
+      "model": ["1", 0]
+    },
+    "class_type": "LoraLoaderBypassModelOnly",
+    "_meta": { "title": "加载 H3 Turbo LoRA" }
+  },
+  "3": {
+    "inputs": { "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors", "type": "minimax", "device": "default" },
+    "class_type": "CLIPLoader",
+    "_meta": { "title": "加载 CLIP" }
+  },
+  "4": {
+    "inputs": { "vae_name": "minimax_h3_video_vae_fp16.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "加载视频 VAE" }
+  },
+  "5": {
+    "inputs": { "vae_name": "minimax_h3_audio_vae_fp32.safetensors" },
+    "class_type": "VAELoader",
+    "_meta": { "title": "加载音频 VAE" }
+  },
+  "6": {
+    "inputs": {
+      "prompt": "",
+      "width": 736,
+      "height": 416,
+      "length": 141,
+      "task_type": "I2VA",
+      "audio_mode": "lock_source",
+      "audio_denoise_strength": 1,
+      "add_source_as_reference": false,
+      "prompt_primary_audio_ordinal": 0,
+      "strict_prompt_tags": true,
+      "ref_image_size": "match",
+      "reference_video_policy": "official_2_to_15s",
+      "clip": ["3", 0],
+      "video_vae": ["4", 0],
+      "audio_vae": ["5", 0]
+    },
+    "class_type": "MiniMaxH3AudioConditioningT8",
+    "_meta": { "title": "MiniMax H3 Audio Conditioning (T8)" }
+  },
+  "7": {
+    "inputs": {
+      "steps": 4,
+      "shift_video": 12,
+      "shift_audio": 3,
+      "sampler_name": "dual_clock_euler",
+      "scheduler": "native_flow",
+      "model": ["2", 0],
+      "av_latent": ["6", 1]
+    },
+    "class_type": "MiniMaxH3DualClockSamplerT8",
+    "_meta": { "title": "STABLE 4 video / 4 audio" }
+  },
+  "8": {
+    "inputs": { "model": ["7", 0], "conditioning": ["6", 0] },
+    "class_type": "BasicGuider",
+    "_meta": { "title": "基本引导器" }
+  },
+  "9": {
+    "inputs": { "noise_seed": 123456789 },
+    "class_type": "RandomNoise",
+    "_meta": { "title": "随机噪波" }
+  },
+  "10": {
+    "inputs": { "noise": ["9", 0], "guider": ["8", 0], "sampler": ["7", 1], "sigmas": ["7", 2], "latent_image": ["6", 1] },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": { "title": "自定义采样器（高级）" }
+  },
+  "11": {
+    "inputs": { "av_latent": ["10", 0], "video_vae": ["4", 0], "audio_vae": ["5", 0] },
+    "class_type": "MiniMaxH3AVDecodeT8",
+    "_meta": { "title": "MiniMax H3 AV Decode (T8)" }
+  },
+  "12": {
+    "inputs": {
+      "frame_rate": 24,
+      "loop_count": 0,
+      "filename_prefix": "MiniMaxH3/stable_4v4a",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": ["11", 0],
+      "audio": ["11", 1]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": { "title": "Video Combine" }
+  },
+  "14": {
+    "inputs": { "from_direction": "end", "count": 1, "image": ["11", 0] },
+    "class_type": "Pick From Batch (mtb)",
+    "_meta": { "title": "Pick Last Frame" }
+  },
+  "15": {
+    "inputs": { "filename_prefix": "MiniMaxH3/stable_4v4a_LASTFRAME", "images": ["14", 0] },
+    "class_type": "SaveImage",
+    "_meta": { "title": "保存最后一帧" }
+  }
+};
+
 export const VIDEO_WORKFLOWS = {
   'SmoothV2': SMOOTH_V2_WORKFLOW,
   'SmoothV1': SMOOTH_V1_WORKFLOW,
   'Wan22': WAN22_WORKFLOW,
   'LTX2.3': LTX23_WORKFLOW,
   'LTX2.3 V2I': LTX23_V2I_WORKFLOW_JSON,
+  'H3 Turbo Stable 4V4A': H3_TURBO_STABLE_4V4A_WORKFLOW,
 };
 
 // Backwards compatibility or default export if needed, but we should switch to using VIDEO_WORKFLOWS

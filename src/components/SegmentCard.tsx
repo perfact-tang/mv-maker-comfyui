@@ -155,36 +155,23 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
   const executeBatchGeneration = async (mode: 'continue' | 'restart') => {
     setIsGeneratingAll(true);
     try {
-      let startIndex = 0;
-      
-      if (mode === 'continue') {
-        startIndex = segment.mvinfo.findIndex(info => !info.generated_assets?.video);
-        if (startIndex === -1) {
-            // Check if all are done, if so, we can consider it "complete"
-            // For single segment action, alert user.
-            // For global action, this check might happen outside or we just silently finish.
-            // Since this function is called after confirmation/decision, alerting is fine for manual trigger.
-            // But for global trigger (skipConfirm=true), we might want to avoid alerts if possible, 
-            // though executeBatchGeneration is usually called when we *know* we need to generate something.
-            // Let's keep it simple.
-        }
-      }
+      const generationIndexes = segment.mvinfo
+        .map((info, index) => ({ info, index }))
+        .filter(({ info }) => info.video_prompt && (mode === 'restart' || !info.generated_assets?.video))
+        .map(({ index }) => index);
 
-      if (startIndex !== -1) {
-        // Iterate through cards starting from the determined index
-        for (let i = startIndex; i < segment.mvinfo.length; i++) {
+      for (let position = 0; position < generationIndexes.length; position++) {
+            const i = generationIndexes[position];
             const cardRef = cardRefs.current[i];
             if (cardRef) {
-                // 1. Trigger Image Generation (T2I)
-                await cardRef.triggerGenerateImage();
-                
-                // 2. Trigger Video Generation (I2V)
+                // Programmatically click this card's actual "AI 生视频" DOM button and
+                // wait until that button's async onClick handler has finished.
                 await cardRef.triggerGenerateVideo();
 
                 // Wait for data stability with user interaction
-                // Only wait if it's not the last one
-                if (i < segment.mvinfo.length - 1) {
-                    console.log(`[Batch] Video ${i} generated. Waiting for confirmation/timeout...`);
+                // Only wait if another numbered card still needs generation.
+                if (position < generationIndexes.length - 1) {
+                    console.log(`[Batch] Video ${i + 1} generated. Waiting for confirmation/timeout...`);
                     const shouldContinue = await startCountdown();
                     if (!shouldContinue) {
                         console.log("Batch generation cancelled by user.");
@@ -192,7 +179,6 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
                     }
                 }
             }
-        }
       }
       
       // We don't alert here anymore to avoid spamming alerts during global generation.

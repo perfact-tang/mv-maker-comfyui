@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Printer, ChevronDown, Download, Sparkles, LogOut, FileArchive } from 'lucide-react';
+import { ChevronDown, Download, Sparkles, LogOut, FileArchive } from 'lucide-react';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { AudioUploader } from './AudioUploader';
+import { H3VideoControls } from './H3VideoControls';
 
 interface HeaderProps {
   title: string;
@@ -152,6 +153,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
                       <option value="Wan22">Wan22</option>
                       <option value="LTX2.3">LTX2.3</option>
                       <option value="LTX2.3 V2I">LTX2.3 V2I</option>
+                      <option value="H3 Turbo Stable 4V4A">H3 Turbo Stable 4V4A</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
@@ -159,6 +161,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
             </div>
 
             <AudioUploader proposalId={proposalId} />
+            {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && <H3VideoControls />}
           </div>
         </div>
 

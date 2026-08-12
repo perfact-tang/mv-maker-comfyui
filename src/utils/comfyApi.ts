@@ -1,6 +1,16 @@
 
 import { v4 as uuidv4 } from 'uuid';
 
+const buildComfyViewUrl = (apiBaseUrl: string, item: { filename: string; subfolder?: string; type?: string; format?: string }) => {
+  const params = new URLSearchParams({
+    filename: item.filename,
+    subfolder: item.subfolder || '',
+    type: item.type || 'output',
+  });
+  if (item.format) params.set('format', item.format);
+  return `${apiBaseUrl}/view?${params.toString()}`;
+};
+
 /**
  * Generate image via ComfyUI directly from the browser
  * @param promptText Positive prompt
@@ -315,7 +325,7 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
                           // Images are usually GET requests which are easier with CORS if opened directly,
                           // but for <img> tag inside app, it needs to be accessible.
                           // Let's use apiBaseUrl for view as well if it's a proxy.
-                          const viewUrl = `${apiBaseUrl}/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}`;
+                           const viewUrl = buildComfyViewUrl(apiBaseUrl, img);
                           
 
                           ws.close();
@@ -477,14 +487,14 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
                   const handleOutputFile = (item: any) => {
                       if (!item || !item.filename || !isVideoFile(item.filename)) return;
 
-                      const url = `${apiBaseUrl}/view?filename=${item.filename}&subfolder=${item.subfolder || ''}&type=${item.type || 'output'}&format=${item.format || ''}`;
+                       const url = buildComfyViewUrl(apiBaseUrl, item);
                       if (!outputs.video) outputs.video = url;
                   };
 
                   // Handle Images (SaveImage) and check for videos disguised as images
                   if (output.images) {
                       output.images.forEach((img: any) => {
-                          const url = `${apiBaseUrl}/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}`;
+                           const url = buildComfyViewUrl(apiBaseUrl, img);
                           if (isVideoFile(img.filename)) {
                               outputs.video = url;
                           } else {

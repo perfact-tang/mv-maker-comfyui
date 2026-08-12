@@ -1,4 +1,4 @@
-import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from 'react';
 import { AudioLines, Image, Video, Music, Loader2, X, Play, UploadCloud } from 'lucide-react';
 import { MVInfo, MVScriptData } from '../types/mv-data';
 import { generateComfyImage, executeComfyWorkflow, uploadAudioToComfy, uploadImageToComfy } from '../utils/comfyApi';
@@ -6,7 +6,6 @@ import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { VIDEO_WORKFLOWS } from '../utils/workflows';
 
 export interface MVInfoCardHandle {
-  triggerGenerateImage: () => Promise<void>;
   triggerGenerateVideo: () => Promise<void>;
 }
 
@@ -19,6 +18,46 @@ interface MVInfoCardProps {
   infoIndex: number;
 }
 
+const captureImageAsPng = async (image: HTMLImageElement): Promise<Blob | null> => {
+  try {
+    if (!image.complete || image.naturalWidth === 0 || image.naturalHeight === 0) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.drawImage(image, 0, 0);
+    return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+  } catch {
+    return null;
+  }
+};
+
+const readFirstAvailableImage = async (
+  candidates: Array<string | null | undefined>,
+  cachedImages: Map<string, Blob>,
+): Promise<Blob> => {
+  const uniqueCandidates = [...new Set(candidates.filter((url): url is string => Boolean(url)))];
+
+  for (const url of uniqueCandidates) {
+    const cached = cachedImages.get(url);
+    if (cached && cached.size > 0) return cached;
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      if (blob.size === 0) continue;
+      cachedImages.set(url, blob);
+      return blob;
+    } catch {
+      // Try the next image source from the same card.
+    }
+  }
+
+  throw new Error('当前参考图已经失效，且没有可用的上一镜头尾帧');
+};
+
 export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info, basics, previousLastFrame, onLastFrameGenerated, segmentId, infoIndex }, ref) => {
   const isNewScene = info.type === 'New_Scene';
   const [isGenerating, setIsGenerating] = useState(false);
@@ -28,11 +67,22 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(info.generated_assets?.video || null);
   const [generatedLastFrame, setGeneratedLastFrame] = useState<string | null>(info.generated_assets?.last_frame || null);
   
-  const { selectedWorkflow, selectedVideoWorkflow, updateMVInfoAsset } = useGlobalSettings();
+  const {
+    selectedWorkflow,
+    selectedVideoWorkflow,
+    updateMVInfoAsset,
+    h3GenerationMode,
+    h3AudioMode,
+    h3VideoLength,
+    h3ReferenceImages,
+  } = useGlobalSettings();
   const [previewMedia, setPreviewMedia] = useState<{ type: 'image' | 'video', url: string } | null>(null);
   const promptRef = useRef<HTMLDivElement>(null);
   const videoPromptRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoGenerateButtonRef = useRef<HTMLButtonElement>(null);
+  const batchClickResolverRef = useRef<(() => void) | null>(null);
+  const sourceImageBlobCacheRef = useRef<Map<string, Blob>>(new Map());
 
   // Auto-retry logic state
   const [isWaitingForSource, setIsWaitingForSource] = useState(false);
@@ -81,14 +131,16 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     }
   };
 
-  const handleGenerateVideo = async () => {
+  const handleGenerateVideo = useCallback(async () => {
     if (isGeneratingVideo) return;
+    const isH3Workflow = selectedVideoWorkflow === 'H3 Turbo Stable 4V4A';
+    const usesH3References = isH3Workflow && h3GenerationMode === 'reference-images';
     
     // Determine source image: either locally generated image or passed from previous card (for continuity)
     // Use ref to ensure we have the latest value even if closure is stale
     const sourceImage = sourceImageRef.current;
     
-    if (!sourceImage) {
+    if (!usesH3References && !sourceImage) {
       if (!isWaitingForSource) {
         setIsWaitingForSource(true);
         setCountdown(10);
@@ -102,22 +154,55 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       return;
     }
 
+    if (isH3Workflow && !info.generated_assets?.audio) {
+      alert('H3 工作流需要当前镜头的音频。请先在顶部上传音乐并完成分段。');
+      return;
+    }
+
+    if (usesH3References) {
+      const missingImage = h3ReferenceImages.findIndex((image) => !image?.dataUrl);
+      if (missingImage >= 0) {
+        alert(`参考图生成模式需要上传两张参考图。请补充参考图 ${missingImage + 1}。`);
+        return;
+      }
+      const missingPrompt = h3ReferenceImages.findIndex((image) => !image?.prompt.trim());
+      if (missingPrompt >= 0) {
+        alert(`请填写参考图 ${missingPrompt + 1} 的声明（Prompt）。`);
+        return;
+      }
+    }
+
     const currentVideoPrompt = videoPromptRef.current?.innerText || info.video_prompt;
     const styleDescription = basics?.art_style_description || '';
-    const fullPrompt = `${currentVideoPrompt} ${styleDescription}`.trim();
+    const referencePrompt = usesH3References
+      ? h3ReferenceImages.map((image) => image?.prompt.trim()).filter(Boolean).join('\n')
+      : '';
+    const fullPrompt = [referencePrompt, currentVideoPrompt, styleDescription].filter(Boolean).join('\n').trim();
 
     setIsGeneratingVideo(true);
     try {
       // 1. Upload the generated image to ComfyUI to be used as input
-      // Fetch the image blob first
-      const imageRes = await fetch(sourceImage);
-      const imageBlob = await imageRes.blob();
-      // Generate a filename
-      const filename = `ref_img_${Date.now()}.png`;
-      const uploadedFilename = await uploadImageToComfy(imageBlob, filename);
+      let uploadedFilename: string | null = null;
+      if (sourceImage && !usesH3References) {
+        const imageBlob = await readFirstAvailableImage(
+          [generatedImage, previousLastFrame, sourceImage],
+          sourceImageBlobCacheRef.current,
+        );
+        uploadedFilename = await uploadImageToComfy(imageBlob, `ref_img_${Date.now()}.png`);
+      }
+
+      let uploadedH3References: string[] = [];
+      if (usesH3References) {
+        uploadedH3References = await Promise.all(h3ReferenceImages.map(async (image, index) => {
+          const imageResponse = await fetch(image!.dataUrl);
+          if (!imageResponse.ok) throw new Error(`参考图 ${index + 1} 读取失败 (${imageResponse.status})`);
+          const imageBlob = await imageResponse.blob();
+          return uploadImageToComfy(imageBlob, `h3_reference_${index + 1}_${Date.now()}.png`);
+        }));
+      }
 
       let uploadedAudioFilename: string | null = null;
-      if (selectedVideoWorkflow === 'LTX2.3 V2I' && info.generated_assets?.audio) {
+      if ((selectedVideoWorkflow === 'LTX2.3 V2I' || isH3Workflow) && info.generated_assets?.audio) {
         const audioRes = await fetch(info.generated_assets.audio);
         const audioBlob = await audioRes.blob();
         const audioFilename = `scene_${segmentId}_${infoIndex + 1}_${Date.now()}.mp3`;
@@ -131,15 +216,70 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       // Node 82 (SmoothV2/V1) or 86 (Wan22) or 320:277/320:276 (LTX2.3): Seed
       const seed = Math.floor(Math.random() * 1000000000000000);
       
-      if (selectedVideoWorkflow === 'LTX2.3') {
+      if (isH3Workflow) {
+        const conditioningInputs = workflow["6"].inputs;
+        conditioningInputs.prompt = fullPrompt;
+        conditioningInputs.length = h3VideoLength;
+        workflow["9"].inputs.noise_seed = seed;
+
+        if (usesH3References) {
+          conditioningInputs.task_type = 'Ref2VA';
+          delete conditioningInputs.first_frame;
+          delete conditioningInputs.last_frame;
+          workflow["13"] = {
+            inputs: { image: uploadedH3References[0] },
+            class_type: 'LoadImage',
+            _meta: { title: '参考图 1' },
+          };
+          workflow["16"] = {
+            inputs: { image: uploadedH3References[1] },
+            class_type: 'LoadImage',
+            _meta: { title: '参考图 2' },
+          };
+          conditioningInputs['ref_images.ref_image_0'] = ['13', 0];
+          conditioningInputs['ref_images.ref_image_1'] = ['16', 0];
+        } else {
+          conditioningInputs.task_type = 'I2VA';
+          delete conditioningInputs.last_frame;
+          delete conditioningInputs['ref_images.ref_image_0'];
+          delete conditioningInputs['ref_images.ref_image_1'];
+          workflow["13"] = {
+            inputs: { image: uploadedFilename },
+            class_type: 'LoadImage',
+            _meta: { title: '首帧' },
+          };
+          conditioningInputs.first_frame = ['13', 0];
+        }
+
+        if (uploadedAudioFilename) {
+          workflow["17"] = {
+            inputs: { audio: uploadedAudioFilename },
+            class_type: 'LoadAudio',
+            _meta: { title: h3AudioMode === 'drive-audio' ? 'Drive Audio' : '参考音乐' },
+          };
+          if (h3AudioMode === 'drive-audio') {
+            conditioningInputs.drive_audio = ['17', 0];
+            conditioningInputs.audio_mode = 'lock_source';
+            conditioningInputs.add_source_as_reference = false;
+            conditioningInputs.prompt_primary_audio_ordinal = 0;
+            delete conditioningInputs['ref_audios.ref_audio_0'];
+          } else {
+            conditioningInputs['ref_audios.ref_audio_0'] = ['17', 0];
+            conditioningInputs.audio_mode = 'reference_only';
+            conditioningInputs.add_source_as_reference = false;
+            conditioningInputs.prompt_primary_audio_ordinal = 1;
+            delete conditioningInputs.drive_audio;
+          }
+        }
+      } else if (selectedVideoWorkflow === 'LTX2.3') {
         // LTX2.3 specific node mapping
-        if (workflow["269"]) workflow["269"].inputs.image = uploadedFilename;
+        if (workflow["269"] && uploadedFilename) workflow["269"].inputs.image = uploadedFilename;
         if (workflow["320:319"]) workflow["320:319"].inputs.value = fullPrompt;
         if (workflow["320:277"]) workflow["320:277"].inputs.noise_seed = seed;
         if (workflow["320:276"]) workflow["320:276"].inputs.noise_seed = seed;
       } else if (selectedVideoWorkflow === 'LTX2.3 V2I') {
         // LTX2.3 V2I: image + mp3 audio + prompt workflow
-        if (workflow["269"]) workflow["269"].inputs.image = uploadedFilename;
+        if (workflow["269"] && uploadedFilename) workflow["269"].inputs.image = uploadedFilename;
         if (workflow["276"] && uploadedAudioFilename) {
           workflow["276"].inputs.audio = uploadedAudioFilename;
           delete workflow["276"].inputs.audioUI;
@@ -177,8 +317,8 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
         }
       } else {
         // Node 52 or 97: LoadImage
-        if (workflow["52"]) workflow["52"].inputs.image = uploadedFilename;
-        if (workflow["97"]) workflow["97"].inputs.image = uploadedFilename;
+        if (workflow["52"] && uploadedFilename) workflow["52"].inputs.image = uploadedFilename;
+        if (workflow["97"] && uploadedFilename) workflow["97"].inputs.image = uploadedFilename;
         
         // Node 88 & 89 (SmoothV2/V1) or 93 & 89 (Wan22): Prompt
         if (workflow["88"]) workflow["88"].inputs.value = fullPrompt;
@@ -226,7 +366,24 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     } finally {
       setIsGeneratingVideo(false);
     }
-  };
+  }, [
+    basics?.art_style_description,
+    generatedImage,
+    h3AudioMode,
+    h3GenerationMode,
+    h3ReferenceImages,
+    h3VideoLength,
+    info.generated_assets?.audio,
+    info.video_prompt,
+    infoIndex,
+    isGeneratingVideo,
+    isWaitingForSource,
+    onLastFrameGenerated,
+    previousLastFrame,
+    segmentId,
+    selectedVideoWorkflow,
+    updateMVInfoAsset,
+  ]);
 
   // Auto-retry: Countdown timer
   useEffect(() => {
@@ -255,10 +412,27 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     }
   }, [isWaitingForSource, generatedImage, previousLastFrame, handleGenerateVideo]);
 
+  const handleVideoButtonClick = useCallback(async () => {
+    try {
+      await handleGenerateVideo();
+    } finally {
+      batchClickResolverRef.current?.();
+      batchClickResolverRef.current = null;
+    }
+  }, [handleGenerateVideo]);
+
   useImperativeHandle(ref, () => ({
-    triggerGenerateImage: handleGenerate,
-    triggerGenerateVideo: handleGenerateVideo
-  }));
+    triggerGenerateVideo: () => new Promise<void>((resolve) => {
+      const button = videoGenerateButtonRef.current;
+      if (!button || button.disabled) {
+        resolve();
+        return;
+      }
+
+      batchClickResolverRef.current = resolve;
+      button.click();
+    })
+  }), []);
 
   return (
     <div className="glass-card rounded-lg overflow-hidden border border-white/5 flex flex-col md:flex-row group hover:border-white/20 transition duration-300">
@@ -320,6 +494,9 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       )}
 
       <div className="w-full md:w-32 bg-black/40 p-4 flex flex-col justify-center items-center border-b md:border-b-0 md:border-r border-white/5">
+        <span className="text-[11px] font-mono font-bold text-neon-cyan mb-2 px-2 py-0.5 rounded border border-neon-cyan/30 bg-neon-cyan/10">
+          小段 {infoIndex + 1}
+        </span>
         <span className="text-xs font-mono font-bold text-white mb-1">
           {info.timestamp.split(' - ')[0]}
         </span>
@@ -353,6 +530,10 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                      src={previousLastFrame} 
                      alt="Previous Last Frame" 
                      className="w-full h-full object-cover"
+                     onLoad={async (event) => {
+                       const blob = await captureImageAsPng(event.currentTarget);
+                       if (blob && blob.size > 0) sourceImageBlobCacheRef.current.set(previousLastFrame, blob);
+                     }}
                    />
                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                      <span className="text-[10px] text-white bg-black/50 px-2 py-1 rounded">上一镜头尾帧</span>
@@ -418,6 +599,10 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                             src={generatedImage} 
                             alt="AI Generated" 
                             className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                            onLoad={async (event) => {
+                              const blob = await captureImageAsPng(event.currentTarget);
+                              if (blob && blob.size > 0) sourceImageBlobCacheRef.current.set(generatedImage, blob);
+                            }}
                             onClick={() => setPreviewMedia({ type: 'image', url: generatedImage })}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
@@ -438,7 +623,8 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                   视频提示词 (I2V / Motion)
                 </label>
                 <button 
-                  onClick={handleGenerateVideo}
+                  ref={videoGenerateButtonRef}
+                  onClick={handleVideoButtonClick}
                   disabled={isGeneratingVideo}
                   className="bg-neon-magenta/10 hover:bg-neon-magenta/20 text-neon-magenta text-[10px] px-2 py-1 rounded border border-neon-magenta/30 hover:border-neon-magenta/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                 >
