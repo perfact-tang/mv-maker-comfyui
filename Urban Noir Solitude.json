@@ -1,6 +1,20 @@
 {
   "proposal_id": 1,
   "direction_name": "Urban Noir Solitude",
+  "characters": [
+    {
+      "name": "夜之女王",
+      "role": "主角",
+      "description": "三十岁左右的都市女性，黑色短发，神情冷静而自信。她常穿剪裁利落的深色大衣或丝绒服装，在青色与洋红霓虹中由暖色轮廓光突出，动作克制、姿态优雅。",
+      "traits": ["冷静", "自信", "优雅"]
+    },
+    {
+      "name": "镜中之王",
+      "role": "主角的男性化人格投影",
+      "description": "只在镜面反射中出现的成熟男性形象，身穿深色西装，举止松弛而有掌控感。烟雾与低照度勾勒轮廓，他与夜之女王共享相同的眼神和节奏感。",
+      "traits": ["松弛", "神秘", "掌控感"]
+    }
+  ],
   "basics": {
     "outline": "A cinematic journey through a rainy, neon-lit city at night. The protagonist walks alone, not in sadness but in supreme confidence. The city is cold, but she is the warm center. The 'Castlevania' is her high-rise apartment overlooking the chaos.",
     "shooting_method": "Slow tracking shots, shallow depth of field (bokeh city lights), smooth gimbal movements to match the groovy bass. Low key lighting with neon accents (cyan and magenta).",

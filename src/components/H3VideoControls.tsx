@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { ChevronDown, ImagePlus, X } from 'lucide-react';
-import { useGlobalSettings } from '../stores/useGlobalSettings';
+import { useGlobalSettings, type H3AudioMode, type H3GenerationMode } from '../stores/useGlobalSettings';
 
 const LENGTH_OPTIONS = [
   { label: '5 秒', value: 141 },
@@ -43,15 +43,16 @@ export const H3VideoControls: React.FC = () => {
     <div className="glass-card bg-black/40 border border-fuchsia-400/20 rounded-lg p-3 flex flex-col gap-3 basis-full">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5 min-w-[190px]">
-          <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">H3 生成方式</label>
+          <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">H3 默认生成方式（旧项目 fallback）</label>
           <div className="relative">
             <select
               value={h3GenerationMode}
-              onChange={(event) => setH3GenerationMode(event.target.value as 'first-frame' | 'reference-images')}
+              onChange={(event) => setH3GenerationMode(event.target.value as H3GenerationMode)}
               className="bg-black/50 text-xs text-gray-200 border border-white/10 rounded px-2.5 py-1.5 w-full appearance-none pr-8"
             >
               <option value="first-frame">首帧生成视频</option>
               <option value="reference-images">上参考图生成视频</option>
+              <option value="director-routed">按每个镜头计划自动路由</option>
             </select>
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
@@ -62,11 +63,13 @@ export const H3VideoControls: React.FC = () => {
           <div className="relative">
             <select
               value={h3AudioMode}
-              onChange={(event) => setH3AudioMode(event.target.value as 'drive-audio' | 'reference-audio')}
+              onChange={(event) => setH3AudioMode(event.target.value as H3AudioMode)}
               className="bg-black/50 text-xs text-gray-200 border border-white/10 rounded px-2.5 py-1.5 w-full appearance-none pr-8"
             >
+              <option value="native-audio">H3 原生声画（自动生成声音）</option>
               <option value="drive-audio">Drive Audio（驱动音乐）</option>
               <option value="reference-audio">参考音乐</option>
+              <option value="no-audio">静音导出（不写入音轨）</option>
             </select>
             <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>

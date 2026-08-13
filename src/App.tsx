@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { FileUploader } from './components/FileUploader';
 import { Header } from './components/Header';
 import { BasicsSection } from './components/BasicsSection';
 import { NavigationBar } from './components/NavigationBar';
 import { StoryboardTimeline, StoryboardTimelineHandle } from './components/StoryboardTimeline';
-import { MVScriptData } from './types/mv-data';
 import { useScrollSpy } from './hooks/useScrollSpy';
 import { useGlobalSettings } from './stores/useGlobalSettings';
+import { CharactersPage } from './components/CharactersPage';
+import { ProjectNavigation, ProjectPage } from './components/ProjectNavigation';
+import { ParsedProjectFile } from './utils/projectArchive';
 
 function App() {
-  const { mvData, setMvData } = useGlobalSettings();
+  const { mvData, loadProject } = useGlobalSettings();
   const timelineRef = useRef<StoryboardTimelineHandle>(null);
+  const [activePage, setActivePage] = useState<ProjectPage>('storyboard');
 
   // Generate segment IDs for scrollspy
   const segmentIds = mvData?.storyboard.map(s => `segment-${s.segment_id}`) || [];
@@ -22,8 +25,9 @@ function App() {
     : undefined;
 
   // Handle data loading
-  const handleDataLoaded = (data: MVScriptData) => {
-    setMvData(data);
+  const handleDataLoaded = ({ project, generationSettings }: ParsedProjectFile) => {
+    loadProject(project, generationSettings);
+    setActivePage('storyboard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -31,34 +35,59 @@ function App() {
     timelineRef.current?.generateAllSegments();
   };
 
+  const handleGlobalFrameGenerate = () => {
+    timelineRef.current?.generateAllFrames();
+  };
+
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-6xl mx-auto">
+    <div className="min-h-screen">
       {!mvData ? (
-        <FileUploader onDataLoaded={handleDataLoaded} />
+        <div className="mx-auto max-w-6xl p-4 md:p-8">
+          <FileUploader onDataLoaded={handleDataLoaded} />
+        </div>
       ) : (
-        <div className="animate-in fade-in duration-700 slide-in-from-bottom-4">
-          <Header 
-            title={mvData.direction_name} 
-            proposalId={mvData.proposal_id} 
-            onGenerateAll={handleGlobalGenerate}
+        <div className="animate-in fade-in duration-700">
+          <ProjectNavigation
+            activePage={activePage}
+            characterCount={mvData.characters.length}
+            onPageChange={(page) => {
+              setActivePage(page);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
           />
-          
-          <BasicsSection basics={mvData.basics} />
-          
-          <NavigationBar 
-            segments={mvData.storyboard} 
-            activeSegmentId={activeSegmentId} 
-          />
-          
-          <StoryboardTimeline 
-            ref={timelineRef}
-            storyboard={mvData.storyboard} 
-            basics={mvData.basics}
-          />
-          
-          <footer className="mt-20 py-10 border-t border-white/5 text-center text-gray-600 text-xs">
-            <p>MV AI Prompt可视化工具 &copy; {new Date().getFullYear()}</p>
-          </footer>
+
+          <div className="mx-auto max-w-6xl p-4 pt-8 md:p-8 md:pt-10">
+            {activePage === 'characters' ? (
+              <CharactersPage
+                characters={mvData.characters}
+                directionName={mvData.direction_name}
+                proposalId={mvData.proposal_id}
+              />
+            ) : (
+              <>
+                <Header
+                  title={mvData.direction_name}
+                  proposalId={mvData.proposal_id}
+                  onGenerateAll={handleGlobalGenerate}
+                  onGenerateAllFrames={handleGlobalFrameGenerate}
+                />
+                <BasicsSection basics={mvData.basics} />
+                <NavigationBar
+                  segments={mvData.storyboard}
+                  activeSegmentId={activeSegmentId}
+                />
+                <StoryboardTimeline
+                  ref={timelineRef}
+                  storyboard={mvData.storyboard}
+                  basics={mvData.basics}
+                />
+              </>
+            )}
+
+            <footer className="mt-20 border-t border-white/5 py-10 text-center text-xs text-gray-600">
+              <p>MV AI Prompt可视化工具 &copy; {new Date().getFullYear()}</p>
+            </footer>
+          </div>
         </div>
       )}
     </div>

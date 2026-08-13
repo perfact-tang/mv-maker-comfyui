@@ -1,5 +1,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
+import { createKreaImageWorkflow, KREA_IMAGE_WORKFLOW_NAME } from './kreaImageWorkflow';
 
 const buildComfyViewUrl = (apiBaseUrl: string, item: { filename: string; subfolder?: string; type?: string; format?: string }) => {
   const params = new URLSearchParams({
@@ -10,7 +11,6 @@ const buildComfyViewUrl = (apiBaseUrl: string, item: { filename: string; subfold
   if (item.format) params.set('format', item.format);
   return `${apiBaseUrl}/view?${params.toString()}`;
 };
-
 /**
  * Generate image via ComfyUI directly from the browser
  * @param promptText Positive prompt
@@ -18,7 +18,12 @@ const buildComfyViewUrl = (apiBaseUrl: string, item: { filename: string; subfold
  * @param workflowVersion Workflow version to use
  * @returns Promise<string> Image URL
  */
-export const generateComfyImage = async (promptText: string, serverUrl?: string, workflowVersion: string = 'Qwen-Image-2512'): Promise<string> => {
+export const generateComfyImage = async (
+  promptText: string,
+  serverUrl?: string,
+  workflowVersion: string = KREA_IMAGE_WORKFLOW_NAME,
+  dimensions?: { width: number; height: number },
+): Promise<string> => {
   // Clean up server URL
   const defaultUrl = import.meta.env.VITE_COMFY_API_URL || '127.0.0.1:8188';
   const serverAddress = (serverUrl || defaultUrl).replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -79,8 +84,8 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
           },
           "41": {
               "inputs": {
-                  "width": 1920,
-                  "height": 1088,
+                  "width": dimensions?.width ?? 1920,
+                  "height": dimensions?.height ?? 1088,
                   "batch_size": 1
               },
               "class_type": "EmptySD3LatentImage",
@@ -184,77 +189,8 @@ export const generateComfyImage = async (promptText: string, serverUrl?: string,
           }
       };
   } else {
-      // Default: Qwen-Image-2512
-      outputNodeId = "90";
-      workflow = {
-          "90": {
-              "inputs": {
-              "filename_prefix": "Qwen-Image-2512",
-              "images": ["92:8", 0]
-              },
-              "class_type": "SaveImage",
-              "_meta": { "title": "保存图像" }
-          },
-          "91": {
-              "inputs": { "value": promptText },
-              "class_type": "PrimitiveStringMultiline",
-              "_meta": { "title": "Prompt" }
-          },
-          "92:39": {
-              "inputs": { "vae_name": "qwen_image_vae.safetensors" },
-              "class_type": "VAELoader",
-              "_meta": { "title": "加载VAE" }
-          },
-          "92:38": {
-              "inputs": { "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default" },
-              "class_type": "CLIPLoader",
-              "_meta": { "title": "加载CLIP" }
-          },
-          "92:66": {
-              "inputs": { "shift": 3.1, "model": ["92:73", 0] },
-              "class_type": "ModelSamplingAuraFlow",
-              "_meta": { "title": "采样算法（AuraFlow）" }
-          },
-          "92:6": {
-              "inputs": { "text": ["91", 0], "clip": ["92:38", 0] },
-              "class_type": "CLIPTextEncode",
-              "_meta": { "title": "CLIP Text Encode (Positive Prompt)" }
-          },
-          "92:8": {
-              "inputs": { "samples": ["92:3", 0], "vae": ["92:39", 0] },
-              "class_type": "VAEDecode",
-              "_meta": { "title": "VAE解码" }
-          },
-          "92:58": {
-              "inputs": { "width": 1664, "height": 928, "batch_size": 1 },
-              "class_type": "EmptySD3LatentImage",
-              "_meta": { "title": "空Latent图像（SD3）" }
-          },
-          "92:7": {
-              "inputs": { "text": "低分辨率，低画质，肢体畸形，手指畸形，画面过饱和，蜡像感，人脸无细节，过度光滑，画面具有AI感。构图混乱。文字模糊，扭曲", "clip": ["92:38", 0] },
-              "class_type": "CLIPTextEncode",
-              "_meta": { "title": "CLIP Text Encode (Negative Prompt)" }
-          },
-          "92:73": {
-              "inputs": { "lora_name": "Qwen-Image-Lightning-4steps-V1.0.safetensors", "strength_model": 1, "model": ["92:37", 0] },
-              "class_type": "LoraLoaderModelOnly",
-              "_meta": { "title": "LoRA加载器（仅模型）" }
-          },
-          "92:37": {
-              "inputs": { "unet_name": "qwen_image_2512_fp8_e4m3fn.safetensors", "weight_dtype": "default" },
-              "class_type": "UNETLoader",
-              "_meta": { "title": "UNet加载器" }
-          },
-          "92:3": {
-              "inputs": {
-              "seed": Math.floor(Math.random() * 1000000000000000),
-              "steps": 4, "cfg": 1, "sampler_name": "euler", "scheduler": "simple", "denoise": 1,
-              "model": ["92:66", 0], "positive": ["92:6", 0], "negative": ["92:7", 0], "latent_image": ["92:58", 0]
-              },
-              "class_type": "KSampler",
-              "_meta": { "title": "K采样器" }
-          }
-      };
+      outputNodeId = "29";
+      workflow = createKreaImageWorkflow(promptText, dimensions);
   }
 
   // Use a Promise to handle the WebSocket async flow
@@ -425,7 +361,10 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
   // Check if the workflow expects a saved image (persistent output)
   // This helps us decide whether to wait for a 'SaveImage' result or accept a 'PreviewImage' result.
   const hasSaveImageNode = workflow && typeof workflow === 'object' 
-    ? Object.values(workflow).some((node: any) => node.class_type === 'SaveImage') 
+    ? Object.values(workflow).some((node: any) => ['SaveImage', 'SaveImageAdvanced'].includes(node.class_type))
+    : false;
+  const expectsVideo = workflow && typeof workflow === 'object'
+    ? Object.values(workflow).some((node: any) => /video|vhs/i.test(node.class_type || ''))
     : false;
 
   return new Promise((resolve, reject) => {
@@ -555,7 +494,9 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
               
               // For now, let's resolve immediately if we find a video, but we need the last frame too.
               // Let's wait for both if possible.
-              const isReady = outputs.video && (!hasSaveImageNode || outputs.images.length > 0);
+              const isReady = expectsVideo
+                ? outputs.video && (!hasSaveImageNode || outputs.images.length > 0)
+                : outputs.images.length > 0;
               
               if (isReady) {
                  // Check if we have an 'output' type image, which is preferred for persistence.

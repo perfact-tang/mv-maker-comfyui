@@ -5,15 +5,31 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { AudioUploader } from './AudioUploader';
 import { H3VideoControls } from './H3VideoControls';
+import { VideoOrientationControl } from './VideoOrientationControl';
+import { createProjectArchive } from '../utils/projectArchive';
 
 interface HeaderProps {
   title: string;
   proposalId: number;
   onGenerateAll?: () => void;
+  onGenerateAllFrames?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll }) => {
-  const { selectedWorkflow, setSelectedWorkflow, selectedVideoWorkflow, setSelectedVideoWorkflow, mvData, setMvData } = useGlobalSettings();
+export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll, onGenerateAllFrames }) => {
+  const {
+    selectedWorkflow,
+    setSelectedWorkflow,
+    selectedVideoWorkflow,
+    setSelectedVideoWorkflow,
+    videoOrientation,
+    setVideoOrientation,
+    h3GenerationMode,
+    h3AudioMode,
+    h3VideoLength,
+    h3ReferenceImages,
+    mvData,
+    setMvData,
+  } = useGlobalSettings();
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Check if all videos are generated
@@ -84,19 +100,23 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
   const handleSaveJson = () => {
     if (!mvData) return;
 
-    // Create a deep copy to ensure we don't accidentally mutate state (though we shouldn't be here)
-    const dataToSave = JSON.stringify(mvData, null, 2);
-    
-    // Create blob and download link
+    const archive = createProjectArchive(mvData, {
+      image_workflow: selectedWorkflow,
+      video_workflow: selectedVideoWorkflow,
+      video_orientation: videoOrientation,
+      h3: {
+        generation_mode: h3GenerationMode,
+        audio_mode: h3AudioMode,
+        video_length_frames: h3VideoLength,
+        reference_images: h3ReferenceImages,
+      },
+    });
+    const dataToSave = JSON.stringify(archive, null, 2);
     const blob = new Blob([dataToSave], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `mv_script_proposal_${String(proposalId).padStart(3, '0')}_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    saveAs(
+      blob,
+      `mv_project_${String(proposalId).padStart(3, '0')}_full_${new Date().toISOString().slice(0, 10)}.json`,
+    );
   };
 
   return (
@@ -127,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
                       onChange={(e) => setSelectedWorkflow(e.target.value)}
                       className="bg-black/50 text-xs text-gray-300 border border-white/10 rounded px-2.5 py-1.5 w-full focus:outline-none focus:border-neon-cyan appearance-none pr-8 cursor-pointer hover:border-white/20 transition-colors"
                     >
-                      <option value="Qwen-Image-2512">Qwen-Image-2512</option>
+                      <option value="Krea2 Turbo">Krea2 Turbo</option>
                       <option value="Z-Image-Turbo">Z-Image-Turbo</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -162,11 +182,23 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
 
             <AudioUploader proposalId={proposalId} />
             {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && <H3VideoControls />}
+            <div className="glass-card min-w-[310px] rounded-lg border border-white/10 bg-black/40 p-3">
+              <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-gray-500">整体视频方向</label>
+              <VideoOrientationControl value={videoOrientation} onChange={setVideoOrientation} />
+            </div>
           </div>
         </div>
 
         <div className="flex flex-col items-end gap-3">
           <div className="flex flex-col md:flex-row gap-3">
+            <button
+              onClick={onGenerateAllFrames}
+              className="border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan font-bold text-sm flex items-center gap-2 px-4 py-2 rounded hover:bg-neon-cyan/20 transition-all"
+              title="按镜头顺序生成 T2I 首帧与 FL2VA 目标尾帧，并自动合并整体艺术风格"
+            >
+              <Sparkles size={16} />
+              生成全片首尾帧
+            </button>
             <button 
               onClick={onGenerateAll}
               className="bg-neon-magenta hover:bg-neon-magenta/80 text-white font-bold text-sm flex items-center gap-2 px-4 py-2 rounded shadow-[0_0_15px_rgba(255,0,255,0.3)] hover:shadow-[0_0_25px_rgba(255,0,255,0.5)] transition-all transform hover:-translate-y-0.5"
@@ -179,10 +211,10 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
             <button 
               onClick={handleSaveJson}
               className="bg-neon-cyan hover:bg-neon-cyan/80 text-black font-bold text-sm flex items-center gap-2 px-4 py-2 rounded shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] transition-all transform hover:-translate-y-0.5"
-              title="保存包含生成结果的 JSON"
+              title="保存分镜、人物展示内容与全部生成设置"
             >
               <Download size={16} />
-              保存项目 JSON
+              保存完整项目
             </button>
 
             <button 

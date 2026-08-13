@@ -1,4 +1,4 @@
-import React, { useRef, useImperativeHandle, forwardRef, useState, useMemo } from 'react';
+import React, { useRef, useImperativeHandle, forwardRef, useState, useMemo, useEffect } from 'react';
 import { StoryboardSegment, MVScriptData } from '../types/mv-data';
 import { SegmentCard, SegmentCardHandle } from './SegmentCard';
 
@@ -9,6 +9,7 @@ interface StoryboardTimelineProps {
 
 export interface StoryboardTimelineHandle {
   generateAllSegments: () => Promise<void>;
+  generateAllFrames: () => Promise<void>;
 }
 
 export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, StoryboardTimelineProps>(({ storyboard, basics }, ref) => {
@@ -23,6 +24,25 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
     () => [...storyboard].sort((a, b) => Number(a.segment_id) - Number(b.segment_id)),
     [storyboard],
   );
+  const [segmentTailFrames, setSegmentTailFrames] = useState<Record<number, string>>(() => {
+    const initial: Record<number, string> = {};
+    storyboard.forEach((segment) => {
+      const tail = segment.mvinfo.at(-1)?.generated_assets?.last_frame;
+      if (tail) initial[segment.segment_id] = tail;
+    });
+    return initial;
+  });
+
+  useEffect(() => {
+    setSegmentTailFrames((previous) => {
+      const next = { ...previous };
+      storyboard.forEach((segment) => {
+        const tail = segment.mvinfo.at(-1)?.generated_assets?.last_frame;
+        if (tail) next[segment.segment_id] = tail;
+      });
+      return next;
+    });
+  }, [storyboard]);
 
   // Check if any generated content exists to show appropriate modal
   const hasAnyGeneratedContent = useMemo(() => {
@@ -45,8 +65,33 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
       setSkipGenerated(true);
       setValidationError('');
       setIsConfirmOpen(true);
-    }
-  }), [isGeneratingGlobally, orderedStoryboard.length, suggestedStartSegmentId]);
+    },
+    generateAllFrames: async () => {
+      if (isGeneratingGlobally || orderedStoryboard.length === 0) return;
+      if (!window.confirm('确定要按镜头顺序逐个生成全片首帧与 FL2VA 目标尾帧吗？下一步可选择全部重做或只补缺失。')) return;
+      const regenerateExisting = window.confirm('是否重新生成已有首尾帧？\n\n确定：全部重新生成，用新的“镜头提示词 + 整体艺术风格”统一画风。\n取消：只补缺失图片，保留已有结果。');
+      setIsGeneratingGlobally(true);
+      let generated = 0;
+      let reused = 0;
+      let deferred = 0;
+      try {
+        for (let index = 0; index < orderedStoryboard.length; index += 1) {
+          const segmentRef = segmentRefs.current[index];
+          if (!segmentRef) throw new Error(`分段 ${orderedStoryboard[index].segment_id} 的首尾帧控件尚未就绪`);
+          document.getElementById(`segment-${orderedStoryboard[index].segment_id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const result = await segmentRef.triggerGenerateFrames(regenerateExisting);
+          generated += result.generated;
+          reused += result.reused;
+          deferred += result.deferred;
+        }
+        alert(`全片首尾帧处理完成：新生成 ${generated} 张，复用 ${reused} 张，${deferred} 个承接首帧将在上一镜头视频生成后自动接入。`);
+      } catch (error) {
+        alert(`首尾帧批量生成已停止：${error instanceof Error ? error.message : String(error)}\n当前已新生成 ${generated} 张、复用 ${reused} 张。`);
+      } finally {
+        setIsGeneratingGlobally(false);
+      }
+    },
+  }), [isGeneratingGlobally, orderedStoryboard, suggestedStartSegmentId]);
 
   const handleConfirmGlobalGeneration = async () => {
     const requestedSegmentId = Number(startSegmentInput);
@@ -59,23 +104,30 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
     setIsConfirmOpen(false);
     setIsGeneratingGlobally(true);
 
+    let totalRequested = 0;
+    let totalGenerated = 0;
     try {
       for (let i = startIndex; i < orderedStoryboard.length; i++) {
         const segmentRef = segmentRefs.current[i];
-        if (segmentRef) {
-          try {
-            const segmentElement = document.getElementById(`segment-${orderedStoryboard[i].segment_id}`);
-            if (segmentElement) {
-              segmentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
+        if (!segmentRef) throw new Error(`分段 ${orderedStoryboard[i].segment_id} 的生成控件尚未就绪`);
+        const segmentElement = document.getElementById(`segment-${orderedStoryboard[i].segment_id}`);
+        if (segmentElement) {
+          segmentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
 
-            await segmentRef.triggerGenerateAll(true, skipGenerated ? 'continue' : 'restart');
-          } catch (error) {
-            console.error(`Error generating segment ${orderedStoryboard[i].segment_id}:`, error);
+        const result = await segmentRef.triggerGenerateAll(true, skipGenerated ? 'continue' : 'restart');
+        if (result) {
+          totalRequested += result.requested;
+          totalGenerated += result.generated;
+          if (result.generated !== result.requested) {
+            throw new Error(`分段 ${result.segmentId} 只完成 ${result.generated}/${result.requested} 个视频`);
           }
         }
       }
-      alert("所有分段视频生成完毕！");
+      alert(`全部视频生成完成：成功 ${totalGenerated}/${totalRequested}，没有跳过失败镜头。`);
+    } catch (error) {
+      console.error('Global batch generation stopped:', error);
+      alert(`批量生成已停止。${error instanceof Error ? error.message : String(error)}\n已成功完成 ${totalGenerated}/${totalRequested} 个本次待生成视频，请修复当前镜头后点击“生成全部视频”继续。`);
     } finally {
       setIsGeneratingGlobally(false);
     }
@@ -146,6 +198,13 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
           ref={el => segmentRefs.current[index] = el}
           segment={segment} 
           basics={basics} 
+          previousSegmentLastFrame={index > 0 ? segmentTailFrames[orderedStoryboard[index - 1].segment_id] : undefined}
+          onSegmentLastFrameGenerated={(url) => setSegmentTailFrames((previous) => {
+            const next = { ...previous };
+            if (url) next[segment.segment_id] = url;
+            else delete next[segment.segment_id];
+            return next;
+          })}
         />
       ))}
     </main>

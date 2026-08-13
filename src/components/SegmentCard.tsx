@@ -5,17 +5,28 @@ import { MVInfoCard, MVInfoCardHandle } from './MVInfoCard';
 import { GenerationConfirmModal } from './GenerationConfirmModal';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { useGlobalSettings } from '../stores/useGlobalSettings';
+import { missingVideoIndexes, pendingVideoIndexes } from '../utils/batchGeneration';
+
+export interface SegmentBatchResult {
+  segmentId: number;
+  requested: number;
+  generated: number;
+}
 
 export interface SegmentCardHandle {
-  triggerGenerateAll: (skipConfirm?: boolean, mode?: 'continue' | 'restart') => Promise<void>;
+  triggerGenerateAll: (skipConfirm?: boolean, mode?: 'continue' | 'restart') => Promise<SegmentBatchResult | undefined>;
+  triggerGenerateFrames: (regenerateExisting?: boolean) => Promise<{ generated: number; reused: number; deferred: number }>;
 }
 
 interface SegmentCardProps {
   segment: StoryboardSegment;
   basics: MVScriptData['basics'];
+  previousSegmentLastFrame?: string;
+  onSegmentLastFrameGenerated?: (url: string | null) => void;
 }
 
-export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ segment, basics }, ref) => {
+export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ segment, basics, previousSegmentLastFrame, onSegmentLastFrameGenerated }, ref) => {
   const [lastFrames, setLastFrames] = React.useState<Record<number, string>>(() => {
     const initial: Record<number, string> = {};
     segment.mvinfo.forEach((info, idx) => {
@@ -32,53 +43,6 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
   const [isGeneratingAll, setIsGeneratingAll] = React.useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = React.useState(false);
   const [isDownloading, setIsDownloading] = React.useState(false);
-
-  // Countdown Modal State
-  const [isCountdownOpen, setIsCountdownOpen] = React.useState(false);
-  const [countdown, setCountdown] = React.useState(30);
-  const countdownResolver = useRef<((continueGeneration: boolean) => void) | null>(null);
-  const countdownTimer = useRef<NodeJS.Timeout | null>(null);
-
-  const startCountdown = () => {
-    return new Promise<boolean>((resolve) => {
-      setCountdown(30);
-      setIsCountdownOpen(true);
-      countdownResolver.current = resolve;
-
-      if (countdownTimer.current) clearInterval(countdownTimer.current);
-      
-      countdownTimer.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            // Auto continue when time is up
-            if (countdownTimer.current) {
-                clearInterval(countdownTimer.current);
-                countdownTimer.current = null;
-            }
-            setIsCountdownOpen(false);
-            if (countdownResolver.current) {
-                countdownResolver.current(true);
-                countdownResolver.current = null;
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    });
-  };
-
-  const handleCountdownAction = (continueGeneration: boolean) => {
-    if (countdownTimer.current) {
-      clearInterval(countdownTimer.current);
-      countdownTimer.current = null;
-    }
-    setIsCountdownOpen(false);
-    if (countdownResolver.current) {
-      countdownResolver.current(continueGeneration);
-      countdownResolver.current = null;
-    }
-  };
 
   // Check if all videos for this segment are generated
   const isAllGenerated = segment.mvinfo.every(info => 
@@ -152,46 +116,29 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
     }
   };
   
-  const executeBatchGeneration = async (mode: 'continue' | 'restart') => {
+  const executeBatchGeneration = async (mode: 'continue' | 'restart'): Promise<SegmentBatchResult> => {
     setIsGeneratingAll(true);
     try {
-      const generationIndexes = segment.mvinfo
-        .map((info, index) => ({ info, index }))
-        .filter(({ info }) => info.video_prompt && (mode === 'restart' || !info.generated_assets?.video))
-        .map(({ index }) => index);
+      const generationIndexes = pendingVideoIndexes(segment.mvinfo, mode);
 
-      for (let position = 0; position < generationIndexes.length; position++) {
-            const i = generationIndexes[position];
-            const cardRef = cardRefs.current[i];
-            if (cardRef) {
-                // Programmatically click this card's actual "AI 生视频" DOM button and
-                // wait until that button's async onClick handler has finished.
-                await cardRef.triggerGenerateVideo();
+      for (const i of generationIndexes) {
+        const cardRef = cardRefs.current[i];
+        if (!cardRef) throw new Error(`分段 ${segment.segment_id} · 小段 ${i + 1} 的生成控件尚未就绪`);
+        try {
+          await cardRef.triggerGenerateVideo();
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          throw new Error(`分段 ${segment.segment_id} · 小段 ${i + 1} 生成失败：${reason}`);
+        }
+      }
 
-                // Wait for data stability with user interaction
-                // Only wait if another numbered card still needs generation.
-                if (position < generationIndexes.length - 1) {
-                    console.log(`[Batch] Video ${i + 1} generated. Waiting for confirmation/timeout...`);
-                    const shouldContinue = await startCountdown();
-                    if (!shouldContinue) {
-                        console.log("Batch generation cancelled by user.");
-                        break;
-                    }
-                }
-            }
+      const liveSegment = useGlobalSettings.getState().mvData?.storyboard
+        .find((item) => item.segment_id === segment.segment_id);
+      const missing = missingVideoIndexes(liveSegment?.mvinfo, generationIndexes);
+      if (missing.length > 0) {
+        throw new Error(`分段 ${segment.segment_id} 完成校验失败，以下小段仍无视频：${missing.map((index) => index + 1).join('、')}`);
       }
-      
-      // We don't alert here anymore to avoid spamming alerts during global generation.
-      // The parent caller (SegmentCard button or StoryboardTimeline) handles completion notification.
-      if (!isGeneratingAll && !isConfirmModalOpen) {
-          // This condition is tricky because state updates are async.
-          // Better to return a promise that resolves when done.
-      }
-    } catch (error) {
-      console.error("Batch generation failed:", error);
-      // alert("批量生成过程中出现错误，任务已停止。"); 
-      // Suppress alert for individual segment failures during global batch to allow others to proceed?
-      // Or maybe just log it. Let's keep it minimal.
+      return { segmentId: segment.segment_id, requested: generationIndexes.length, generated: generationIndexes.length };
     } finally {
       setIsGeneratingAll(false);
     }
@@ -211,21 +158,19 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
              // If continue mode, but everything is finished, skip
              if (forceMode === 'continue') {
                  const needsWork = segment.mvinfo.some(info => !info.generated_assets?.video);
-                 if (!needsWork) return;
+                 if (!needsWork) return { segmentId: segment.segment_id, requested: 0, generated: 0 };
              }
-             await executeBatchGeneration(forceMode);
-             return;
+             return executeBatchGeneration(forceMode);
         }
 
         // Fallback default logic (shouldn't be reached if StoryboardTimeline passes mode)
         if (hasGeneratedContent) {
             const needsWork = segment.mvinfo.some(info => !info.generated_assets?.video);
-            if (!needsWork) return; 
-            await executeBatchGeneration('continue');
+            if (!needsWork) return { segmentId: segment.segment_id, requested: 0, generated: 0 }; 
+            return executeBatchGeneration('continue');
         } else {
-            await executeBatchGeneration('restart');
+            return executeBatchGeneration('restart');
         }
-        return;
     }
 
     // Manual trigger logic (Segment level button)
@@ -234,14 +179,38 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
     } else {
         // No content, simple confirm
         if (window.confirm(`确定要自动生成该分段所有 ${segment.mvinfo.length} 个视频吗？这将按顺序依次执行生图和生视频操作。`)) {
-            await executeBatchGeneration('restart');
-            alert("分段视频生成任务已完成！");
+            try {
+              const result = await executeBatchGeneration('restart');
+              alert(`分段 ${segment.segment_id} 已完成：成功生成 ${result.generated}/${result.requested} 个视频。`);
+              return result;
+            } catch (error) {
+              alert(error instanceof Error ? error.message : String(error));
+              throw error;
+            }
         }
     }
   };
 
   useImperativeHandle(ref, () => ({
-    triggerGenerateAll: (skipConfirm, mode) => handleGenerateAllVideos(skipConfirm, mode)
+    triggerGenerateAll: (skipConfirm, mode) => handleGenerateAllVideos(skipConfirm, mode),
+    triggerGenerateFrames: async (regenerateExisting = false) => {
+      let generated = 0;
+      let reused = 0;
+      let deferred = 0;
+      for (let index = 0; index < segment.mvinfo.length; index += 1) {
+        const cardRef = cardRefs.current[index];
+        if (!cardRef) throw new Error(`分段 ${segment.segment_id} · 小段 ${index + 1} 的首尾帧控件尚未就绪`);
+        try {
+          const result = await cardRef.triggerGenerateFrames(regenerateExisting);
+          generated += result.generated;
+          reused += result.reused;
+          deferred += result.deferred;
+        } catch (error) {
+          throw new Error(`分段 ${segment.segment_id} · 小段 ${index + 1} 首尾帧生成失败：${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      return { generated, reused, deferred };
+    },
   }));
 
   // Update lastFrames when segment data changes (e.g. after loading new JSON)
@@ -262,51 +231,16 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
         onClose={() => setIsConfirmModalOpen(false)}
         onConfirm={async (mode) => {
             setIsConfirmModalOpen(false);
-            await executeBatchGeneration(mode);
-            alert("分段视频生成任务已完成！");
+            try {
+              const result = await executeBatchGeneration(mode);
+              alert(`分段 ${segment.segment_id} 已完成：成功生成 ${result.generated}/${result.requested} 个视频。`);
+            } catch (error) {
+              alert(error instanceof Error ? error.message : String(error));
+            }
         }}
         hasGeneratedContent={true}
         totalCount={segment.mvinfo.length}
       />
-
-      {/* Countdown Modal */}
-      {isCountdownOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-neon-cyan/30 p-6 rounded-lg flex flex-col items-center gap-6 shadow-[0_0_30px_rgba(0,255,255,0.1)] max-w-sm w-full mx-4">
-            <div className="flex flex-col items-center gap-2">
-                <Loader2 size={32} className="text-neon-cyan animate-spin" />
-                <h3 className="text-xl font-bold text-white">等待下一生成</h3>
-            </div>
-            
-            <div className="text-center space-y-2">
-                <p className="text-gray-400 text-sm">
-                    为了确保数据稳定性（等待尾帧生成），系统将在
-                </p>
-                <div className="text-4xl font-mono font-bold text-neon-cyan animate-pulse">
-                    {countdown}s
-                </div>
-                <p className="text-gray-400 text-sm">
-                    后自动开始下一个视频生成。
-                </p>
-            </div>
-
-            <div className="flex gap-3 w-full">
-                <button
-                    onClick={() => handleCountdownAction(false)}
-                    className="flex-1 px-4 py-2 rounded bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white transition-colors border border-gray-700"
-                >
-                    取消任务
-                </button>
-                <button
-                    onClick={() => handleCountdownAction(true)}
-                    className="flex-1 px-4 py-2 rounded bg-neon-cyan/20 text-neon-cyan hover:bg-neon-cyan/30 transition-colors border border-neon-cyan/50 font-bold"
-                >
-                    立即继续
-                </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-white/10 pb-4 gap-4">
         <div>
@@ -380,8 +314,16 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
             ref={el => cardRefs.current[idx] = el}
             info={info} 
             basics={basics}
-            previousLastFrame={idx > 0 ? lastFrames[idx - 1] : undefined}
-            onLastFrameGenerated={(url) => setLastFrames(prev => ({...prev, [idx]: url}))}
+            previousLastFrame={idx > 0 ? lastFrames[idx - 1] : previousSegmentLastFrame}
+            onLastFrameGenerated={(url) => {
+              setLastFrames((previous) => {
+                const next = { ...previous };
+                if (url) next[idx] = url;
+                else delete next[idx];
+                return next;
+              });
+              if (idx === segment.mvinfo.length - 1) onSegmentLastFrameGenerated?.(url);
+            }}
             segmentId={segment.segment_id}
             infoIndex={idx}
           />

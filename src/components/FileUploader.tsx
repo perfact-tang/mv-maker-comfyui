@@ -1,10 +1,10 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileJson, AlertCircle } from 'lucide-react';
 import { parseMVData } from '../utils/dataParser';
-import { MVScriptData } from '../types/mv-data';
+import { ParsedProjectFile } from '../utils/projectArchive';
 
 interface FileUploaderProps {
-  onDataLoaded: (data: MVScriptData) => void;
+  onDataLoaded: (data: ParsedProjectFile) => void;
 }
 
 export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
@@ -12,7 +12,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleFile = async (file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
       setError('请上传有效的 JSON 文件');
       return;
@@ -25,8 +25,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
     reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
-        const data = await parseMVData(text);
-        onDataLoaded(data);
+        const projectFile = await parseMVData(text);
+        onDataLoaded(projectFile);
       } catch (err) {
         setError((err as Error).message);
       } finally {
@@ -38,7 +38,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
       setLoading(false);
     };
     reader.readAsText(file);
-  };
+  }, [onDataLoaded]);
 
   const onDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -57,7 +57,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleFile(e.dataTransfer.files[0]);
     }
-  }, []);
+  }, [handleFile]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
@@ -101,6 +101,12 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
             拖拽您的 <span className="text-neon-cyan font-mono">json文件</span> 到此处
             <br /> 或点击浏览
           </p>
+          <p className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-center text-[11px] leading-relaxed text-gray-500">
+            接入文件必须包含人物数组（可以为空）；有人物时，每位人物需要
+            <span className="mx-1 font-mono text-neon-cyan">name</span>
+            与
+            <span className="ml-1 font-mono text-neon-cyan">description</span>
+          </p>
         </div>
 
         {error && (
@@ -113,7 +119,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
 
       <div className="mt-8 flex items-center gap-2 text-xs text-gray-600">
         <FileJson size={14} />
-        <span>支持格式: JSON Schema v1.0</span>
+        <span>支持完整项目存档 v3 · 兼容人物接入文件 v2 · 支持逐镜头 H3 导演计划</span>
       </div>
     </div>
   );

@@ -50,10 +50,18 @@ const audioUploadPlugin = () => ({
       try {
         const originalName = decodeURIComponent(String(req.headers['x-file-name'] || 'audio.mp3'));
         const extension = path.extname(originalName).toLowerCase();
+        const segmentDuration = Number(req.headers['x-segment-duration']);
+        const allowedSegmentDurations = [5, 10, 15, 20];
 
         if (!['.wav', '.mp3'].includes(extension)) {
           res.statusCode = 400;
           res.end('Only WAV and MP3 files are supported.');
+          return;
+        }
+
+        if (!allowedSegmentDurations.includes(segmentDuration)) {
+          res.statusCode = 400;
+          res.end('Segment duration must be 5, 10, 15, or 20 seconds.');
           return;
         }
 
@@ -79,7 +87,7 @@ const audioUploadPlugin = () => ({
           '-vn',
           '-map', '0:a:0',
           '-f', 'segment',
-          '-segment_time', '9',
+          '-segment_time', String(segmentDuration),
           '-reset_timestamps', '1',
           '-c:a', 'libmp3lame',
           '-b:a', '192k',
@@ -96,7 +104,7 @@ const audioUploadPlugin = () => ({
         }));
 
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ chunks }));
+        res.end(JSON.stringify({ chunks, segmentDuration }));
       } catch (error) {
         console.error('[audio split] failed:', error);
         res.statusCode = 500;

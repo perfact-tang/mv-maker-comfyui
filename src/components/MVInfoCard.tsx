@@ -4,16 +4,23 @@ import { MVInfo, MVScriptData } from '../types/mv-data';
 import { generateComfyImage, executeComfyWorkflow, uploadAudioToComfy, uploadImageToComfy } from '../utils/comfyApi';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { VIDEO_WORKFLOWS } from '../utils/workflows';
+import { applyVideoDimensions, VIDEO_DIMENSIONS } from '../utils/characterVideoWorkflow';
+import { ImageEditModal } from './ImageEditModal';
+import { H3ShotControls } from './H3ShotControls';
+import { configureH3VisualInputs } from '../utils/h3ShotWorkflow';
+import { resolveReferenceImage } from '../utils/characterReferences';
+import { composeStoryboardImagePrompt } from '../utils/imagePrompt';
 
 export interface MVInfoCardHandle {
-  triggerGenerateVideo: () => Promise<void>;
+  triggerGenerateVideo: () => Promise<{ videoUrl: string; lastFrameUrl: string }>;
+  triggerGenerateFrames: (regenerateExisting?: boolean) => Promise<{ generated: number; reused: number; deferred: number }>;
 }
 
 interface MVInfoCardProps {
   info: MVInfo;
   basics?: MVScriptData['basics'];
   previousLastFrame?: string | null;
-  onLastFrameGenerated?: (url: string) => void;
+  onLastFrameGenerated?: (url: string | null) => void;
   segmentId: number;
   infoIndex: number;
 }
@@ -66,35 +73,42 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const [generatedImage, setGeneratedImage] = useState<string | null>(info.generated_assets?.image || null);
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(info.generated_assets?.video || null);
   const [generatedLastFrame, setGeneratedLastFrame] = useState<string | null>(info.generated_assets?.last_frame || null);
+  const [generatedTargetLastFrame, setGeneratedTargetLastFrame] = useState<string | null>(info.generated_assets?.target_last_frame || null);
+  const [isImageEditOpen, setIsImageEditOpen] = useState(false);
   
   const {
     selectedWorkflow,
     selectedVideoWorkflow,
+    videoOrientation,
     updateMVInfoAsset,
+    updateMVInfoFirstFrameSource,
+    updateMVInfoImagePrompt,
+    replaceMVInfoImage,
+    mvData,
     h3GenerationMode,
     h3AudioMode,
     h3VideoLength,
     h3ReferenceImages,
   } = useGlobalSettings();
+  const shotPlan = info.generation_plan;
+  const firstFrameSource = info.first_frame_source ?? (info.type === 'Last_Frame_Continuity' ? 'previous-tail' : 't2i');
+  const effectiveH3Mode = shotPlan?.mode ?? (h3GenerationMode === 'reference-images' ? 'Ref2VA' : 'I2VA');
+  const effectiveH3AudioMode = shotPlan?.audio_mode ?? h3AudioMode;
+  const effectiveH3Length = shotPlan?.duration_frames ?? h3VideoLength;
+  const characterReferences = (mvData?.characters ?? [])
+    .filter((character) => Boolean(character.generated_assets?.image))
+    .map((character) => ({
+      name: character.name,
+      role: character.role,
+      imageUrl: character.generated_assets!.image!,
+    }));
   const [previewMedia, setPreviewMedia] = useState<{ type: 'image' | 'video', url: string } | null>(null);
   const promptRef = useRef<HTMLDivElement>(null);
   const videoPromptRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoGenerateButtonRef = useRef<HTMLButtonElement>(null);
-  const batchClickResolverRef = useRef<(() => void) | null>(null);
+  const targetFrameInputRef = useRef<HTMLInputElement>(null);
   const sourceImageBlobCacheRef = useRef<Map<string, Blob>>(new Map());
-
-  // Auto-retry logic state
-  const [isWaitingForSource, setIsWaitingForSource] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const [countdown, setCountdown] = useState(10);
   
-  // Track latest source image to ensure retry logic sees fresh data
-  const sourceImageRef = useRef<string | null>(null);
-  useEffect(() => {
-    sourceImageRef.current = generatedImage || previousLastFrame || null;
-  }, [generatedImage, previousLastFrame]);
-
   const handleUploadImage = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -117,7 +131,12 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
 
     setIsGenerating(true);
     try {
-      const imageUrl = await generateComfyImage(currentPrompt, undefined, selectedWorkflow);
+      const imageUrl = await generateComfyImage(
+        composeStoryboardImagePrompt(currentPrompt, basics?.art_style_description, videoOrientation),
+        undefined,
+        selectedWorkflow,
+        VIDEO_DIMENSIONS[videoOrientation],
+      );
       setGeneratedImage(imageUrl);
       updateMVInfoAsset(segmentId, infoIndex, 'image', imageUrl);
 
@@ -131,53 +150,122 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     }
   };
 
-  const handleGenerateVideo = useCallback(async () => {
-    if (isGeneratingVideo) return;
+  const handleTargetFrameUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const imageUrl = reader.result as string;
+      setGeneratedTargetLastFrame(imageUrl);
+      updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', imageUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGenerateTargetFrame = async () => {
+    if (!info.last_frame_image_prompt?.trim() || isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const imageUrl = await generateComfyImage(
+        composeStoryboardImagePrompt(info.last_frame_image_prompt, basics?.art_style_description, videoOrientation),
+        undefined,
+        selectedWorkflow,
+        VIDEO_DIMENSIONS[videoOrientation],
+      );
+      setGeneratedTargetLastFrame(imageUrl);
+      updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', imageUrl);
+    } catch (error) {
+      alert('目标尾帧生成失败: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleGenerateVideo = useCallback(async (): Promise<{ videoUrl: string; lastFrameUrl: string }> => {
+    if (isGeneratingVideo) throw new Error('当前镜头已经在生成中');
     const isH3Workflow = selectedVideoWorkflow === 'H3 Turbo Stable 4V4A';
-    const usesH3References = isH3Workflow && h3GenerationMode === 'reference-images';
-    
-    // Determine source image: either locally generated image or passed from previous card (for continuity)
-    // Use ref to ensure we have the latest value even if closure is stale
-    const sourceImage = sourceImageRef.current;
-    
+    const usesH3References = isH3Workflow && effectiveH3Mode === 'Ref2VA';
+    const usesH3LastFrame = isH3Workflow && effectiveH3Mode === 'FL2VA';
+    const liveProject = useGlobalSettings.getState().mvData;
+    const orderedShots = (liveProject?.storyboard ?? [])
+      .flatMap((segment) => segment.mvinfo.map((shot, index) => ({ segmentId: segment.segment_id, index, shot })));
+    const currentShotIndex = orderedShots.findIndex((entry) => entry.segmentId === segmentId && entry.index === infoIndex);
+    const liveCurrentShot = currentShotIndex >= 0 ? orderedShots[currentShotIndex].shot : info;
+    const livePreviousTail = currentShotIndex > 0
+      ? orderedShots[currentShotIndex - 1].shot.generated_assets?.last_frame
+      : undefined;
+    let sourceImage = firstFrameSource === 'previous-tail'
+      ? livePreviousTail || previousLastFrame || null
+      : liveCurrentShot.generated_assets?.image || generatedImage || null;
+
+    if (!usesH3References && !sourceImage && firstFrameSource === 't2i') {
+      const imagePrompt = promptRef.current?.innerText.trim() || liveCurrentShot.image_prompt?.trim();
+      if (!imagePrompt) throw new Error('选择了“新画面 T2I”，但没有画面提示词');
+      sourceImage = await generateComfyImage(
+        composeStoryboardImagePrompt(imagePrompt, basics?.art_style_description, videoOrientation),
+        undefined,
+        selectedWorkflow,
+        VIDEO_DIMENSIONS[videoOrientation],
+      );
+      setGeneratedImage(sourceImage);
+      updateMVInfoAsset(segmentId, infoIndex, 'image', sourceImage);
+    }
     if (!usesH3References && !sourceImage) {
-      if (!isWaitingForSource) {
-        setIsWaitingForSource(true);
-        setCountdown(10);
-        setRetryCount(0);
-      }
-      return;
+      throw new Error('选择了“承接上一尾帧”，但上一镜头尚未生成可用尾帧');
     }
 
-    if (selectedVideoWorkflow === 'LTX2.3 V2I' && !info.generated_assets?.audio) {
-      alert('当前镜头缺少 MP3 音频分段。请先在顶部上传音频并完成 9 秒切分。');
-      return;
+    let targetLastFrame = liveCurrentShot.generated_assets?.target_last_frame || generatedTargetLastFrame || null;
+    if (usesH3LastFrame && !targetLastFrame) {
+      const targetPrompt = liveCurrentShot.last_frame_image_prompt?.trim();
+      if (!targetPrompt) throw new Error('FL2VA 缺少目标尾帧和 last_frame_image_prompt');
+      targetLastFrame = await generateComfyImage(
+        composeStoryboardImagePrompt(targetPrompt, basics?.art_style_description, videoOrientation),
+        undefined,
+        selectedWorkflow,
+        VIDEO_DIMENSIONS[videoOrientation],
+      );
+      setGeneratedTargetLastFrame(targetLastFrame);
+      updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', targetLastFrame);
+    }
+    const requiresExternalH3Audio = effectiveH3AudioMode === 'drive-audio' || effectiveH3AudioMode === 'reference-audio';
+    if (isH3Workflow && requiresExternalH3Audio && !info.generated_assets?.audio) {
+      throw new Error(`声明了 ${effectiveH3AudioMode}，但尚未分配音频`);
     }
 
-    if (isH3Workflow && !info.generated_assets?.audio) {
-      alert('H3 工作流需要当前镜头的音频。请先在顶部上传音乐并完成分段。');
-      return;
-    }
-
+    const shotReferenceImages = shotPlan?.mode === 'Ref2VA'
+      ? shotPlan.reference_images.map((reference) => {
+          const resolvedImage = resolveReferenceImage(mvData?.characters ?? [], reference);
+          return {
+            dataUrl: resolvedImage?.dataUrl || '',
+            filename: resolvedImage?.filename || `${reference.source_character || reference.label}.png`,
+            prompt: reference.prompt,
+          };
+        })
+      : h3ReferenceImages.map((image) => ({
+          dataUrl: image?.dataUrl || '',
+          filename: image?.filename || '',
+          prompt: image?.prompt || '',
+        }));
     if (usesH3References) {
-      const missingImage = h3ReferenceImages.findIndex((image) => !image?.dataUrl);
+      const missingImage = shotReferenceImages.findIndex((image) => !image.dataUrl);
       if (missingImage >= 0) {
-        alert(`参考图生成模式需要上传两张参考图。请补充参考图 ${missingImage + 1}。`);
-        return;
+        throw new Error(`Ref2VA 缺少参考图 ${missingImage + 1}`);
       }
-      const missingPrompt = h3ReferenceImages.findIndex((image) => !image?.prompt.trim());
+      const missingPrompt = shotReferenceImages.findIndex((image) => !image.prompt.trim());
       if (missingPrompt >= 0) {
-        alert(`请填写参考图 ${missingPrompt + 1} 的声明（Prompt）。`);
-        return;
+        throw new Error(`Ref2VA 缺少参考图 ${missingPrompt + 1} 的声明`);
       }
     }
 
     const currentVideoPrompt = videoPromptRef.current?.innerText || info.video_prompt;
     const styleDescription = basics?.art_style_description || '';
     const referencePrompt = usesH3References
-      ? h3ReferenceImages.map((image) => image?.prompt.trim()).filter(Boolean).join('\n')
+      ? shotReferenceImages.map((image) => image.prompt.trim()).filter(Boolean).join('\n')
       : '';
-    const fullPrompt = [referencePrompt, currentVideoPrompt, styleDescription].filter(Boolean).join('\n').trim();
+    const fullPrompt = shotPlan
+      ? [referencePrompt, currentVideoPrompt].filter(Boolean).join('\n').trim()
+      : [referencePrompt, currentVideoPrompt, styleDescription].filter(Boolean).join('\n').trim();
 
     setIsGeneratingVideo(true);
     try {
@@ -185,16 +273,24 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       let uploadedFilename: string | null = null;
       if (sourceImage && !usesH3References) {
         const imageBlob = await readFirstAvailableImage(
-          [generatedImage, previousLastFrame, sourceImage],
+          firstFrameSource === 'previous-tail'
+            ? [previousLastFrame, sourceImage]
+            : [generatedImage, sourceImage],
           sourceImageBlobCacheRef.current,
         );
         uploadedFilename = await uploadImageToComfy(imageBlob, `ref_img_${Date.now()}.png`);
       }
 
+      let uploadedTargetLastFrame: string | null = null;
+      if (usesH3LastFrame && targetLastFrame) {
+        const targetBlob = await readFirstAvailableImage([targetLastFrame], sourceImageBlobCacheRef.current);
+        uploadedTargetLastFrame = await uploadImageToComfy(targetBlob, `h3_target_last_frame_${Date.now()}.png`);
+      }
+
       let uploadedH3References: string[] = [];
       if (usesH3References) {
-        uploadedH3References = await Promise.all(h3ReferenceImages.map(async (image, index) => {
-          const imageResponse = await fetch(image!.dataUrl);
+        uploadedH3References = await Promise.all(shotReferenceImages.map(async (image, index) => {
+          const imageResponse = await fetch(image.dataUrl);
           if (!imageResponse.ok) throw new Error(`参考图 ${index + 1} 读取失败 (${imageResponse.status})`);
           const imageBlob = await imageResponse.blob();
           return uploadImageToComfy(imageBlob, `h3_reference_${index + 1}_${Date.now()}.png`);
@@ -202,7 +298,9 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       }
 
       let uploadedAudioFilename: string | null = null;
-      if ((selectedVideoWorkflow === 'LTX2.3 V2I' || isH3Workflow) && info.generated_assets?.audio) {
+      const shouldUploadAudio = selectedVideoWorkflow === 'LTX2.3 V2I'
+        || (isH3Workflow && requiresExternalH3Audio);
+      if (shouldUploadAudio && info.generated_assets?.audio) {
         const audioRes = await fetch(info.generated_assets.audio);
         const audioBlob = await audioRes.blob();
         const audioFilename = `scene_${segmentId}_${infoIndex + 1}_${Date.now()}.mp3`;
@@ -210,74 +308,66 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       }
 
       // 2. Prepare Workflow
-      const selectedWorkflowJson = VIDEO_WORKFLOWS[selectedVideoWorkflow as keyof typeof VIDEO_WORKFLOWS] || VIDEO_WORKFLOWS['SmoothV2'];
+      // LTX2.3 V2I has mandatory audio nodes, so use its video-only sibling when
+      // the optional audio upload was skipped. H3 can also explicitly export a silent video.
+      const effectiveVideoWorkflow = selectedVideoWorkflow === 'LTX2.3 V2I' && !uploadedAudioFilename
+        ? 'LTX2.3'
+        : selectedVideoWorkflow;
+      const selectedWorkflowJson = VIDEO_WORKFLOWS[effectiveVideoWorkflow as keyof typeof VIDEO_WORKFLOWS] || VIDEO_WORKFLOWS['SmoothV2'];
       const workflow = JSON.parse(JSON.stringify(selectedWorkflowJson));
+      applyVideoDimensions(workflow, VIDEO_DIMENSIONS[videoOrientation]);
 
       // Node 82 (SmoothV2/V1) or 86 (Wan22) or 320:277/320:276 (LTX2.3): Seed
       const seed = Math.floor(Math.random() * 1000000000000000);
       
       if (isH3Workflow) {
         const conditioningInputs = workflow["6"].inputs;
-        conditioningInputs.prompt = fullPrompt;
-        conditioningInputs.length = h3VideoLength;
-        workflow["9"].inputs.noise_seed = seed;
+        configureH3VisualInputs(workflow, {
+          prompt: fullPrompt,
+          length: effectiveH3Length,
+          mode: effectiveH3Mode,
+          seed,
+          firstFrame: uploadedFilename,
+          lastFrame: uploadedTargetLastFrame,
+          referenceImages: uploadedH3References,
+        });
 
-        if (usesH3References) {
-          conditioningInputs.task_type = 'Ref2VA';
-          delete conditioningInputs.first_frame;
-          delete conditioningInputs.last_frame;
-          workflow["13"] = {
-            inputs: { image: uploadedH3References[0] },
-            class_type: 'LoadImage',
-            _meta: { title: '参考图 1' },
-          };
-          workflow["16"] = {
-            inputs: { image: uploadedH3References[1] },
-            class_type: 'LoadImage',
-            _meta: { title: '参考图 2' },
-          };
-          conditioningInputs['ref_images.ref_image_0'] = ['13', 0];
-          conditioningInputs['ref_images.ref_image_1'] = ['16', 0];
-        } else {
-          conditioningInputs.task_type = 'I2VA';
-          delete conditioningInputs.last_frame;
-          delete conditioningInputs['ref_images.ref_image_0'];
-          delete conditioningInputs['ref_images.ref_image_1'];
-          workflow["13"] = {
-            inputs: { image: uploadedFilename },
-            class_type: 'LoadImage',
-            _meta: { title: '首帧' },
-          };
-          conditioningInputs.first_frame = ['13', 0];
-        }
+        delete conditioningInputs.drive_audio;
+        delete conditioningInputs['ref_audios.ref_audio_0'];
+        delete workflow["17"];
 
-        if (uploadedAudioFilename) {
+        if (effectiveH3AudioMode === 'native-audio' || effectiveH3AudioMode === 'no-audio') {
+          // Both modes use H3's native audiovisual generation. Silent mode alone
+          // removes the decoded audio track from the exported MP4.
+          conditioningInputs.audio_mode = 'native';
+          conditioningInputs.add_source_as_reference = false;
+          conditioningInputs.prompt_primary_audio_ordinal = 0;
+          if (effectiveH3AudioMode === 'no-audio' && workflow["12"]) delete workflow["12"].inputs.audio;
+        } else if (uploadedAudioFilename) {
           workflow["17"] = {
             inputs: { audio: uploadedAudioFilename },
             class_type: 'LoadAudio',
-            _meta: { title: h3AudioMode === 'drive-audio' ? 'Drive Audio' : '参考音乐' },
+            _meta: { title: effectiveH3AudioMode === 'drive-audio' ? 'Drive Audio' : '参考音乐' },
           };
-          if (h3AudioMode === 'drive-audio') {
+          if (effectiveH3AudioMode === 'drive-audio') {
             conditioningInputs.drive_audio = ['17', 0];
             conditioningInputs.audio_mode = 'lock_source';
             conditioningInputs.add_source_as_reference = false;
             conditioningInputs.prompt_primary_audio_ordinal = 0;
-            delete conditioningInputs['ref_audios.ref_audio_0'];
           } else {
             conditioningInputs['ref_audios.ref_audio_0'] = ['17', 0];
             conditioningInputs.audio_mode = 'reference_only';
             conditioningInputs.add_source_as_reference = false;
             conditioningInputs.prompt_primary_audio_ordinal = 1;
-            delete conditioningInputs.drive_audio;
           }
         }
-      } else if (selectedVideoWorkflow === 'LTX2.3') {
+      } else if (effectiveVideoWorkflow === 'LTX2.3') {
         // LTX2.3 specific node mapping
         if (workflow["269"] && uploadedFilename) workflow["269"].inputs.image = uploadedFilename;
         if (workflow["320:319"]) workflow["320:319"].inputs.value = fullPrompt;
         if (workflow["320:277"]) workflow["320:277"].inputs.noise_seed = seed;
         if (workflow["320:276"]) workflow["320:276"].inputs.noise_seed = seed;
-      } else if (selectedVideoWorkflow === 'LTX2.3 V2I') {
+      } else if (effectiveVideoWorkflow === 'LTX2.3 V2I') {
         // LTX2.3 V2I: image + mp3 audio + prompt workflow
         if (workflow["269"] && uploadedFilename) workflow["269"].inputs.image = uploadedFilename;
         if (workflow["276"] && uploadedAudioFilename) {
@@ -336,127 +426,126 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
 
       // 3. Execute
       const outputs = await executeComfyWorkflow(workflow);
-      
-      if (outputs.video) {
-        setGeneratedVideo(outputs.video);
-        updateMVInfoAsset(segmentId, infoIndex, 'video', outputs.video);
-      }
-      
-      if (outputs.images && outputs.images.length > 0) {
-        // Assuming the last image is the last frame if multiple are returned.
-        // We prioritize the image saved to 'output' (SaveImage node) over 'temp' (PreviewImage node)
-        // to ensure we have a persistent URL for the JSON data.
-        const lastFrameUrl = outputs.images.find(url => url.includes('type=output')) || outputs.images[0];
-        
-        setGeneratedLastFrame(lastFrameUrl);
-        updateMVInfoAsset(segmentId, infoIndex, 'last_frame', lastFrameUrl);
-        
-        // Notify parent about the new last frame
-        if (onLastFrameGenerated) {
-          onLastFrameGenerated(lastFrameUrl);
-        }
-      }
+      if (!outputs.video) throw new Error('ComfyUI 工作流完成但没有返回视频文件');
+      const lastFrameUrl = outputs.images?.find(url => url.includes('type=output')) || outputs.images?.[0];
+      if (!lastFrameUrl) throw new Error('ComfyUI 工作流完成但没有返回尾帧，无法保证后续镜头连续生成');
 
-      // Wait for 3 seconds before finishing as requested
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      setGeneratedVideo(outputs.video);
+      updateMVInfoAsset(segmentId, infoIndex, 'video', outputs.video);
+      setGeneratedLastFrame(lastFrameUrl);
+      updateMVInfoAsset(segmentId, infoIndex, 'last_frame', lastFrameUrl);
+      onLastFrameGenerated?.(lastFrameUrl);
+      return { videoUrl: outputs.video, lastFrameUrl };
 
     } catch (error) {
       console.error('Video generation failed:', error);
-      alert('视频生成失败: ' + (error instanceof Error ? error.message : String(error)));
+      throw error;
     } finally {
       setIsGeneratingVideo(false);
     }
   }, [
     basics?.art_style_description,
     generatedImage,
-    h3AudioMode,
-    h3GenerationMode,
+    effectiveH3AudioMode,
+    firstFrameSource,
+    effectiveH3Length,
+    effectiveH3Mode,
+    generatedTargetLastFrame,
     h3ReferenceImages,
-    h3VideoLength,
     info.generated_assets?.audio,
     info.video_prompt,
     infoIndex,
     isGeneratingVideo,
-    isWaitingForSource,
     onLastFrameGenerated,
     previousLastFrame,
     segmentId,
     selectedVideoWorkflow,
+    selectedWorkflow,
+    shotPlan,
     updateMVInfoAsset,
+    videoOrientation,
+    mvData?.characters,
   ]);
-
-  // Auto-retry: Countdown timer
-  useEffect(() => {
-    if (!isWaitingForSource) return;
-
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-      return () => clearTimeout(timer);
-    } else {
-      // Countdown finished, increment retry or stop
-      if (retryCount < 5) {
-        setRetryCount(c => c + 1);
-        setCountdown(10);
-      } else {
-        setIsWaitingForSource(false);
-      }
-    }
-  }, [isWaitingForSource, countdown, retryCount]);
-
-  // Auto-retry: Watch for source availability
-  useEffect(() => {
-    if (isWaitingForSource && (generatedImage || previousLastFrame)) {
-      // Found the source! Stop waiting and generate.
-      setIsWaitingForSource(false);
-      handleGenerateVideo();
-    }
-  }, [isWaitingForSource, generatedImage, previousLastFrame, handleGenerateVideo]);
 
   const handleVideoButtonClick = useCallback(async () => {
     try {
       await handleGenerateVideo();
-    } finally {
-      batchClickResolverRef.current?.();
-      batchClickResolverRef.current = null;
+    } catch (error) {
+      alert('视频生成失败: ' + (error instanceof Error ? error.message : String(error)));
     }
   }, [handleGenerateVideo]);
 
-  useImperativeHandle(ref, () => ({
-    triggerGenerateVideo: () => new Promise<void>((resolve) => {
-      const button = videoGenerateButtonRef.current;
-      if (!button || button.disabled) {
-        resolve();
-        return;
-      }
+  const handleGenerateFrames = useCallback(async (regenerateExisting = false): Promise<{ generated: number; reused: number; deferred: number }> => {
+    const liveProject = useGlobalSettings.getState().mvData;
+    const orderedShots = (liveProject?.storyboard ?? [])
+      .flatMap((segment) => segment.mvinfo.map((shot, index) => ({ segmentId: segment.segment_id, index, shot })));
+    const currentIndex = orderedShots.findIndex((entry) => entry.segmentId === segmentId && entry.index === infoIndex);
+    const liveShot = currentIndex >= 0 ? orderedShots[currentIndex].shot : info;
+    let generated = 0;
+    let reused = 0;
+    let deferred = 0;
 
-      batchClickResolverRef.current = resolve;
-      button.click();
-    })
-  }), []);
+    if (effectiveH3Mode === 'Ref2VA') {
+      // Ref2VA uses the two declared references instead of a generated first frame.
+    } else if (firstFrameSource === 'previous-tail') {
+      const previousTail = currentIndex > 0 ? orderedShots[currentIndex - 1].shot.generated_assets?.last_frame : undefined;
+      if (previousTail) reused += 1;
+      else deferred += 1;
+    } else if (regenerateExisting || !liveShot.generated_assets?.image) {
+      const prompt = promptRef.current?.innerText.trim() || liveShot.image_prompt?.trim();
+      if (!prompt) throw new Error('T2I 首帧缺少画面提示词');
+      const imageUrl = await generateComfyImage(
+        composeStoryboardImagePrompt(prompt, basics?.art_style_description, videoOrientation),
+        undefined,
+        selectedWorkflow,
+        VIDEO_DIMENSIONS[videoOrientation],
+      );
+      setGeneratedImage(imageUrl);
+      updateMVInfoAsset(segmentId, infoIndex, 'image', imageUrl);
+      generated += 1;
+    } else {
+      reused += 1;
+    }
+
+    if (effectiveH3Mode === 'FL2VA') {
+      if (regenerateExisting || !liveShot.generated_assets?.target_last_frame) {
+        const targetPrompt = liveShot.last_frame_image_prompt?.trim();
+        if (!targetPrompt) throw new Error('FL2VA 目标尾帧缺少提示词');
+        const targetUrl = await generateComfyImage(
+          composeStoryboardImagePrompt(targetPrompt, basics?.art_style_description, videoOrientation),
+          undefined,
+          selectedWorkflow,
+          VIDEO_DIMENSIONS[videoOrientation],
+        );
+        setGeneratedTargetLastFrame(targetUrl);
+        updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', targetUrl);
+        generated += 1;
+      } else {
+        reused += 1;
+      }
+    }
+
+    return { generated, reused, deferred };
+  }, [
+    basics?.art_style_description,
+    effectiveH3Mode,
+    firstFrameSource,
+    info,
+    infoIndex,
+    segmentId,
+    selectedWorkflow,
+    updateMVInfoAsset,
+    videoOrientation,
+  ]);
+
+  useImperativeHandle(ref, () => ({
+    triggerGenerateVideo: handleGenerateVideo,
+    triggerGenerateFrames: handleGenerateFrames,
+  }), [handleGenerateFrames, handleGenerateVideo]);
 
   return (
     <div className="glass-card rounded-lg overflow-hidden border border-white/5 flex flex-col md:flex-row group hover:border-white/20 transition duration-300">
       {/* Popups */}
-      {isWaitingForSource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-neon-cyan/30 p-6 rounded-lg flex flex-col items-center gap-4 shadow-[0_0_30px_rgba(0,255,255,0.1)] min-w-[300px]">
-            <Loader2 size={32} className="text-neon-cyan animate-spin" />
-            <div className="text-center">
-              <p className="text-white font-bold mb-2">等待参考图生成...</p>
-              <p className="text-gray-400 text-sm mb-4">
-                检测中 ({retryCount}/5)... 下次重试: {countdown}秒
-              </p>
-            </div>
-            <button 
-              onClick={() => setIsWaitingForSource(false)}
-              className="bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 px-4 py-2 rounded text-sm transition-colors"
-            >
-              终止运行
-            </button>
-          </div>
-        </div>
-      )}
-
       {(isGenerating || isGeneratingVideo) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-gray-900 border border-neon-cyan/30 p-6 rounded-lg flex flex-col items-center gap-4 shadow-[0_0_30px_rgba(0,255,255,0.1)]">
@@ -493,6 +582,25 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
         </div>
       )}
 
+      <ImageEditModal
+        isOpen={isImageEditOpen}
+        characterName={`分段 ${segmentId} · 小段 ${infoIndex + 1}`}
+        currentImage={generatedImage || undefined}
+        sourceHelper="当前视频首帧 · 修改后将被覆盖"
+        successMessage="新图已生成，并已覆盖当前视频首帧。"
+        staleOutputWarning="生成后，当前镜头基于旧首帧生成的视频和尾帧会被清除。"
+        referenceCandidates={characterReferences}
+        onClose={() => setIsImageEditOpen(false)}
+        onApply={(imageUrl) => {
+          setGeneratedImage(imageUrl);
+          setGeneratedVideo(null);
+          setGeneratedLastFrame(null);
+          sourceImageBlobCacheRef.current.clear();
+          replaceMVInfoImage(segmentId, infoIndex, imageUrl);
+          onLastFrameGenerated?.(null);
+        }}
+      />
+
       <div className="w-full md:w-32 bg-black/40 p-4 flex flex-col justify-center items-center border-b md:border-b-0 md:border-r border-white/5">
         <span className="text-[11px] font-mono font-bold text-neon-cyan mb-2 px-2 py-0.5 rounded border border-neon-cyan/30 bg-neon-cyan/10">
           小段 {infoIndex + 1}
@@ -520,34 +628,70 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
             </div>
           )}
         </div>
-        
-        {!isNewScene && (
-           <div className="flex justify-end">
-             <div className="w-full md:w-48 aspect-video bg-black/50 rounded border border-white/5 flex items-center justify-center shrink-0 relative overflow-hidden group">
-               {previousLastFrame ? (
-                 <>
-                   <img 
-                     src={previousLastFrame} 
-                     alt="Previous Last Frame" 
-                     className="w-full h-full object-cover"
-                     onLoad={async (event) => {
-                       const blob = await captureImageAsPng(event.currentTarget);
-                       if (blob && blob.size > 0) sourceImageBlobCacheRef.current.set(previousLastFrame, blob);
-                     }}
-                   />
-                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                     <span className="text-[10px] text-white bg-black/50 px-2 py-1 rounded">上一镜头尾帧</span>
-                   </div>
-                 </>
-               ) : (
-                 <span className="text-[10px] text-gray-600 uppercase tracking-wider">16:9 预览区域</span>
-               )}
-             </div>
-           </div>
+
+        {info.source_text && (
+          <div className="mb-4 rounded border border-white/5 bg-black/30 px-3 py-2 text-[11px] leading-relaxed text-gray-400">
+            <span className="mr-2 font-bold uppercase tracking-wider text-gray-500">原文映射</span>
+            {info.source_text}
+          </div>
+        )}
+
+        {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && (
+          <H3ShotControls info={info} segmentId={segmentId} infoIndex={infoIndex} />
         )}
         
+        <div className="mb-4 rounded-lg border border-cyan-400/20 bg-cyan-500/5 p-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-200">本镜头首帧来源</p>
+              <p className="mt-1 text-[10px] text-gray-500">连续镜头可跨分段承接上一镜头尾帧；新场景可用 T2I 独立起画。</p>
+            </div>
+            <div className="flex rounded-lg border border-white/10 bg-black/40 p-1">
+              <button
+                type="button"
+                onClick={() => updateMVInfoFirstFrameSource(segmentId, infoIndex, 'previous-tail')}
+                className={`rounded px-3 py-1.5 text-[10px] transition ${firstFrameSource === 'previous-tail' ? 'bg-cyan-400 text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                承接上一尾帧
+              </button>
+              <button
+                type="button"
+                onClick={() => updateMVInfoFirstFrameSource(segmentId, infoIndex, 't2i')}
+                className={`rounded px-3 py-1.5 text-[10px] transition ${firstFrameSource === 't2i' ? 'bg-cyan-400 text-black' : 'text-gray-400 hover:text-white'}`}
+              >
+                新画面 T2I
+              </button>
+            </div>
+          </div>
+
+          {firstFrameSource === 'previous-tail' && (
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <div className={`flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded border md:w-48 ${previousLastFrame ? 'border-cyan-300/30 bg-black/50' : 'border-amber-400/30 bg-amber-500/5'}`}>
+                {previousLastFrame ? (
+                  <img
+                    src={previousLastFrame}
+                    alt="承接的上一镜头尾帧"
+                    className="h-full w-full object-cover"
+                    onLoad={async (event) => {
+                      const blob = await captureImageAsPng(event.currentTarget);
+                      if (blob && blob.size > 0) sourceImageBlobCacheRef.current.set(previousLastFrame, blob);
+                    }}
+                  />
+                ) : (
+                  <span className="px-3 text-center text-[10px] text-amber-300">等待上一镜头生成尾帧</span>
+                )}
+              </div>
+              <div className="text-xs leading-6 text-gray-400">
+                {previousLastFrame
+                  ? '已接入上一镜头的实际尾帧，并将它作为本镜头首帧提交。跨分段时同样生效。'
+                  : '当前没有可承接的尾帧。请先生成上一镜头视频，或切换为“新画面 T2I”生成独立首帧。'}
+              </div>
+            </div>
+          )}
+        </div>
+        
         <div className="space-y-2">
-          {info.image_prompt && (
+          {firstFrameSource === 't2i' && (
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <div className="flex justify-between items-center mb-1.5">
@@ -581,13 +725,16 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                         </button>
                     </div>
                 </div>
+                <p className="mb-1.5 text-[9px] text-cyan-300/70">实际提交时自动合并“镜头画面要求 + 项目整体艺术风格 + 画幅与角色一致性约束”。</p>
                 <div 
                   ref={promptRef}
                   contentEditable
                   suppressContentEditableWarning
-                  className="bg-black/50 p-3 rounded text-xs text-gray-300 border border-cyan-900/30 hover:border-cyan-500/50 transition cursor-text selection:bg-neon-cyan/30 h-full focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/50"
+                  onBlur={(event) => updateMVInfoImagePrompt(segmentId, infoIndex, event.currentTarget.innerText.trim())}
+                  data-placeholder="请输入本镜头的新画面提示词……"
+                  className="bg-black/50 p-3 rounded text-xs text-gray-300 border border-cyan-900/30 hover:border-cyan-500/50 transition cursor-text selection:bg-neon-cyan/30 h-full focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/50 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-600"
                 >
-                  {info.image_prompt}
+                  {info.image_prompt || ''}
                 </div>
               </div>
               
@@ -603,14 +750,37 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                               const blob = await captureImageAsPng(event.currentTarget);
                               if (blob && blob.size > 0) sourceImageBlobCacheRef.current.set(generatedImage, blob);
                             }}
-                            onClick={() => setPreviewMedia({ type: 'image', url: generatedImage })}
+                            onClick={() => setIsImageEditOpen(true)}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
+                        <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded border border-white/15 bg-black/70 px-2 py-1 text-[9px] text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+                          图片编辑
+                        </span>
                         </>
                     ) : (
-                        <span className="text-[10px] text-gray-600 uppercase tracking-wider">16:9 预览区域</span>
+                        <span className="px-3 text-center text-[10px] text-gray-600">等待生成或上传 T2I 首帧</span>
                     )}
                   </div>
+              </div>
+            </div>
+          )}
+
+          {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && effectiveH3Mode === 'FL2VA' && (
+            <div className="flex flex-col gap-4 rounded border border-fuchsia-400/20 bg-black/20 p-3 md:flex-row">
+              <div className="flex-1">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-fuchsia-300">目标尾帧提示词 (FL2VA)</label>
+                  <div className="flex gap-2">
+                    <input ref={targetFrameInputRef} type="file" accept="image/*" className="hidden" onChange={handleTargetFrameUpload} />
+                    <button type="button" onClick={() => targetFrameInputRef.current?.click()} className="rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-gray-300">上传目标尾帧</button>
+                    <button type="button" onClick={handleGenerateTargetFrame} disabled={!info.last_frame_image_prompt?.trim() || isGenerating} className="rounded border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-1 text-[10px] text-fuchsia-200 disabled:opacity-40">AI 生目标尾帧</button>
+                  </div>
+                </div>
+                <p className="mb-1.5 text-[9px] text-fuchsia-300/70">目标尾帧同样自动附加项目整体艺术风格，避免首帧与尾帧画风漂移。</p>
+                <div className="min-h-16 rounded border border-fuchsia-900/30 bg-black/50 p-3 text-xs text-gray-300">{info.last_frame_image_prompt || '此 FL2VA 镜头缺少 last_frame_image_prompt'}</div>
+              </div>
+              <div className="flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded border border-white/10 bg-black/50 md:w-48">
+                {generatedTargetLastFrame ? <img src={generatedTargetLastFrame} alt="Target last frame" className="h-full w-full object-cover" /> : <span className="text-[10px] text-gray-600">等待目标尾帧</span>}
               </div>
             </div>
           )}
@@ -623,7 +793,6 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                   视频提示词 (I2V / Motion)
                 </label>
                 <button 
-                  ref={videoGenerateButtonRef}
                   onClick={handleVideoButtonClick}
                   disabled={isGeneratingVideo}
                   className="bg-neon-magenta/10 hover:bg-neon-magenta/20 text-neon-magenta text-[10px] px-2 py-1 rounded border border-neon-magenta/30 hover:border-neon-magenta/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
