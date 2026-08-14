@@ -33,6 +33,24 @@ try {
   await run('invalid-frames', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.duration_frames = 260; }, false);
   await run('fl2va-missing-target-prompt', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.mode = 'FL2VA'; }, false);
   await run('ref2va-missing-references', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.mode = 'Ref2VA'; }, false);
+  await run('ref2va-single-reference', (value) => {
+    const plan = value.project.storyboard[0].mvinfo[0].generation_plan;
+    plan.mode = 'Ref2VA';
+    plan.reference_images = [{
+      label: '<Picture 1>',
+      purpose: '人物身份参考',
+      prompt: '<Picture 1> 定义并保持人物身份、服装与材质。',
+    }];
+  }, true);
+  await run('ref2va-too-many-references', (value) => {
+    const plan = value.project.storyboard[0].mvinfo[0].generation_plan;
+    plan.mode = 'Ref2VA';
+    plan.reference_images = [1, 2, 3].map((number) => ({
+      label: `<Picture ${number}>`,
+      purpose: `第${number}项参考`,
+      prompt: `<Picture ${number}> 定义第${number}项参考。`,
+    }));
+  }, false);
 } finally {
   await rm(temp, { recursive: true, force: true });
 }

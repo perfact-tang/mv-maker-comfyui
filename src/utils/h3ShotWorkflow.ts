@@ -18,6 +18,14 @@ interface ConfigureH3VisualInputsOptions {
   referenceImages?: string[];
 }
 
+const removeUnconnectedPictureTags = (prompt: string, availablePictureCount: number): string => (
+  prompt
+    .replace(/<Picture\s+(\d+)>/gi, (tag, rawIndex: string) => (
+      Number(rawIndex) <= availablePictureCount ? tag : ''
+    ))
+    .replace(/[ \t]{2,}/g, ' ')
+);
+
 export const configureH3VisualInputs = (
   workflow: H3Workflow,
   options: ConfigureH3VisualInputsOptions,
@@ -36,11 +44,17 @@ export const configureH3VisualInputs = (
 
   conditioningInputs.task_type = options.mode;
   if (options.mode === 'Ref2VA') {
-    if (options.referenceImages?.length !== 2) throw new Error('Ref2VA requires exactly two uploaded reference images');
-    workflow['13'] = { inputs: { image: options.referenceImages[0] }, class_type: 'LoadImage', _meta: { title: '参考图 1' } };
-    workflow['16'] = { inputs: { image: options.referenceImages[1] }, class_type: 'LoadImage', _meta: { title: '参考图 2' } };
+    const referenceImages = options.referenceImages ?? [];
+    if (referenceImages.length < 1 || referenceImages.length > 2) {
+      throw new Error('Ref2VA requires one or two uploaded reference images');
+    }
+    conditioningInputs.prompt = removeUnconnectedPictureTags(options.prompt, referenceImages.length);
+    workflow['13'] = { inputs: { image: referenceImages[0] }, class_type: 'LoadImage', _meta: { title: '参考图 1' } };
     conditioningInputs['ref_images.ref_image_0'] = ['13', 0];
-    conditioningInputs['ref_images.ref_image_1'] = ['16', 0];
+    if (referenceImages[1]) {
+      workflow['16'] = { inputs: { image: referenceImages[1] }, class_type: 'LoadImage', _meta: { title: '参考图 2' } };
+      conditioningInputs['ref_images.ref_image_1'] = ['16', 0];
+    }
     return;
   }
 

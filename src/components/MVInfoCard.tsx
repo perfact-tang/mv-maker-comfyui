@@ -242,12 +242,15 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
             prompt: reference.prompt,
           };
         })
-      : h3ReferenceImages.map((image) => ({
+      : h3ReferenceImages.filter((image) => Boolean(image?.dataUrl || image?.prompt?.trim())).map((image) => ({
           dataUrl: image?.dataUrl || '',
           filename: image?.filename || '',
           prompt: image?.prompt || '',
         }));
     if (usesH3References) {
+      if (shotReferenceImages.length < 1 || shotReferenceImages.length > 2) {
+        throw new Error('Ref2VA 需要一至两张参考图');
+      }
       const missingImage = shotReferenceImages.findIndex((image) => !image.dataUrl);
       if (missingImage >= 0) {
         throw new Error(`Ref2VA 缺少参考图 ${missingImage + 1}`);

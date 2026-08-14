@@ -166,7 +166,7 @@ if (!isObject(project)) {
       const refs = plan.reference_images ?? [];
       if (!Array.isArray(refs)) fail(`${at}.generation_plan.reference_images must be an array`);
       if (plan.mode === 'Ref2VA') {
-        if (!Array.isArray(refs) || refs.length !== 2) fail(`${at} Ref2VA requires exactly two reference declarations`);
+        if (!Array.isArray(refs) || refs.length < 1 || refs.length > 2) fail(`${at} Ref2VA requires one or two reference declarations`);
         for (const [refIndex, ref] of (Array.isArray(refs) ? refs : []).entries()) {
           if (!isObject(ref) || ref.label !== `<Picture ${refIndex + 1}>` || typeof ref.purpose !== 'string' || !ref.purpose.trim() || typeof ref.prompt !== 'string' || !ref.prompt.trim()) {
             fail(`${at}.generation_plan.reference_images[${refIndex}] is invalid`);

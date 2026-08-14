@@ -28,4 +28,12 @@ assert(ref2va['6'].inputs.task_type === 'Ref2VA', 'Ref2VA task type');
 assert(ref2va['6'].inputs.first_frame === undefined, 'Ref2VA has no first frame');
 assert(ref2va['13'].inputs.image === 'one.png' && ref2va['16'].inputs.image === 'two.png', 'Ref2VA reference nodes');
 
+const ref2vaSingle = createWorkflow();
+configureH3VisualInputs(ref2vaSingle, { prompt: '<Picture 1> 定义主角；<Picture 2> 定义已移除角色。', length: 141, mode: 'Ref2VA', seed: 5, referenceImages: ['one.png'] });
+assert(ref2vaSingle['13'].inputs.image === 'one.png', 'single-reference Ref2VA first reference node');
+assert(ref2vaSingle['16'] === undefined, 'single-reference Ref2VA does not invent a second reference node');
+assert(ref2vaSingle['6'].inputs['ref_images.ref_image_1'] === undefined, 'single-reference Ref2VA has no second conditioning input');
+assert(String(ref2vaSingle['6'].inputs.prompt).includes('<Picture 1>'), 'single-reference Ref2VA keeps connected Picture 1 tag');
+assert(!String(ref2vaSingle['6'].inputs.prompt).includes('<Picture 2>'), 'single-reference Ref2VA removes unconnected Picture 2 tag');
+
 console.log('PASS H3 I2VA / FL2VA / Ref2VA workflow configuration');

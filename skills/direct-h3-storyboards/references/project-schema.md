@@ -85,7 +85,7 @@
 - `source_text`、`generation_plan` 和非空 `video_prompt` 是严格导演输出的必需字段。
 - `I2VA` 不声明参考槽；除 `Last_Frame_Continuity` 外需要 `image_prompt`。
 - `FL2VA` 不声明参考槽，并需要 `last_frame_image_prompt`。
-- `Ref2VA` 必须恰好声明两个参考槽：
+- `Ref2VA` 必须按镜头实际需要声明一至两个参考槽。只有一项有效参考时只声明 `<Picture 1>`，不得复制、虚构或硬凑 `<Picture 2>`：
 
 ```json
 {

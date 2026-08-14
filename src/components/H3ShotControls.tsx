@@ -36,7 +36,6 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
     reference_images: h3GenerationMode === 'reference-images'
       ? [
           { label: '<Picture 1>', purpose: '第一张人物、场景或风格参考图', prompt: '<Picture 1> 定义第一项必须保持的视觉参考。' },
-          { label: '<Picture 2>', purpose: '第二张人物、场景或风格参考图', prompt: '<Picture 2> 定义第二项必须保持的视觉参考。' },
         ]
       : [],
   };
@@ -46,9 +45,8 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
     ...plan,
     mode,
     reference_images: mode === 'Ref2VA'
-      ? (plan.reference_images.length === 2 ? plan.reference_images : [
+      ? (plan.reference_images.length >= 1 && plan.reference_images.length <= 2 ? plan.reference_images : [
           { label: '<Picture 1>', purpose: '人物、产品、场景或风格身份参考', prompt: '<Picture 1> 定义第一项必须保持的视觉参考。' },
-          { label: '<Picture 2>', purpose: '人物、产品、场景或风格身份参考', prompt: '<Picture 2> 定义第二项必须保持的视觉参考。' },
         ])
       : [],
   });
@@ -97,7 +95,7 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
           <select value={plan.mode} onChange={(event) => setMode(event.target.value as H3ShotMode)} className="rounded border border-white/10 bg-black/50 px-2 py-1.5 text-xs normal-case text-gray-200">
             <option value="I2VA">I2VA · 首帧推进</option>
             <option value="FL2VA">FL2VA · 首尾帧</option>
-            <option value="Ref2VA">Ref2VA · 双参考图</option>
+            <option value="Ref2VA">Ref2VA · 一至两张参考图</option>
           </select>
         </label>
         <label className="flex min-w-[120px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200">
@@ -121,9 +119,10 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
       </div>
 
       {plan.mode === 'Ref2VA' && (
-        <div className="grid gap-2 border-t border-white/10 pt-2 lg:grid-cols-2">
-          {([0, 1] as const).map((index) => {
-            const reference = plan.reference_images[index];
+        <div className="border-t border-white/10 pt-2">
+          <div className="grid gap-2 lg:grid-cols-2">
+          {plan.reference_images.map((reference, rawIndex) => {
+            const index = rawIndex as 0 | 1;
             const resolvedImage = resolveReferenceImage(mvData?.characters ?? [], reference);
             return (
               <div key={index} className="flex gap-2 rounded border border-white/10 bg-black/30 p-2">
@@ -135,7 +134,12 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center justify-between text-[10px] text-fuchsia-200">
                     <span>{reference.label}</span>
-                    {reference.asset && <button type="button" onClick={() => {
+                    {index === 1 ? (
+                      <button type="button" title="移除第二张参考图" onClick={() => {
+                        setSelectingReferenceIndex(null);
+                        commit({ ...plan, reference_images: plan.reference_images.slice(0, 1) });
+                      }} className="flex items-center gap-1 text-gray-400 hover:text-red-300"><X size={12} />移除</button>
+                    ) : reference.asset && <button type="button" title="清除本地覆盖图片" onClick={() => {
                       const refs = [...plan.reference_images];
                       refs[index] = { ...reference, asset: undefined };
                       commit({ ...plan, reference_images: refs });
@@ -161,6 +165,18 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
               </div>
             );
           })}
+          </div>
+          {plan.reference_images.length === 1 && (
+            <button type="button" onClick={() => commit({
+              ...plan,
+              reference_images: [
+                ...plan.reference_images,
+                { label: '<Picture 2>', purpose: '可选的第二张人物、产品、场景或风格参考', prompt: '<Picture 2> 定义第二项需要保持的视觉参考。' },
+              ],
+            })} className="mt-2 flex w-full items-center justify-center gap-2 rounded border border-dashed border-cyan-300/30 bg-cyan-500/5 px-3 py-2 text-xs text-cyan-200 hover:border-cyan-300/60 hover:bg-cyan-500/10">
+              <ImagePlus size={14} /> 添加第二张参考图（可选）
+            </button>
+          )}
         </div>
       )}
       {selectingReferenceIndex !== null && (

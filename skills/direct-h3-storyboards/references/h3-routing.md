@@ -55,7 +55,7 @@ Describe the observable path from Picture 1 to Picture 2. Narrow pose, object, c
 
 ### Ref2VA
 
-Declare exactly two reference slots in `generation_plan.reference_images`. Each slot needs `label`, `purpose`, and `prompt`; use `source_character` when a project character image should resolve automatically.
+Declare one or two reference slots in `generation_plan.reference_images`, according to the references genuinely needed by the shot. A single-reference shot declares only `<Picture 1>`; never duplicate or invent `<Picture 2>` merely to fill a slot. Each declared slot needs `label`, `purpose`, and `prompt`; use `source_character` when a project character image should resolve automatically.
 
 Write these six sections in order:
 

@@ -105,7 +105,7 @@ export const validateMVData = (data: unknown): ValidationResult => {
       if (!['native-audio', 'drive-audio', 'reference-audio', 'no-audio'].includes(String(plan.audio_mode))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 audio_mode 无效` };
       if (!Array.isArray(plan.reference_images)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 reference_images 必须是数组` };
       if (plan.mode === 'Ref2VA') {
-        if (plan.reference_images.length !== 2) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个 Ref2VA 镜头必须声明两张参考图` };
+        if (plan.reference_images.length < 1 || plan.reference_images.length > 2) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个 Ref2VA 镜头必须声明一至两张参考图` };
         for (let refIndex = 0; refIndex < plan.reference_images.length; refIndex += 1) {
           const reference = plan.reference_images[refIndex];
           if (!isObject(reference) || reference.label !== `<Picture ${refIndex + 1}>` || typeof reference.purpose !== 'string' || !reference.purpose.trim() || typeof reference.prompt !== 'string' || !reference.prompt.trim()) {

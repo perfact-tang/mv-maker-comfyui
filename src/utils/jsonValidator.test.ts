@@ -46,4 +46,20 @@ const badRef = structuredClone(base);
 badRef.storyboard[0].mvinfo[0].generation_plan.mode = 'Ref2VA';
 assert(!validateMVData(badRef).isValid, 'Ref2VA without declarations must fail');
 
+const singleRef = structuredClone(base);
+singleRef.storyboard[0].mvinfo[0].generation_plan.mode = 'Ref2VA';
+singleRef.storyboard[0].mvinfo[0].generation_plan.reference_images = [{
+  label: '<Picture 1>',
+  purpose: '人物身份参考',
+  prompt: '<Picture 1> 定义并保持人物身份。',
+}];
+assert(validateMVData(singleRef).isValid, 'Ref2VA with one declaration must validate');
+
+const tooManyRefs = structuredClone(singleRef);
+tooManyRefs.storyboard[0].mvinfo[0].generation_plan.reference_images.push(
+  { label: '<Picture 2>', purpose: '场景参考', prompt: '<Picture 2> 定义场景。' },
+  { label: '<Picture 3>', purpose: '多余参考', prompt: '<Picture 3> 不应被接受。' },
+);
+assert(!validateMVData(tooManyRefs).isValid, 'Ref2VA with more than two declarations must fail');
+
 console.log('PASS legacy and director JSON validation');
