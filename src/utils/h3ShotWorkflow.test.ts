@@ -1,4 +1,4 @@
-import { configureH3VisualInputs } from './h3ShotWorkflow.ts';
+import { configureH3AudioInputs, configureH3VisualInputs } from './h3ShotWorkflow.ts';
 import type { H3Workflow } from './h3ShotWorkflow.ts';
 
 const createWorkflow = (): H3Workflow => ({
@@ -36,4 +36,45 @@ assert(ref2vaSingle['6'].inputs['ref_images.ref_image_1'] === undefined, 'single
 assert(String(ref2vaSingle['6'].inputs.prompt).includes('<Picture 1>'), 'single-reference Ref2VA keeps connected Picture 1 tag');
 assert(!String(ref2vaSingle['6'].inputs.prompt).includes('<Picture 2>'), 'single-reference Ref2VA removes unconnected Picture 2 tag');
 
-console.log('PASS H3 I2VA / FL2VA / Ref2VA workflow configuration');
+const driveAudio = createWorkflow();
+driveAudio['6'].inputs.prompt = 'Follow <Audio 1> exactly.';
+configureH3AudioInputs(driveAudio, { audioMode: 'drive-audio', uploadedAudioFilename: 'drive.mp3' });
+assert(JSON.stringify(driveAudio['6'].inputs.drive_audio) === JSON.stringify(['17', 0]), 'drive audio is connected');
+assert(driveAudio['6'].inputs.audio_mode === 'lock_source', 'drive audio locks the source latent');
+assert(driveAudio['6'].inputs.add_source_as_reference === false, 'keyframed drive audio is not registered as reference media');
+assert(driveAudio['6'].inputs.prompt_primary_audio_ordinal === 0, 'keyframed drive audio does not claim a prompt ordinal');
+assert(driveAudio['6'].inputs.task_type === 'I2VA', 'I2VA plus drive audio remains I2VA');
+assert(!String(driveAudio['6'].inputs.prompt).includes('<Audio 1>'), 'keyframed drive audio tags are converted to plain text');
+
+const untaggedDriveAudio = createWorkflow();
+configureH3AudioInputs(untaggedDriveAudio, { audioMode: 'drive-audio', uploadedAudioFilename: 'drive.mp3' });
+assert(untaggedDriveAudio['6'].inputs.add_source_as_reference === false, 'untagged drive audio is not duplicated as a prompt reference');
+assert(untaggedDriveAudio['6'].inputs.prompt_primary_audio_ordinal === 0, 'untagged drive audio does not claim a prompt ordinal');
+assert(untaggedDriveAudio['6'].inputs.task_type === 'I2VA', 'untagged drive audio preserves the visual task type');
+
+const fl2vaDriveAudio = createWorkflow();
+fl2vaDriveAudio['6'].inputs.task_type = 'FL2VA';
+fl2vaDriveAudio['6'].inputs.prompt = 'Match <Audio 1> while preserving both keyframes.';
+configureH3AudioInputs(fl2vaDriveAudio, { audioMode: 'drive-audio', uploadedAudioFilename: 'drive.mp3' });
+assert(fl2vaDriveAudio['6'].inputs.task_type === 'FL2VA', 'FL2VA plus drive audio remains FL2VA');
+assert(fl2vaDriveAudio['6'].inputs.add_source_as_reference === false, 'FL2VA drive audio avoids disabled Hybrid reference media');
+assert(!String(fl2vaDriveAudio['6'].inputs.prompt).includes('<Audio 1>'), 'FL2VA drive audio prompt contains no media tag');
+
+const referenceAudio = createWorkflow();
+let keyframedReferenceError = '';
+try {
+  configureH3AudioInputs(referenceAudio, { audioMode: 'reference-audio', uploadedAudioFilename: 'reference.mp3' });
+} catch (error) {
+  keyframedReferenceError = error instanceof Error ? error.message : String(error);
+}
+assert(keyframedReferenceError.includes('Hybrid'), 'keyframed reference audio reports the disabled Hybrid compatibility path');
+
+const ref2vaAudio = createWorkflow();
+ref2vaAudio['6'].inputs.task_type = 'Ref2VA';
+configureH3AudioInputs(ref2vaAudio, { audioMode: 'reference-audio', uploadedAudioFilename: 'reference.mp3' });
+assert(ref2vaAudio['6'].inputs.task_type === 'Ref2VA', 'Ref2VA remains Ref2VA when audio reference is added');
+assert(JSON.stringify(ref2vaAudio['6'].inputs.drive_audio) === JSON.stringify(['17', 0]), 'Ref2VA reference_only receives required drive_audio');
+assert(ref2vaAudio['6'].inputs.audio_mode === 'reference_only', 'Ref2VA reference audio uses reference_only mode');
+assert(ref2vaAudio['6'].inputs.add_source_as_reference === true, 'Ref2VA reference source is exposed as Audio 1');
+
+console.log('PASS H3 visual and audio workflow configuration');

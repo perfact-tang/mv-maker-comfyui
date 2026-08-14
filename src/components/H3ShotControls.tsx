@@ -98,15 +98,15 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
             <option value="Ref2VA">Ref2VA · 一至两张参考图</option>
           </select>
         </label>
-        <label className="flex min-w-[120px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200">
+        <div className="flex min-w-[120px] flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200">
           本镜头时长
-          <select value={plan.duration_seconds} onChange={(event) => {
-            const duration = DURATION_OPTIONS.find((item) => item.seconds === Number(event.target.value)) ?? DURATION_OPTIONS[0];
-            commit({ ...plan, duration_seconds: duration.seconds, duration_frames: duration.frames });
-          }} className="rounded border border-white/10 bg-black/50 px-2 py-1.5 text-xs normal-case text-gray-200">
-            {DURATION_OPTIONS.map((item) => <option key={item.seconds} value={item.seconds}>{item.seconds} 秒 · {item.frames} 帧</option>)}
-          </select>
-        </label>
+          <div
+            className="rounded border border-white/10 bg-black/30 px-2 py-1.5 text-xs font-normal normal-case text-gray-200"
+            title="镜头时长由已加载的脚本决定，并用于自动切分音频"
+          >
+            {plan.duration_seconds} 秒 · {plan.duration_frames} 帧
+          </div>
+        </div>
         <label className="flex min-w-[150px] flex-1 flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200">
           本镜头音频
           <select value={plan.audio_mode} onChange={(event) => commit({ ...plan, audio_mode: event.target.value as H3ShotGenerationPlan['audio_mode'] })} className="rounded border border-white/10 bg-black/50 px-2 py-1.5 text-xs normal-case text-gray-200">

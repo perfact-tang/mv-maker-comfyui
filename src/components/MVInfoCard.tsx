@@ -1,4 +1,4 @@
-import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { AudioLines, Image, Video, Music, Loader2, X, Play, UploadCloud } from 'lucide-react';
 import { MVInfo, MVScriptData } from '../types/mv-data';
 import { generateComfyImage, executeComfyWorkflow, uploadAudioToComfy, uploadImageToComfy } from '../utils/comfyApi';
@@ -7,7 +7,7 @@ import { VIDEO_WORKFLOWS } from '../utils/workflows';
 import { applyVideoDimensions, VIDEO_DIMENSIONS } from '../utils/characterVideoWorkflow';
 import { ImageEditModal } from './ImageEditModal';
 import { H3ShotControls } from './H3ShotControls';
-import { configureH3VisualInputs } from '../utils/h3ShotWorkflow';
+import { configureH3AudioInputs, configureH3VisualInputs } from '../utils/h3ShotWorkflow';
 import { resolveReferenceImage } from '../utils/characterReferences';
 import { composeStoryboardImagePrompt } from '../utils/imagePrompt';
 
@@ -324,7 +324,6 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       const seed = Math.floor(Math.random() * 1000000000000000);
       
       if (isH3Workflow) {
-        const conditioningInputs = workflow["6"].inputs;
         configureH3VisualInputs(workflow, {
           prompt: fullPrompt,
           length: effectiveH3Length,
@@ -335,35 +334,10 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
           referenceImages: uploadedH3References,
         });
 
-        delete conditioningInputs.drive_audio;
-        delete conditioningInputs['ref_audios.ref_audio_0'];
-        delete workflow["17"];
-
-        if (effectiveH3AudioMode === 'native-audio' || effectiveH3AudioMode === 'no-audio') {
-          // Both modes use H3's native audiovisual generation. Silent mode alone
-          // removes the decoded audio track from the exported MP4.
-          conditioningInputs.audio_mode = 'native';
-          conditioningInputs.add_source_as_reference = false;
-          conditioningInputs.prompt_primary_audio_ordinal = 0;
-          if (effectiveH3AudioMode === 'no-audio' && workflow["12"]) delete workflow["12"].inputs.audio;
-        } else if (uploadedAudioFilename) {
-          workflow["17"] = {
-            inputs: { audio: uploadedAudioFilename },
-            class_type: 'LoadAudio',
-            _meta: { title: effectiveH3AudioMode === 'drive-audio' ? 'Drive Audio' : '参考音乐' },
-          };
-          if (effectiveH3AudioMode === 'drive-audio') {
-            conditioningInputs.drive_audio = ['17', 0];
-            conditioningInputs.audio_mode = 'lock_source';
-            conditioningInputs.add_source_as_reference = false;
-            conditioningInputs.prompt_primary_audio_ordinal = 0;
-          } else {
-            conditioningInputs['ref_audios.ref_audio_0'] = ['17', 0];
-            conditioningInputs.audio_mode = 'reference_only';
-            conditioningInputs.add_source_as_reference = false;
-            conditioningInputs.prompt_primary_audio_ordinal = 1;
-          }
-        }
+        configureH3AudioInputs(workflow, {
+          audioMode: effectiveH3AudioMode,
+          uploadedAudioFilename,
+        });
       } else if (effectiveVideoWorkflow === 'LTX2.3') {
         // LTX2.3 specific node mapping
         if (workflow["269"] && uploadedFilename) workflow["269"].inputs.image = uploadedFilename;

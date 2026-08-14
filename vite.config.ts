@@ -5,7 +5,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { mkdir, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const readRequestBody = async (request: import('node:http').IncomingMessage) => {
@@ -50,8 +50,9 @@ const audioUploadPlugin = () => ({
       try {
         const originalName = decodeURIComponent(String(req.headers['x-file-name'] || 'audio.mp3'));
         const extension = path.extname(originalName).toLowerCase();
-        const segmentDuration = Number(req.headers['x-segment-duration']);
-        const allowedSegmentDurations = [5, 10, 15, 20];
+        const rawShotDurations = String(req.headers['x-shot-durations'] || '');
+        const shotDurations = JSON.parse(rawShotDurations) as number[];
+        const allowedShotDurations = new Set([5, 10, 15, 20]);
 
         if (!['.wav', '.mp3'].includes(extension)) {
           res.statusCode = 400;
@@ -59,9 +60,14 @@ const audioUploadPlugin = () => ({
           return;
         }
 
-        if (!allowedSegmentDurations.includes(segmentDuration)) {
+        if (
+          !Array.isArray(shotDurations)
+          || shotDurations.length === 0
+          || shotDurations.length > 500
+          || shotDurations.some((duration) => !allowedShotDurations.has(duration))
+        ) {
           res.statusCode = 400;
-          res.end('Segment duration must be 5, 10, 15, or 20 seconds.');
+          res.end('Shot durations must be a non-empty list containing only 5, 10, 15, or 20 seconds.');
           return;
         }
 
@@ -81,30 +87,45 @@ const audioUploadPlugin = () => ({
         await mkdir(outputDir, { recursive: true });
         await writeFile(sourcePath, body);
 
-        await runFfmpeg([
-          '-y',
-          '-i', sourcePath,
-          '-vn',
-          '-map', '0:a:0',
-          '-f', 'segment',
-          '-segment_time', String(segmentDuration),
-          '-reset_timestamps', '1',
-          '-c:a', 'libmp3lame',
-          '-b:a', '192k',
-          path.join(outputDir, 'scene_%03d.mp3'),
-        ]);
+        const totalDuration = shotDurations.reduce((total, duration) => total + duration, 0);
+        const chunkFiles: Array<{ file: string; index: number; size: number; sourceStartSeconds: number }> = [];
+        let sourceStartSeconds = 0;
 
-        const files = (await readdir(outputDir))
-          .filter((file) => file.endsWith('.mp3') && file.startsWith('scene_'))
-          .sort();
+        // Duration labels are inclusive: a 00:00-00:05 shot must contain the
+        // whole fifth second and therefore ends immediately before 00:06.
+        // The next shot still starts at 00:05, creating the intended 1s overlap.
+        for (const [index, shotDuration] of shotDurations.entries()) {
+          const clipDuration = shotDuration + 1;
+          const file = `scene_${String(index).padStart(3, '0')}.mp3`;
+          const outputPath = path.join(outputDir, file);
 
-        const chunks = files.map((file) => ({
-          filename: file,
-          url: `/uploads/audio/${proposalId}-${uploadId}/${file}`,
-        }));
+          await runFfmpeg([
+            '-y',
+            '-ss', String(sourceStartSeconds),
+            '-i', sourcePath,
+            '-vn',
+            '-map', '0:a:0',
+            '-t', String(clipDuration),
+            '-c:a', 'libmp3lame',
+            '-b:a', '192k',
+            outputPath,
+          ]);
+
+          chunkFiles.push({ file, index, size: (await stat(outputPath)).size, sourceStartSeconds });
+          sourceStartSeconds += shotDuration;
+        }
+
+        const chunks = chunkFiles
+          .filter(({ size }) => size > 1024)
+          .map(({ file, index, sourceStartSeconds: chunkStart }) => ({
+            filename: file,
+            url: `/uploads/audio/${proposalId}-${uploadId}/${file}`,
+            durationSeconds: shotDurations[index] + 1,
+            sourceStartSeconds: chunkStart,
+          }));
 
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ chunks, segmentDuration }));
+        res.end(JSON.stringify({ chunks, shotDurations, totalDuration, inclusiveEndSecond: true }));
       } catch (error) {
         console.error('[audio split] failed:', error);
         res.statusCode = 500;
