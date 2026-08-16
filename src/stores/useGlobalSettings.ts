@@ -51,6 +51,16 @@ const retimeStoryboard = (data: MVScriptData): MVScriptData => {
   };
 };
 
+const syncDriveAudioTranscript = (prompt: string, text: string) => {
+  let replaced = false;
+  const synced = prompt.replace(/<d>\[[^\]]+\][\s\S]*?<\/d>/g, () => {
+    if (replaced) return '';
+    replaced = true;
+    return `<d>[Auto] ${text}</d>`;
+  }).replace(/中文(?=[男女声])/g, '目标语言');
+  return replaced ? synced : `${synced.trim()}\n\ndrive_audio_transcript: <d>[Auto] ${text}</d>`;
+};
+
 interface GlobalSettingsState {
   selectedWorkflow: string;
   setSelectedWorkflow: (workflow: string) => void;
@@ -80,6 +90,7 @@ interface GlobalSettingsState {
   updateMVInfoAsset: (segmentId: number, infoIndex: number, assetType: 'image' | 'video' | 'source_video' | 'last_frame' | 'target_last_frame' | 'drive_audio' | 'drive_audio_filename' | 'voice_audio' | 'voice_audio_filename' | 'music_audio' | 'music_audio_filename', url: string) => void;
   updateMVInfoAudioTiming: (segmentId: number, infoIndex: number, duration: 5 | 10 | 15, actualVoiceDuration?: number, playbackRate?: number, resetVoice?: boolean) => void;
   updateMVInfoAudioText: (segmentId: number, infoIndex: number, text: string) => void;
+  updateMVInfoAudioTexts: (updates: Array<{ segmentId: number; infoIndex: number; text: string }>) => void;
   updateAudioChapter: (chapterId: string, patch: Partial<AudioChapter>) => void;
   setAudioAlignmentStatus: (status: AudioAlignmentStatus) => void;
   lockAudioTimeline: () => void;
@@ -359,6 +370,7 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
           mvinfo[infoIndex] = {
             ...info,
             lyrics: text,
+            video_prompt: syncDriveAudioTranscript(info.video_prompt, text),
             audio_plan: {
               ...info.audio_plan,
               audio_text: text,
@@ -370,6 +382,46 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
           };
           return { ...segment, mvinfo };
         });
+        return {
+          mvData: {
+            ...state.mvData,
+            director_plan: {
+              ...state.mvData.director_plan,
+              audio_plan: { ...state.mvData.director_plan.audio_plan, alignment_status: 'planned' },
+            },
+            storyboard,
+          },
+        };
+      }),
+      updateMVInfoAudioTexts: (updates) => set((state) => {
+        if (!state.mvData?.director_plan?.audio_plan || !updates.length) return state;
+        const byShot = new Map(updates.map((update) => [`${update.segmentId}:${update.infoIndex}`, update.text]));
+        const storyboard = state.mvData.storyboard.map((segment) => ({
+          ...segment,
+          mvinfo: segment.mvinfo.map((info, infoIndex) => {
+            const text = byShot.get(`${segment.segment_id}:${infoIndex}`);
+            if (text === undefined || !info.audio_plan) return info;
+            const generatedAssets = { ...info.generated_assets };
+            delete generatedAssets.voice_audio;
+            delete generatedAssets.voice_audio_filename;
+            delete generatedAssets.drive_audio;
+            delete generatedAssets.drive_audio_filename;
+            generatedAssets.mux_status = 'pending';
+            return {
+              ...info,
+              lyrics: text,
+              video_prompt: syncDriveAudioTranscript(info.video_prompt, text),
+              audio_plan: {
+                ...info.audio_plan,
+                audio_text: text,
+                actual_voice_duration_seconds: undefined,
+                voice_playback_rate: undefined,
+                cut_status: 'tentative' as const,
+              },
+              generated_assets: generatedAssets,
+            };
+          }),
+        }));
         return {
           mvData: {
             ...state.mvData,

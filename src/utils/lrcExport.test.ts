@@ -1,4 +1,4 @@
-import { createProjectLrc, formatLrcTimestamp } from './lrcExport.ts';
+import { createProjectLrc, formatLrcTimestamp, matchLrcToProject, parseLrc } from './lrcExport.ts';
 import type { MVScriptData } from '../types/mv-data.ts';
 
 const assert = (condition: unknown, message: string) => {
@@ -27,5 +27,9 @@ assert(formatLrcTimestamp(75.12) === '01:15.12', 'timestamp formatting should su
 assert(lrc.includes('[00:00.00]编辑后的第一句'), 'LRC must use editable audio text');
 assert(!lrc.includes('(No dialogue)'), 'no-dialogue markers must not become subtitles');
 assert(lrc.includes('[00:15.00]\n'), 'LRC must append a final clear timestamp');
+assert(parseLrc('\uFEFF[ti:翻译]\n[00:00.00]Translated line\n[00:15.00]').length === 1, 'metadata and final empty timestamps must be ignored');
+const translated = matchLrcToProject(project, '[00:00.20]Translated line');
+assert(translated.assignments.length === 1 && translated.assignments[0].matchMode === 'timestamp', 'translated LRC must match shots within timestamp tolerance');
+assert(translated.assignments[0].importedText === 'Translated line', 'translated text must be preserved');
 
 console.log('PASS project LRC export');
