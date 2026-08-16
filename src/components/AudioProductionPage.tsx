@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
-import { AudioLines, CheckCircle2, Loader2, LockKeyhole, Music2, RefreshCw, Sparkles, UserRound, WandSparkles } from 'lucide-react';
+import { AudioLines, CheckCircle2, Download, Loader2, LockKeyhole, Music2, RefreshCw, Sparkles, UserRound, WandSparkles } from 'lucide-react';
+import { saveAs } from 'file-saver';
 import type { MVInfo, VoiceProfile } from '../types/mv-data';
 import { generateMusic3Chapter, generateQwen3ShotVoice, generateQwen3Voice, mixVoiceAndMusic, splitMusic3Chapter } from '../utils/audioProduction';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
+import { createProjectLrc, safeLrcFilename } from '../utils/lrcExport';
 
 type VoiceBatchProgress = {
   phase: 'generating' | 'cooling';
@@ -202,11 +204,17 @@ export const AudioProductionPage = () => {
     setMessage('声音时间线已锁定，可以生成 H3 视频。');
   };
 
+  const downloadLrc = () => {
+    const content = `\uFEFF${createProjectLrc(mvData)}`;
+    saveAs(new Blob([content], { type: 'text/plain;charset=utf-8' }), safeLrcFilename(mvData));
+    setMessage('LRC 字幕已按当前声音时间线导出。修改后的配音文本和镜头时长已经写入字幕。');
+  };
+
   return <div className="space-y-6">
     {voiceBatchProgress && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md" aria-live="assertive" aria-busy="true"><div className="w-full max-w-md rounded-2xl border border-cyan-300/30 bg-[#111827] p-8 text-center shadow-[0_0_50px_rgba(34,211,238,0.18)]"><div className="relative mx-auto flex h-24 w-24 items-center justify-center"><div className="absolute inset-0 animate-ping rounded-full border border-cyan-300/20" /><div className="absolute inset-2 animate-spin rounded-full border-4 border-cyan-300/15 border-t-cyan-300" /><AudioLines className="text-cyan-200" size={34} /></div><h3 className="mt-6 text-xl font-bold text-white">{voiceBatchProgress.phase === 'generating' ? '千问 3 TTS 配音生成中' : '生成成功，正在冷却'}</h3><p className="mt-2 text-sm text-cyan-200">{voiceBatchProgress.shotLabel} · 第 {voiceBatchProgress.current}/{voiceBatchProgress.total} 个</p>{voiceBatchProgress.phase === 'cooling' ? <><div className="mx-auto mt-5 flex h-16 w-16 items-center justify-center rounded-full border border-fuchsia-300/30 bg-fuchsia-500/10 text-2xl font-bold text-fuchsia-200">{voiceBatchProgress.cooldownSeconds}</div><p className="mt-3 text-xs text-gray-400">等待 ComfyUI 释放资源，倒计时结束后自动生成下一个镜头。</p></> : <p className="mt-5 text-xs text-gray-400">请不要关闭页面或重复点击，当前操作完成前界面已暂时锁定。</p>}<div className="mt-6 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-gradient-to-r from-cyan-300 to-fuchsia-400 transition-all duration-500" style={{ width: `${((voiceBatchProgress.current - (voiceBatchProgress.phase === 'generating' ? 1 : 0)) / voiceBatchProgress.total) * 100}%` }} /></div></div></div>}
     {voiceBatchDialog && <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"><div className={`w-full max-w-md rounded-xl border p-6 shadow-2xl ${voiceBatchDialog.tone === 'success' ? 'border-emerald-300/30 bg-emerald-950/90' : 'border-red-300/30 bg-red-950/90'}`}><h3 className="text-lg font-bold text-white">{voiceBatchDialog.title}</h3><p className="mt-3 whitespace-pre-line text-sm leading-6 text-gray-200">{voiceBatchDialog.message}</p><button type="button" onClick={() => setVoiceBatchDialog(null)} className="mt-6 w-full rounded bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20">知道了</button></div></div>}
     <section className="glass-card rounded-xl border border-emerald-300/20 bg-emerald-500/5 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><AudioLines className="text-emerald-300" /><h2 className="text-2xl font-bold text-white">声音制作</h2></div><p className="mt-2 text-sm text-gray-400">千问 3 TTS 负责配音和音色一致性；MiniMax Music 3 只负责纯器乐背景配乐。</p><p className="mt-1 text-xs text-emerald-200/70">最终 Drive Audio：配音 100% + 配乐 18% · 状态 {plan.alignment_status}</p></div><button type="button" disabled={Boolean(busy)} onClick={lock} className="flex items-center gap-2 rounded border border-cyan-300/40 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-200 disabled:opacity-50"><LockKeyhole size={15} />锁定声音时间线</button></div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><div className="flex items-center gap-2"><AudioLines className="text-emerald-300" /><h2 className="text-2xl font-bold text-white">声音制作</h2></div><p className="mt-2 text-sm text-gray-400">千问 3 TTS 负责配音和音色一致性；MiniMax Music 3 只负责纯器乐背景配乐。</p><p className="mt-1 text-xs text-emerald-200/70">最终 Drive Audio：配音 100% + 配乐 18% · 状态 {plan.alignment_status}</p></div><div className="flex flex-wrap gap-2"><button type="button" disabled={Boolean(busy)} onClick={downloadLrc} className="flex items-center gap-2 rounded border border-emerald-300/40 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200 disabled:opacity-50"><Download size={15} />导出 LRC 字幕</button><button type="button" disabled={Boolean(busy)} onClick={lock} className="flex items-center gap-2 rounded border border-cyan-300/40 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-200 disabled:opacity-50"><LockKeyhole size={15} />锁定声音时间线</button></div></div>
       <div className="mt-5 grid grid-cols-2 gap-2 rounded-lg bg-black/30 p-1"><button type="button" onClick={() => setPanel('voice')} className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-sm font-bold ${panel === 'voice' ? 'bg-cyan-400 text-black' : 'text-gray-400'}`}><UserRound size={15} />千问 3 TTS · 配音</button><button type="button" onClick={() => setPanel('music')} className={`flex items-center justify-center gap-2 rounded px-4 py-2 text-sm font-bold ${panel === 'music' ? 'bg-fuchsia-400 text-black' : 'text-gray-400'}`}><Music2 size={15} />Music 3 · 配乐</button></div>
       {message && <p className="mt-4 rounded border border-white/10 bg-black/30 px-3 py-2 text-xs text-gray-200">{message}</p>}
     </section>

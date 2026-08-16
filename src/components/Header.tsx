@@ -7,6 +7,7 @@ import { AudioUploader } from './AudioUploader';
 import { H3VideoControls } from './H3VideoControls';
 import { VideoOrientationControl } from './VideoOrientationControl';
 import { createProjectArchive } from '../utils/projectArchive';
+import { createProjectLrc, safeLrcFilename } from '../utils/lrcExport';
 
 interface HeaderProps {
   title: string;
@@ -45,22 +46,11 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
     try {
       const zip = new JSZip();
       const videoFolder = zip.folder("videos");
-      let lrcContent = `[ti:Proposal ${mvData.proposal_id}]\n[ar:MV Maker]\n`;
       
       const promises: Promise<void>[] = [];
 
       mvData.storyboard.forEach(segment => {
         segment.mvinfo.forEach((info, index) => {
-          // Add to LRC
-          if (info.video_prompt) {
-             const startTime = info.timestamp.split(' - ')[0]; // "00:00"
-             // Format to 00:00.00 if it's just 00:00
-             const formattedTime = `[${startTime}.00]`;
-             // Clean prompt
-             const cleanPrompt = info.video_prompt.replace(/\n/g, ' ');
-             lrcContent += `${formattedTime}${cleanPrompt}\n`;
-          }
-
           // Add video
           if (info.generated_assets?.video) {
              const filename = `segment_${segment.segment_id}_scene_${index + 1}.mp4`;
@@ -78,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
       await Promise.all(promises);
 
       // Add LRC
-      zip.file("prompts.lrc", lrcContent);
+      zip.file(safeLrcFilename(mvData), `\uFEFF${createProjectLrc(mvData)}`);
 
       const content = await zip.generateAsync({ type: "blob" });
       saveAs(content, `mv_project_${mvData.proposal_id}_full_package.zip`);
