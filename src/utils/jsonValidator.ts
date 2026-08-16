@@ -94,6 +94,7 @@ export const validateMVData = (data: unknown): ValidationResult => {
 
   const directorPlan = isObject(data.director_plan) ? data.director_plan : undefined;
   const audioPlan = directorPlan && isObject(directorPlan.audio_plan) ? directorPlan.audio_plan : undefined;
+  const qwenLanguages = ['Auto', 'Chinese', 'English', 'Japanese', 'Korean', 'German', 'French', 'Russian', 'Portuguese', 'Spanish', 'Italian'];
   if (audioPlan) {
     if (!['disabled', 'music3-audio-first', 'qwen3-tts-audio-first'].includes(String(audioPlan.mode))) {
       return { isValid: false, error: "director_plan.audio_plan.mode 无效" };
@@ -122,6 +123,7 @@ export const validateMVData = (data: unknown): ValidationResult => {
     if (audioPlan.mode === 'qwen3-tts-audio-first') {
       if (audioPlan.workflow !== '千问 3 TTS' || audioPlan.music_workflow !== 'MiniMax Music 3') return { isValid: false, error: '千问 3 TTS 项目必须声明千问 3 TTS 配音和 MiniMax Music 3 配乐工作流' };
       if (!isObject(audioPlan.narrator_voice)) return { isValid: false, error: '千问 3 TTS 项目缺少 narrator_voice' };
+      if (audioPlan.tts_language !== undefined && !qwenLanguages.includes(String(audioPlan.tts_language))) return { isValid: false, error: 'director_plan.audio_plan.tts_language 无效' };
     }
     const chapterIds = new Set<string>();
     for (const [chapterIndex, chapter] of audioPlan.chapters.entries()) {
@@ -159,6 +161,7 @@ export const validateMVData = (data: unknown): ValidationResult => {
       if (shot.audio_plan !== undefined) {
         if (!isObject(shot.audio_plan)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 audio_plan 无效` };
         const shotAudio = shot.audio_plan;
+        if (shotAudio.tts_language !== undefined && !qwenLanguages.includes(String(shotAudio.tts_language))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 TTS 语言无效` };
         if (typeof shotAudio.chapter_id !== 'string' || !shotAudio.chapter_id.trim()) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头缺少声音章节 ID` };
         if (audioPlan?.mode !== 'disabled' && !(audioPlan.chapters as unknown[]).some((chapter) => isObject(chapter) && chapter.chapter_id === shotAudio.chapter_id)) {
           return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头引用了不存在的声音章节` };

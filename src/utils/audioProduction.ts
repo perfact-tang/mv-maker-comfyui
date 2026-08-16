@@ -1,8 +1,11 @@
-import type { AudioChapter, MVInfo, VoiceProfile } from '../types/mv-data';
+import type { AudioChapter, MVInfo, Qwen3TtsLanguage, VoiceProfile } from '../types/mv-data';
 import { executeComfyWorkflow } from './comfyApi';
 import { createMusic3Workflow } from './music3Workflow';
 import { createQwen3TtsWorkflow } from './qwen3TtsWorkflow';
 import { analyzeAudioUrl } from './audioAlignment';
+import { fitTtsDuration } from './audioTempo';
+
+export { fitTtsDuration } from './audioTempo';
 
 export interface DriveAudioChunk {
   shotId: string;
@@ -13,22 +16,6 @@ export interface DriveAudioChunk {
   actualDurationSeconds?: number;
   playbackRate?: number;
 }
-
-const H3_DURATIONS = [5, 10, 15] as const;
-const MAX_TTS_PLAYBACK_RATE = 1.2;
-
-export const fitTtsDuration = (actualDurationSeconds: number, preferredDuration: number) => {
-  const preferredIndex = Math.max(0, H3_DURATIONS.findIndex((duration) => duration === preferredDuration));
-  for (let index = preferredIndex; index < H3_DURATIONS.length; index += 1) {
-    const durationSeconds = H3_DURATIONS[index];
-    const usableSeconds = Math.max(0.1, durationSeconds - 0.15);
-    const playbackRate = actualDurationSeconds > usableSeconds ? actualDurationSeconds / usableSeconds : 1;
-    if (playbackRate <= MAX_TTS_PLAYBACK_RATE) {
-      return { durationSeconds, playbackRate: Math.max(1, playbackRate) };
-    }
-  }
-  throw new Error(`配音 ${actualDurationSeconds.toFixed(1)} 秒，即使使用安全变速也无法放入 15 秒镜头；请拆分台词或精简文本。`);
-};
 
 export const generateMusic3Chapter = async (chapter: AudioChapter, replaceSeed = false) => {
   const { workflow, seed } = createMusic3Workflow({
@@ -45,11 +32,11 @@ export const generateMusic3Chapter = async (chapter: AudioChapter, replaceSeed =
   return { audioUrl, seed };
 };
 
-export const generateQwen3Voice = async (profile: VoiceProfile, text = profile.reference_text, savePrompt = true) => {
+export const generateQwen3Voice = async (profile: VoiceProfile, text = profile.reference_text, savePrompt = true, language?: Qwen3TtsLanguage) => {
   const { workflow, seed, promptFilename } = createQwen3TtsWorkflow({
     text,
     instruct: profile.instruct,
-    language: profile.language,
+    language: language ?? profile.language,
     seed: profile.seed,
     voiceId: profile.voice_id,
     savePrompt,
@@ -64,11 +51,12 @@ export const generateQwen3ShotVoice = async (
   proposalId: number,
   shot: MVInfo,
   profile: VoiceProfile,
+  language?: Qwen3TtsLanguage,
 ): Promise<DriveAudioChunk> => {
   const duration = shot.audio_plan?.duration_seconds ?? shot.generation_plan?.duration_seconds ?? 5;
   const text = shot.audio_plan?.audio_text?.trim() || shot.lyrics.trim();
   if (!text || text === '(No dialogue)') throw new Error(`${shot.shot_id || '镜头'} 没有可配音文本`);
-  const generated = await generateQwen3Voice(profile, text, false);
+  const generated = await generateQwen3Voice(profile, text, false, language);
   const analysis = await analyzeAudioUrl(generated.audioUrl);
   const fitted = fitTtsDuration(analysis.durationSeconds, duration);
   const audioResponse = await fetch(generated.audioUrl);

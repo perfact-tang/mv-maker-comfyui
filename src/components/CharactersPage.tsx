@@ -39,6 +39,7 @@ type GenerationStage = 'idle' | 'image' | 'done';
 
 const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardProps>(({ character, index }, ref) => {
   const {
+    mvData,
     selectedWorkflow,
     videoOrientation,
     updateCharacterDescription,
@@ -98,7 +99,8 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
     setIsVoiceGenerating(true);
     updateCharacterVoiceProfile(index, { status: 'generating', error: undefined });
     try {
-      const result = await generateQwen3Voice(profile);
+      const globalLanguage = mvData?.director_plan?.audio_plan?.tts_language ?? profile.language;
+      const result = await generateQwen3Voice(profile, profile.reference_text, true, globalLanguage);
       updateCharacterVoiceProfile(index, { preview_audio: result.audioUrl, seed: result.seed, prompt_filename: result.promptFilename, status: 'ready' });
     } catch (voiceError) {
       const detail = voiceError instanceof Error ? voiceError.message : String(voiceError);
@@ -179,7 +181,7 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
             <div className="mb-3 flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-sm font-bold text-cyan-100"><Volume2 size={15} />千问 3 TTS 固定音色</div><p className="mt-1 font-mono text-[10px] text-gray-500">{character.voice_profile.voice_id} · {character.voice_profile.speaker_label}</p></div><button type="button" disabled={isVoiceGenerating} onClick={generateVoicePreview} className="rounded border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-50">{isVoiceGenerating ? <Loader2 size={13} className="animate-spin" /> : '生成音色预览'}</button></div>
             <label className="block text-[10px] font-bold tracking-wider text-gray-500">音色定义 instruct<textarea value={character.voice_profile.instruct} onChange={(event) => updateCharacterVoiceProfile(index, { instruct: event.target.value, status: 'idle' })} rows={3} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>
             <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">参考文本<textarea value={character.voice_profile.reference_text} onChange={(event) => updateCharacterVoiceProfile(index, { reference_text: event.target.value, status: 'idle' })} rows={2} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>
-            <div className="mt-3 grid grid-cols-2 gap-2"><label className="text-[10px] text-gray-500">Language<input value={character.voice_profile.language} onChange={(event) => updateCharacterVoiceProfile(index, { language: event.target.value, status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2 py-1.5 text-xs text-gray-200" /></label><label className="text-[10px] text-gray-500">Seed<input type="number" value={character.voice_profile.seed} onChange={(event) => updateCharacterVoiceProfile(index, { seed: Number(event.target.value), status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2 py-1.5 text-xs text-gray-200" /></label></div>
+            <div className="mt-3 grid grid-cols-2 gap-2"><label className="text-[10px] text-gray-500">Language（跟随全局）<input disabled value={mvData?.director_plan?.audio_plan?.tts_language ?? character.voice_profile.language} className="mt-1 w-full cursor-not-allowed rounded border border-white/10 bg-black/20 px-2 py-1.5 text-xs text-gray-400" /></label><label className="text-[10px] text-gray-500">Seed<input type="number" value={character.voice_profile.seed} onChange={(event) => updateCharacterVoiceProfile(index, { seed: Number(event.target.value), status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2 py-1.5 text-xs text-gray-200" /></label></div>
             {character.voice_profile.preview_audio && <audio controls src={character.voice_profile.preview_audio} className="mt-3 h-8 w-full" />}
             {character.voice_profile.prompt_filename && <p className="mt-2 text-[10px] text-emerald-300">已锁定 Prompt：{character.voice_profile.prompt_filename}</p>}
           </div>}

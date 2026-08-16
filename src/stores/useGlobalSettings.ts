@@ -8,6 +8,7 @@ import {
   SavedH3ReferenceImage,
   VideoOrientation,
   VoiceProfile,
+  Qwen3TtsLanguage,
 } from '../types/mv-data';
 import { H3_AUDIO_FRAMES } from '../utils/audioAlignment';
 import { migrateGenerationSettingsToV4AudioPlan, migrateProjectToV4AudioPlan } from '../utils/audioPlanMigration';
@@ -84,6 +85,8 @@ interface GlobalSettingsState {
   updateCharacterDescription: (characterIndex: number, description: string) => void;
   updateCharacterVoiceProfile: (characterIndex: number, patch: Partial<VoiceProfile>) => void;
   updateNarratorVoiceProfile: (patch: Partial<VoiceProfile>) => void;
+  setGlobalTtsLanguage: (language: Qwen3TtsLanguage) => void;
+  setShotTtsLanguage: (segmentId: number, infoIndex: number, language?: Qwen3TtsLanguage) => void;
   updateCharacterAsset: (characterIndex: number, assetType: 'image' | 'video', url: string, orientation?: VideoOrientation) => void;
   replaceCharacterImage: (characterIndex: number, url: string) => void;
   replaceMVInfoImage: (segmentId: number, infoIndex: number, url: string) => void;
@@ -206,6 +209,51 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
         const plan = state.mvData?.director_plan?.audio_plan;
         if (!state.mvData?.director_plan || !plan?.narrator_voice) return state;
         return { mvData: { ...state.mvData, director_plan: { ...state.mvData.director_plan, audio_plan: { ...plan, narrator_voice: { ...plan.narrator_voice, ...patch } } } } };
+      }),
+      setGlobalTtsLanguage: (language) => set((state) => {
+        const director = state.mvData?.director_plan;
+        const plan = director?.audio_plan;
+        if (!state.mvData || !director || !plan) return state;
+        const clearVoiceAssets = (info: MVScriptData['storyboard'][number]['mvinfo'][number]) => {
+          const spokenText = (info.audio_plan?.audio_text || info.lyrics || '').trim();
+          if (!spokenText || /^(\(No dialogue\)|（?无对白|（?本镜头无对白)/i.test(spokenText)) return info;
+          const generatedAssets = { ...info.generated_assets };
+          delete generatedAssets.voice_audio;
+          delete generatedAssets.voice_audio_filename;
+          delete generatedAssets.drive_audio;
+          delete generatedAssets.drive_audio_filename;
+          generatedAssets.mux_status = 'pending';
+          return { ...info, generated_assets: generatedAssets, audio_plan: info.audio_plan ? { ...info.audio_plan, actual_voice_duration_seconds: undefined, voice_playback_rate: undefined, cut_status: 'tentative' as const } : info.audio_plan };
+        };
+        return { mvData: {
+          ...state.mvData,
+          characters: state.mvData.characters.map((character) => character.voice_profile ? { ...character, voice_profile: { ...character.voice_profile, language, preview_audio: undefined, prompt_filename: undefined, status: 'idle' as const } } : character),
+          storyboard: state.mvData.storyboard.map((segment) => ({ ...segment, mvinfo: segment.mvinfo.map(clearVoiceAssets) })),
+          director_plan: { ...director, audio_plan: { ...plan, tts_language: language, alignment_status: 'planned', narrator_voice: plan.narrator_voice ? { ...plan.narrator_voice, language, preview_audio: undefined, prompt_filename: undefined, status: 'idle' } : undefined } },
+        } };
+      }),
+      setShotTtsLanguage: (segmentId, infoIndex, language) => set((state) => {
+        const director = state.mvData?.director_plan;
+        const plan = director?.audio_plan;
+        if (!state.mvData || !director || !plan) return state;
+        const storyboard = state.mvData.storyboard.map((segment) => {
+          if (segment.segment_id !== segmentId || !segment.mvinfo[infoIndex]?.audio_plan) return segment;
+          const mvinfo = [...segment.mvinfo];
+          const info = mvinfo[infoIndex];
+          const spokenText = (info.audio_plan?.audio_text || info.lyrics || '').trim();
+          const hasVoice = Boolean(spokenText) && !/^(\(No dialogue\)|（?无对白|（?本镜头无对白)/i.test(spokenText);
+          const generatedAssets = { ...info.generated_assets };
+          if (hasVoice) {
+            delete generatedAssets.voice_audio;
+            delete generatedAssets.voice_audio_filename;
+            delete generatedAssets.drive_audio;
+            delete generatedAssets.drive_audio_filename;
+            generatedAssets.mux_status = 'pending';
+          }
+          mvinfo[infoIndex] = { ...info, audio_plan: { ...info.audio_plan!, tts_language: language, ...(hasVoice ? { actual_voice_duration_seconds: undefined, voice_playback_rate: undefined, cut_status: 'tentative' as const } : {}) }, generated_assets: generatedAssets };
+          return { ...segment, mvinfo };
+        });
+        return { mvData: { ...state.mvData, storyboard, director_plan: { ...director, audio_plan: { ...plan, alignment_status: 'planned' } } } };
       }),
       updateCharacterAsset: (characterIndex, assetType, url, orientation) => set((state) => {
         if (!state.mvData || !state.mvData.characters[characterIndex]) return state;
@@ -639,7 +687,7 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
     }),
     {
       name: 'mv-maker-storage',
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState, version) => {
         const state = persistedState as Partial<GlobalSettingsState>;
@@ -649,7 +697,7 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
         if (version < 3 && !['Krea2 Turbo', 'Z-Image-Turbo'].includes(state.selectedWorkflow || '')) {
           state.selectedWorkflow = 'Krea2 Turbo';
         }
-        if (version < 6 && state.mvData) {
+        if (version < 7 && state.mvData) {
           state.mvData = migrateProjectToV4AudioPlan(state.mvData);
           if (state.mvData.director_plan?.audio_plan?.mode === 'qwen3-tts-audio-first') {
             state.h3GenerationMode = 'director-routed';

@@ -1,4 +1,10 @@
 import voiceDesignWorkflow from './voice_design.json' with { type: 'json' };
+import type { Qwen3TtsLanguage } from '../types/mv-data';
+
+export const QWEN3_TTS_LANGUAGES: readonly Qwen3TtsLanguage[] = [
+  'Auto', 'Chinese', 'English', 'Japanese', 'Korean', 'German',
+  'French', 'Russian', 'Portuguese', 'Spanish', 'Italian',
+];
 
 type WorkflowNode = { inputs: Record<string, unknown>; class_type: string; _meta?: { title?: string } };
 export type Qwen3TtsWorkflow = Record<string, WorkflowNode>;
@@ -6,7 +12,7 @@ export type Qwen3TtsWorkflow = Record<string, WorkflowNode>;
 export interface Qwen3TtsWorkflowOptions {
   text: string;
   instruct: string;
-  language?: string;
+  language?: Qwen3TtsLanguage;
   seed?: number;
   voiceId: string;
   savePrompt?: boolean;

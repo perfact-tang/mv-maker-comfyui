@@ -15,6 +15,7 @@ export type AudioPlanMode = 'disabled' | 'qwen3-tts-audio-first' | 'music3-audio
 export type AudioProductionStyle = 'spoken-word' | 'musical-drama';
 export type AudioAlignmentStatus = 'planned' | 'generated' | 'aligned' | 'locked';
 export type AudioChapterStatus = 'idle' | 'generating' | 'ready' | 'failed';
+export type Qwen3TtsLanguage = 'Auto' | 'Chinese' | 'English' | 'Japanese' | 'Korean' | 'German' | 'French' | 'Russian' | 'Portuguese' | 'Spanish' | 'Italian';
 
 export interface AudioChapter {
   chapter_id: string;
@@ -39,6 +40,7 @@ export interface DirectorAudioPlan {
   chapters: AudioChapter[];
   alignment_status: AudioAlignmentStatus;
   narrator_voice?: VoiceProfile;
+  tts_language?: Qwen3TtsLanguage;
 }
 
 export interface VoiceProfile {
@@ -46,7 +48,7 @@ export interface VoiceProfile {
   speaker_label: string;
   instruct: string;
   reference_text: string;
-  language: string;
+  language: Qwen3TtsLanguage;
   seed: number;
   prompt_filename?: string;
   preview_audio?: string;
@@ -70,6 +72,7 @@ export interface ShotAudioPlan {
   audio_text: string;
   speakers: ShotSpeaker[];
   cut_status: 'tentative' | 'confirmed';
+  tts_language?: Qwen3TtsLanguage;
 }
 
 export interface DirectorPlan {

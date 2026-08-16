@@ -115,8 +115,8 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
 
   return (
     <header className="mb-12">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div className="flex flex-col items-start gap-6">
+      <div className="flex flex-col gap-6">
+        <div className="flex w-full flex-col items-start gap-6">
           <div>
             <h1 className="text-4xl font-bold tracking-tighter text-white mb-2 neon-text-shadow">
               {title}
@@ -183,11 +183,11 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex flex-col md:flex-row gap-3">
+        <div className="flex w-full flex-col gap-3 border-t border-white/10 pt-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <button
               onClick={onGenerateAllFrames}
-              className="border border-neon-cyan/40 bg-neon-cyan/10 text-neon-cyan font-bold text-sm flex items-center gap-2 px-4 py-2 rounded hover:bg-neon-cyan/20 transition-all"
+              className="flex min-h-11 items-center justify-center gap-2 rounded border border-neon-cyan/40 bg-neon-cyan/10 px-4 py-2 text-center text-sm font-bold text-neon-cyan transition-all hover:bg-neon-cyan/20"
               title="按镜头顺序生成 T2I 首帧与 FL2VA 目标尾帧，并自动合并整体艺术风格"
             >
               <Sparkles size={16} />
@@ -195,7 +195,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
             </button>
             <button 
               onClick={onGenerateAll}
-              className="bg-neon-magenta hover:bg-neon-magenta/80 text-white font-bold text-sm flex items-center gap-2 px-4 py-2 rounded shadow-[0_0_15px_rgba(255,0,255,0.3)] hover:shadow-[0_0_25px_rgba(255,0,255,0.5)] transition-all transform hover:-translate-y-0.5"
+              className="flex min-h-11 items-center justify-center gap-2 rounded bg-neon-magenta px-4 py-2 text-center text-sm font-bold text-white shadow-[0_0_15px_rgba(255,0,255,0.3)] transition-all hover:-translate-y-0.5 hover:bg-neon-magenta/80 hover:shadow-[0_0_25px_rgba(255,0,255,0.5)]"
               title="按顺序生成项目中所有分段的视频"
             >
               <Sparkles size={16} />
@@ -204,7 +204,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
             
             <button 
               onClick={handleSaveJson}
-              className="bg-neon-cyan hover:bg-neon-cyan/80 text-black font-bold text-sm flex items-center gap-2 px-4 py-2 rounded shadow-[0_0_15px_rgba(0,255,255,0.3)] hover:shadow-[0_0_25px_rgba(0,255,255,0.5)] transition-all transform hover:-translate-y-0.5"
+              className="flex min-h-11 items-center justify-center gap-2 rounded bg-neon-cyan px-4 py-2 text-center text-sm font-bold text-black shadow-[0_0_15px_rgba(0,255,255,0.3)] transition-all hover:-translate-y-0.5 hover:bg-neon-cyan/80 hover:shadow-[0_0_25px_rgba(0,255,255,0.5)]"
               title="保存分镜、人物展示内容与全部生成设置"
             >
               <Download size={16} />
@@ -213,7 +213,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
 
             <button 
               onClick={handleReset}
-              className="bg-red-900/50 hover:bg-red-900/80 text-red-200 font-bold text-sm flex items-center gap-2 px-4 py-2 rounded border border-red-500/30 transition-all hover:shadow-[0_0_15px_rgba(255,0,0,0.3)]"
+              className="flex min-h-11 items-center justify-center gap-2 rounded border border-red-500/30 bg-red-900/50 px-4 py-2 text-center text-sm font-bold text-red-200 transition-all hover:bg-red-900/80 hover:shadow-[0_0_15px_rgba(255,0,0,0.3)]"
               title="关闭并返回上传页"
             >
               <LogOut size={16} />
@@ -225,7 +225,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
             <button 
               onClick={handleDownloadAll}
               disabled={isDownloading}
-              className="bg-green-600/80 hover:bg-green-600 text-white font-bold text-sm flex items-center gap-2 px-4 py-2 rounded shadow-[0_0_15px_rgba(0,255,0,0.3)] hover:shadow-[0_0_25px_rgba(0,255,0,0.5)] transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded bg-green-600/80 px-4 py-2 text-center text-sm font-bold text-white shadow-[0_0_15px_rgba(0,255,0,0.3)] transition-all hover:-translate-y-0.5 hover:bg-green-600 hover:shadow-[0_0_25px_rgba(0,255,0,0.5)] disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto sm:w-auto"
               title="下载所有视频和LRC字幕文件"
             >
               <FileArchive size={16} />

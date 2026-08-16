@@ -10,6 +10,7 @@ import { CharactersPage } from './components/CharactersPage';
 import { ProjectNavigation, ProjectPage } from './components/ProjectNavigation';
 import { ParsedProjectFile } from './utils/projectArchive';
 import { AudioProductionPage } from './components/AudioProductionPage';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
 
 function App() {
   const { mvData, loadProject } = useGlobalSettings();
@@ -43,6 +44,7 @@ function App() {
 
   return (
     <div className="min-h-screen">
+      <LanguageSwitcher />
       {!mvData ? (
         <div className="mx-auto max-w-6xl p-4 md:p-8">
           <FileUploader onDataLoaded={handleDataLoaded} />

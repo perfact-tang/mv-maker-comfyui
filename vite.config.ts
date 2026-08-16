@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { buildAtempoFilterChain } from './src/utils/audioTempo';
 
 const readRequestBody = async (request: import('node:http').IncomingMessage) => {
   const chunks: Buffer[] = [];
@@ -198,7 +199,7 @@ const audioUploadPlugin = () => ({
         const actualDuration = Number(req.headers['x-actual-duration']);
         const playbackRate = Number(req.headers['x-playback-rate'] || 1);
         if (!Number.isFinite(actualDuration) || actualDuration <= 0) throw new Error('TTS actual duration is invalid.');
-        if (!Number.isFinite(playbackRate) || playbackRate < 1 || playbackRate > 1.2) throw new Error('TTS playback rate must be between 1.0 and 1.2.');
+        if (!Number.isFinite(playbackRate) || playbackRate < 1) throw new Error('TTS playback rate must be at least 1.0.');
         const body = await readRequestBody(req);
         if (!body.length) throw new Error('TTS audio is empty.');
         const proposalId = String(req.headers['x-proposal-id'] || 'project').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -213,8 +214,9 @@ const audioUploadPlugin = () => ({
         const outputPath = path.join(outputDir, filename);
         await mkdir(outputDir, { recursive: true });
         await writeFile(sourcePath, body);
+        const audioFilters = [...buildAtempoFilterChain(playbackRate), `apad=pad_dur=${duration}`].join(',');
         await runFfmpeg([
-          '-y', '-i', sourcePath, '-vn', '-af', `${playbackRate > 1.0001 ? `atempo=${playbackRate.toFixed(6)},` : ''}apad=pad_dur=${duration}`, '-t', String(duration),
+          '-y', '-i', sourcePath, '-vn', '-af', audioFilters, '-t', String(duration),
           '-c:a', 'libmp3lame', '-b:a', '256k', outputPath,
         ]);
         if ((await stat(outputPath)).size <= 1024) throw new Error('Normalized TTS audio is empty.');

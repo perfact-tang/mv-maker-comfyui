@@ -6,9 +6,12 @@ import type {
   ProjectGenerationSettings,
   ShotSpeaker,
   VoiceProfile,
+  Qwen3TtsLanguage,
 } from '../types/mv-data';
 
 const FRAMES_BY_DURATION = { 5: 141, 10: 260, 15: 379 } as const;
+const QWEN3_TTS_LANGUAGE_SET = new Set<Qwen3TtsLanguage>(['Auto', 'Chinese', 'English', 'Japanese', 'Korean', 'German', 'French', 'Russian', 'Portuguese', 'Spanish', 'Italian']);
+const normalizeTtsLanguage = (value: unknown): Qwen3TtsLanguage => QWEN3_TTS_LANGUAGE_SET.has(value as Qwen3TtsLanguage) ? value as Qwen3TtsLanguage : 'Auto';
 
 const parseTimestampDuration = (timestamp: string): 5 | 10 | 15 => {
   const toSeconds = (value: string) => {
@@ -87,14 +90,20 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
     && plan.workflow === '千问 3 TTS'
     && plan.music_workflow === 'MiniMax Music 3'
     && Boolean(plan.narrator_voice)
+    && QWEN3_TTS_LANGUAGE_SET.has(plan.tts_language as Qwen3TtsLanguage)
     && project.characters.every((character) => Boolean(character.voice_profile))
-    && project.storyboard.every((segment) => segment.mvinfo.every((shot) => !shot.audio_plan || shot.audio_plan.speakers.every((speaker) => Boolean(speaker.voice_id))));
+    && project.storyboard.every((segment) => segment.mvinfo.every((shot) => !shot.audio_plan || ((!shot.audio_plan.tts_language || QWEN3_TTS_LANGUAGE_SET.has(shot.audio_plan.tts_language)) && shot.audio_plan.speakers.every((speaker) => Boolean(speaker.voice_id)))));
   if (alreadyQwenReady) return project;
   const characters = project.characters.map((character, index) => ({
     ...character,
-    voice_profile: character.voice_profile || characterVoice(character.name, character.role, index),
+    voice_profile: character.voice_profile
+      ? { ...character.voice_profile, language: normalizeTtsLanguage(character.voice_profile.language) }
+      : characterVoice(character.name, character.role, index),
   }));
-  const narrator = plan.narrator_voice || narratorVoice();
+  const narrator = plan.narrator_voice
+    ? { ...plan.narrator_voice, language: normalizeTtsLanguage(plan.narrator_voice.language) }
+    : narratorVoice();
+  const ttsLanguage = normalizeTtsLanguage(plan.tts_language ?? narrator.language);
   const migratingMusic3VoicePlan = plan.mode === 'music3-audio-first';
   const voiceByCharacter = new Map(characters.map((character) => [character.name, character.voice_profile!]));
   const storyboard = project.storyboard.map((segment) => ({
@@ -114,6 +123,7 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
       generation_plan: shot.generation_plan ? { ...shot.generation_plan, audio_mode: 'drive-audio' as const } : shot.generation_plan,
       audio_plan: shot.audio_plan ? {
         ...shot.audio_plan,
+        ...(shot.audio_plan.tts_language ? { tts_language: normalizeTtsLanguage(shot.audio_plan.tts_language) } : {}),
         speakers: (shot.audio_plan.speakers.length ? shot.audio_plan.speakers : [{ speaker_label: narrator.speaker_label, character_name: '旁白', voice_description: narrator.instruct }]).map((speaker) => {
           const profile = speaker.character_name ? voiceByCharacter.get(speaker.character_name) : undefined;
           return { ...speaker, voice_id: speaker.voice_id || profile?.voice_id || narrator.voice_id };
@@ -133,6 +143,7 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
         workflow: '千问 3 TTS',
         music_workflow: 'MiniMax Music 3',
         music_enabled: plan.music_enabled ?? true,
+        tts_language: ttsLanguage,
         narrator_voice: narrator,
         alignment_status: migratingMusic3VoicePlan ? 'planned' : plan.alignment_status,
         chapters: migratingMusic3VoicePlan ? plan.chapters.map((chapter) => ({
