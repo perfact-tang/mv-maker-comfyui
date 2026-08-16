@@ -1,7 +1,7 @@
 import React from 'react';
-import { Clapperboard, Users } from 'lucide-react';
+import { AudioLines, Clapperboard, Users } from 'lucide-react';
 
-export type ProjectPage = 'storyboard' | 'characters';
+export type ProjectPage = 'audio' | 'storyboard' | 'characters';
 
 interface ProjectNavigationProps {
   activePage: ProjectPage;
@@ -11,13 +11,14 @@ interface ProjectNavigationProps {
 
 export const ProjectNavigation: React.FC<ProjectNavigationProps> = ({ activePage, characterCount, onPageChange }) => {
   const items = [
+    { id: 'audio' as const, label: '声音制作', detail: '千问配音 + Music 3 配乐', icon: AudioLines },
     { id: 'storyboard' as const, label: '分镜制作', detail: '脚本、音频与镜头生成', icon: Clapperboard },
     { id: 'characters' as const, label: '人物展示', detail: `${characterCount} 位人物图片`, icon: Users },
   ];
 
   return (
     <div className="sticky top-0 z-[70] border-b border-white/10 bg-background/90 px-4 py-3 backdrop-blur-xl md:px-8">
-      <nav aria-label="项目页面" className="mx-auto grid max-w-6xl grid-cols-2 gap-1 rounded-2xl border border-white/10 bg-black/35 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+      <nav aria-label="项目页面" className="mx-auto grid max-w-6xl grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-black/35 p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = activePage === item.id;
@@ -45,4 +46,3 @@ export const ProjectNavigation: React.FC<ProjectNavigationProps> = ({ activePage
     </div>
   );
 };
-

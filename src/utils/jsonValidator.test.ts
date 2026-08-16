@@ -1,4 +1,5 @@
 import { validateMVData } from './jsonValidator.ts';
+import type { MVScriptData } from '../types/mv-data.ts';
 
 const assert = (condition: unknown, message: string) => {
   if (!condition) throw new Error(message);
@@ -54,6 +55,32 @@ singleRef.storyboard[0].mvinfo[0].generation_plan.reference_images = [{
   prompt: '<Picture 1> 定义并保持人物身份。',
 }];
 assert(validateMVData(singleRef).isValid, 'Ref2VA with one declaration must validate');
+
+const audioFirst = structuredClone(base) as unknown as MVScriptData;
+audioFirst.director_plan = {
+  source_type: 'blog',
+  content_form: 'promo',
+  model: 'minimax-h3',
+  aspect_ratio: '16:9',
+  total_duration_seconds: 5,
+  allowed_clip_durations_seconds: [5, 10, 15],
+  style_name: '测试',
+  style_rationale: '测试',
+  narrative_strategy: '测试',
+  source_coverage_note: '测试',
+  audio_plan: {
+    mode: 'music3-audio-first', workflow: 'MiniMax Music 3', production_style: 'spoken-word', alignment_status: 'planned',
+    chapters: [{ chapter_id: 'A1', title: '讲解', target_duration_seconds: 5, caption: '清晰念白配乐', lyrics: '[Verse]\n测试', shot_refs: ['SHOT-1'], status: 'idle' }],
+  },
+};
+audioFirst.storyboard[0].mvinfo[0].shot_id = 'SHOT-1';
+audioFirst.storyboard[0].mvinfo[0].audio_plan = { chapter_id: 'A1', source_start_seconds: 0, duration_seconds: 5, audio_text: '测试', speakers: [], cut_status: 'tentative' };
+audioFirst.storyboard[0].mvinfo[0].generation_plan.audio_mode = 'drive-audio';
+assert(validateMVData(audioFirst).isValid, 'v4 Music 3 audio-first project must validate');
+
+const nativeAudioFirst = structuredClone(audioFirst);
+nativeAudioFirst.storyboard[0].mvinfo[0].generation_plan.audio_mode = 'native-audio';
+assert(!validateMVData(nativeAudioFirst).isValid, 'Music 3 audio-first shot cannot fall back to native audio');
 
 const tooManyRefs = structuredClone(singleRef);
 tooManyRefs.storyboard[0].mvinfo[0].generation_plan.reference_images.push(

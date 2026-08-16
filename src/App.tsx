@@ -9,6 +9,7 @@ import { useGlobalSettings } from './stores/useGlobalSettings';
 import { CharactersPage } from './components/CharactersPage';
 import { ProjectNavigation, ProjectPage } from './components/ProjectNavigation';
 import { ParsedProjectFile } from './utils/projectArchive';
+import { AudioProductionPage } from './components/AudioProductionPage';
 
 function App() {
   const { mvData, loadProject } = useGlobalSettings();
@@ -27,7 +28,8 @@ function App() {
   // Handle data loading
   const handleDataLoaded = ({ project, generationSettings }: ParsedProjectFile) => {
     loadProject(project, generationSettings);
-    setActivePage('storyboard');
+    const loadedProject = useGlobalSettings.getState().mvData;
+    setActivePage(loadedProject?.director_plan?.audio_plan && loadedProject.director_plan.audio_plan.mode !== 'disabled' ? 'audio' : 'storyboard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -57,7 +59,9 @@ function App() {
           />
 
           <div className="mx-auto max-w-6xl p-4 pt-8 md:p-8 md:pt-10">
-            {activePage === 'characters' ? (
+            {activePage === 'audio' ? (
+              <AudioProductionPage />
+            ) : activePage === 'characters' ? (
               <CharactersPage
                 characters={mvData.characters}
                 directionName={mvData.direction_name}

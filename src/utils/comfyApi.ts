@@ -350,7 +350,13 @@ const uploadFileToComfy = async (fileBlob: Blob, filename: string, serverUrl?: s
  * @param serverUrl ComfyUI server URL
  * @returns Promise with output URLs
  */
-export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): Promise<{ video?: string, images: string[] }> => {
+export interface ComfyWorkflowOutputs {
+  video?: string;
+  images: string[];
+  audios: string[];
+}
+
+export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): Promise<ComfyWorkflowOutputs> => {
   const defaultUrl = import.meta.env.VITE_COMFY_API_URL || '127.0.0.1:8188';
   const serverAddress = (serverUrl || defaultUrl).replace(/^https?:\/\//, '').replace(/\/$/, '');
   const clientId = uuidv4();
@@ -366,12 +372,18 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
   const expectsVideo = workflow && typeof workflow === 'object'
     ? Object.values(workflow).some((node: any) => /video|vhs/i.test(node.class_type || ''))
     : false;
+  const expectsAudio = workflow && typeof workflow === 'object'
+    ? Object.values(workflow).some((node: any) => /^SaveAudio/i.test(node.class_type || '') || ['PreviewAudio', 'Qwen3VoiceDesign'].includes(node.class_type || ''))
+    : false;
+  const waitsForPromptSave = workflow && typeof workflow === 'object'
+    ? Object.values(workflow).some((node: any) => node.class_type === 'Qwen3SavePrompt')
+    : false;
 
   return new Promise((resolve, reject) => {
       const ws = new WebSocket(`ws://${wsAddress}/ws?clientId=${clientId}`);
       let promptId: string | null = null;
       let connectionEstablished = false;
-      const outputs: { video?: string, images: string[] } = { images: [] };
+      const outputs: ComfyWorkflowOutputs = { images: [], audios: [] };
       let gracePeriodTimeout: NodeJS.Timeout | null = null;
 
       const connectionTimeout = setTimeout(() => {
@@ -423,11 +435,15 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
 
                   // Helper to determine if a file is a video based on extension
                   const isVideoFile = (filename: string) => /\.(mp4|webm|mov|avi|mkv)$/i.test(filename);
+                  const isAudioFile = (filename: string) => /\.(mp3|wav|flac|aac|m4a|ogg)$/i.test(filename);
                   const handleOutputFile = (item: any) => {
-                      if (!item || !item.filename || !isVideoFile(item.filename)) return;
-
-                       const url = buildComfyViewUrl(apiBaseUrl, item);
-                      if (!outputs.video) outputs.video = url;
+                      if (!item || !item.filename) return;
+                      const url = buildComfyViewUrl(apiBaseUrl, item);
+                      if (isVideoFile(item.filename)) {
+                        if (!outputs.video) outputs.video = url;
+                      } else if (isAudioFile(item.filename) && !outputs.audios.includes(url)) {
+                        outputs.audios.push(url);
+                      }
                   };
 
                   // Handle Images (SaveImage) and check for videos disguised as images
@@ -436,6 +452,8 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
                            const url = buildComfyViewUrl(apiBaseUrl, img);
                           if (isVideoFile(img.filename)) {
                               outputs.video = url;
+                          } else if (isAudioFile(img.filename)) {
+                              if (!outputs.audios.includes(url)) outputs.audios.push(url);
                           } else {
                               outputs.images.push(url);
                           }
@@ -457,10 +475,18 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
                           handleOutputFile(vid);
                       });
                   }
+                  if (output.audio) {
+                      const values = Array.isArray(output.audio) ? output.audio : [output.audio];
+                      values.forEach(handleOutputFile);
+                  }
+                  if (output.audios) {
+                      const values = Array.isArray(output.audios) ? output.audios : [output.audios];
+                      values.forEach(handleOutputFile);
+                  }
                   
                   // Fallback: Check all output keys for video files (in case of custom keys)
                   Object.keys(output).forEach(key => {
-                      if (key === 'images' || key === 'gifs' || key === 'videos') return; // already handled
+                      if (key === 'images' || key === 'gifs' || key === 'videos' || key === 'audio' || key === 'audios') return; // already handled
                       const val = output[key];
                       if (Array.isArray(val)) {
                           val.forEach((item: any) => {
@@ -496,9 +522,15 @@ export const executeComfyWorkflow = async (workflow: any, serverUrl?: string): P
               // Let's wait for both if possible.
               const isReady = expectsVideo
                 ? outputs.video && (!hasSaveImageNode || outputs.images.length > 0)
-                : outputs.images.length > 0;
+                : expectsAudio
+                  ? outputs.audios.length > 0
+                  : outputs.images.length > 0;
               
               if (isReady) {
+                 const promptFinished = message.type === 'executing'
+                   && message.data?.prompt_id === promptId
+                   && message.data?.node === null;
+                 if (waitsForPromptSave && !promptFinished) return;
                  // Check if we have an 'output' type image, which is preferred for persistence.
                  const hasOutputImage = outputs.images.some(url => url.includes('type=output'));
 

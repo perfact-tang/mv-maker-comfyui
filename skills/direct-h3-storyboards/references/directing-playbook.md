@@ -65,9 +65,13 @@ Use `New_Scene` only for a true visual reset. Use `Last_Frame_Continuity` when t
 
 ## 7. Audio ownership
 
-- `native-audio`: H3 generates dialogue, performance, ambience, effects, and music from the Chinese audiovisual prompt, and the app muxes the decoded audio into the exported MP4. Use this by default for short dramas and other projects without supplied master audio.
-- `drive-audio`: supplied shot audio dictates timing/performance.
+- `music_video`: keep the supplied master track; do not invoke MiniMax Music 3.
+- `qwen3-tts-audio-first`: for promo and fiction, Qwen3 TTS generates clear per-shot narration/dialogue from a locked narrator or character `voice_id`; MiniMax Music 3 generates instrumental score chapters only.
+- `drive-audio`: the application mixes the exact Qwen3 voice at full level with Music 3 score at a lower level. This mixed shot audio dictates lip movement, action timing, and performance. The application discards H3's returned audio and remuxes the exact source mix into the final video.
+- `native-audio`: legacy fallback only; do not emit it for new v4 non-MV projects.
 - `reference-audio`: audio guides timbre, rhythm, or style without direct lock.
 - `no-audio`: explicitly export a silent video. Do not use it merely because the user did not upload audio.
 
 For MVs with master audio, align shots to the source timeline and prefer cuts at pauses, breaths, beats, or impacts. Never cut a required lyric mid-word unless the same vocal continues explicitly across the cut.
+
+Qwen3 Voice Design consistency depends on keeping `voice_id`, `instruct`, reference text, language, seed, and saved Prompt stable. Music 3 must never receive narration/dialogue text and must be explicitly prompted for instrumental-only output.

@@ -119,7 +119,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ onDataLoaded }) => {
 
       <div className="mt-8 flex items-center gap-2 text-xs text-gray-600">
         <FileJson size={14} />
-        <span>支持完整项目存档 v3 · 兼容人物接入文件 v2 · 支持逐镜头 H3 导演计划</span>
+        <span>支持完整项目存档 v4（兼容旧项目）· 千问 3 TTS 配音 · Music 3 配乐 · H3 Drive Audio</span>
       </div>
     </div>
   );

@@ -4,9 +4,11 @@ import {
   ProjectGenerationSettings,
 } from '../types/mv-data';
 import { validateMVData } from './jsonValidator';
+import { migrateGenerationSettingsToV4AudioPlan, migrateProjectToV4AudioPlan } from './audioPlanMigration';
 
 export const PROJECT_ARCHIVE_SCHEMA = 'mv-maker-project' as const;
-export const PROJECT_ARCHIVE_VERSION = 3 as const;
+export const PROJECT_ARCHIVE_VERSION = 4 as const;
+const LEGACY_ARCHIVE_VERSION = 3 as const;
 
 type JsonObject = Record<string, unknown>;
 
@@ -43,19 +45,65 @@ const validateGenerationSettings = (value: unknown): value is ProjectGenerationS
 export interface ParsedProjectFile {
   project: MVScriptData;
   generationSettings?: ProjectGenerationSettings;
-  source: 'archive-v3' | 'legacy-script';
+  source: 'archive-v4' | 'archive-v3' | 'legacy-script';
 }
+
+const normalizeAudioWorkflowLabels = (value: unknown): unknown => {
+  if (!isObject(value) || !isObject(value.director_plan) || !isObject(value.director_plan.audio_plan)) return value;
+  const directorPlan = value.director_plan as JsonObject;
+  const audioPlan = directorPlan.audio_plan as JsonObject;
+  const mode = String(audioPlan.mode || '');
+  const workflow = mode === 'qwen3-tts-audio-first'
+    ? '千问 3 TTS'
+    : mode === 'music3-audio-first'
+      ? 'MiniMax Music 3'
+      : ['千问 3 TTS', 'MiniMax Music 3'].includes(String(audioPlan.workflow))
+        ? audioPlan.workflow
+        : 'MiniMax Music 3';
+  return {
+    ...value,
+    director_plan: {
+      ...directorPlan,
+      audio_plan: {
+        ...audioPlan,
+        workflow,
+        ...(mode === 'qwen3-tts-audio-first' ? { music_workflow: 'MiniMax Music 3' } : {}),
+      },
+    },
+  };
+};
+
+const prepareProject = (value: unknown): MVScriptData => {
+  const normalized = normalizeAudioWorkflowLabels(value);
+  let migrated: MVScriptData;
+  try {
+    migrated = migrateProjectToV4AudioPlan(normalized as MVScriptData);
+  } catch {
+    const validation = validateMVData(normalized);
+    throw new Error(validation.error || '项目内容格式无效。');
+  }
+  const validation = validateMVData(migrated);
+  if (!validation.isValid) throw new Error(validation.error || '项目内容格式无效。');
+  return migrated;
+};
 
 export const createProjectArchive = (
   project: MVScriptData,
   generationSettings: ProjectGenerationSettings,
-): MVProjectArchive => ({
-  schema: PROJECT_ARCHIVE_SCHEMA,
-  schema_version: PROJECT_ARCHIVE_VERSION,
-  exported_at: new Date().toISOString(),
-  project,
-  generation_settings: generationSettings,
-});
+): MVProjectArchive => {
+  const preparedProject = prepareProject(project);
+  const preparedSettings = migrateGenerationSettingsToV4AudioPlan(generationSettings, preparedProject);
+  if (!preparedSettings || !validateGenerationSettings(preparedSettings)) {
+    throw new Error('当前生成设置无法保存，请检查 H3 和工作流设置。');
+  }
+  return {
+    schema: PROJECT_ARCHIVE_SCHEMA,
+    schema_version: PROJECT_ARCHIVE_VERSION,
+    exported_at: new Date().toISOString(),
+    project: preparedProject,
+    generation_settings: preparedSettings,
+  };
+};
 
 export const parseProjectFile = (jsonString: string): ParsedProjectFile => {
   let parsed: unknown;
@@ -66,32 +114,25 @@ export const parseProjectFile = (jsonString: string): ParsedProjectFile => {
   }
 
   if (isObject(parsed) && parsed.schema === PROJECT_ARCHIVE_SCHEMA) {
-    if (parsed.schema_version !== PROJECT_ARCHIVE_VERSION) {
+    if (![LEGACY_ARCHIVE_VERSION, PROJECT_ARCHIVE_VERSION].includes(parsed.schema_version as 3 | 4)) {
       throw new Error(`暂不支持项目存档版本 ${String(parsed.schema_version)}。`);
     }
 
-    const projectValidation = validateMVData(parsed.project);
-    if (!projectValidation.isValid) {
-      throw new Error(projectValidation.error || '项目内容格式无效。');
-    }
     if (!validateGenerationSettings(parsed.generation_settings)) {
       throw new Error('项目存档中的 generation_settings 格式无效。');
     }
 
+    const project = prepareProject(parsed.project);
     return {
-      project: parsed.project as unknown as MVScriptData,
-      generationSettings: parsed.generation_settings,
-      source: 'archive-v3',
+      project,
+      generationSettings: migrateGenerationSettingsToV4AudioPlan(parsed.generation_settings, project),
+      source: parsed.schema_version === PROJECT_ARCHIVE_VERSION ? 'archive-v4' : 'archive-v3',
     };
   }
 
-  const legacyValidation = validateMVData(parsed);
-  if (!legacyValidation.isValid) {
-    throw new Error(legacyValidation.error || '接入 JSON 格式无效。');
-  }
-
+  const project = prepareProject(parsed);
   return {
-    project: parsed as MVScriptData,
+    project,
     source: 'legacy-script',
   };
 };

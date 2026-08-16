@@ -31,6 +31,9 @@ try {
   await run('missing-director-plan', (value) => { delete value.project.director_plan; }, false);
   await run('timeline-gap', (value) => { value.project.storyboard[0].mvinfo[0].timestamp = '00:05 - 00:10'; }, false);
   await run('invalid-frames', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.duration_frames = 260; }, false);
+  await run('missing-character-voice', (value) => { delete value.project.characters[0].voice_profile; }, false);
+  await run('missing-shot-voice-id', (value) => { delete value.project.storyboard[0].mvinfo[0].audio_plan.speakers[0].voice_id; }, false);
+  await run('global-native-audio', (value) => { value.generation_settings.h3.audio_mode = 'native-audio'; }, false);
   await run('fl2va-missing-target-prompt', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.mode = 'FL2VA'; }, false);
   await run('ref2va-missing-references', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.mode = 'Ref2VA'; }, false);
   await run('ref2va-single-reference', (value) => {

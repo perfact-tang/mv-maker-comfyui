@@ -33,14 +33,14 @@
 
 人物展示页会直接使用 `description` 作为首帧和视频生成提示词。描述可在页面内修改，生成结果会写回 `characters[].generated_assets`。整体视频方向支持横版 `736×416` 与竖版 `416×736`，该设定同时作用于人物展示和分镜制作。
 
-## 完整项目存档规范 v3
+## 完整项目存档规范 v4（兼容 v3）
 
 “保存完整项目”会导出可重新载入的项目存档。人物展示数据以 `project.characters` 为唯一数据源，与基础信息和分镜一同保存；当前图片/视频工作流、横竖版方向及 H3 设置保存在 `generation_settings`。
 
 ```json
 {
   "schema": "mv-maker-project",
-  "schema_version": 3,
+  "schema_version": 4,
   "exported_at": "2026-08-13T00:00:00.000Z",
   "project": {
     "proposal_id": 1,
@@ -70,6 +70,12 @@
 由 `direct-h3-storyboards` Skill 生成的项目可在 `project.director_plan` 中记录形式、风格、片长与原文覆盖策略，并在每个 `mvinfo.generation_plan` 中独立指定 `I2VA`、`FL2VA` 或 `Ref2VA`、5/10/15 秒时长及音频模式。`native-audio` 会让 H3 原生生成并导出声音，`no-audio` 才会明确导出静音视频。旧项目没有这些字段时继续使用 `generation_settings.h3` 的全局设置。
 
 FL2VA 的计划目标图保存在 `generated_assets.target_last_frame`，视频实际导出的尾帧仍保存在 `generated_assets.last_frame`；两者不会互相覆盖。Ref2VA 每镜头声明两张参考图，可以通过 `source_character` 自动绑定人物页图片，也可以在镜头卡中单独上传。
+
+### 千问 3 TTS 配音 + Music 3 配乐
+
+v4 项目可在 `project.director_plan.audio_plan` 中声明 `qwen3-tts-audio-first`。千问 3 TTS 按人物页锁定的 `voice_id`、音色说明、参考文本、语言和 seed 逐镜头生成清晰配音；MiniMax Music 3 只按情绪章节生成纯器乐配乐。应用把配音保持 100%、配乐降低到 18% 后混合成逐镜头 Drive Audio，用于驱动 H3 口型、动作和节奏。H3 完成后会丢弃返回音轨，并重新封装这条最终混音。
+
+声音优先项目必须先在人物页确认角色音色，再在“声音制作”页面完成千问配音、可选 Music 3 配乐、混合与锁定，才能批量生成 H3 视频。配音超过 5/10/15 秒镜头长度时会明确失败，不会截断人声；应精简台词或增加镜头时长。MV 项目使用 `audio_plan.mode: "disabled"`，继续沿用已有主音乐。
 
 ## 开发
 

@@ -90,6 +90,8 @@ Keep `<Subject N>`, `<Picture N>`, and speaker `(Sx)` labels stable. Use fixed r
 - Use `overall_soundscape` for ambience, actions, and non-verbal human sounds.
 - Use `non_diegetic_music` for audience-only score; write `N/A` when absent.
 - Never append an extra free-floating style paragraph after the final field.
+- For v4 `qwen3-tts-audio-first` shots, declare `generation_plan.audio_mode` as `drive-audio`. `<Audio 1>` is the finalized Qwen3 TTS voice plus optional low-level Music 3 instrumental score. State that lip movement, gestures, cuts, and action timing follow it exactly. Do not ask H3 to regenerate dialogue or music.
+- In those Drive Audio prompts, write `overall_soundscape: 完整复用主音频并保持与画面严格同步。` and `non_diegetic_music: N/A`. The runtime may replace the media tag with plain text for keyframed T8 compatibility, but the project JSON must retain the intended `<Audio 1>` relationship.
 
 ## Duration mapping
 

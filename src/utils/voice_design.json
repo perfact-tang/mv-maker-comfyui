@@ -1,0 +1,24 @@
+{
+  "1": {
+    "inputs": { "repo_id": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign", "source": "HuggingFace", "precision": "bf16", "attention": "auto", "local_model_path": "" },
+    "class_type": "Qwen3Loader",
+    "_meta": { "title": "Qwen3-TTS Loader" }
+  },
+  "5": {
+    "inputs": { "ref_text": "声音参考文本", "ref_audio_max_seconds": 30, "model": ["6", 0], "ref_audio": ["9", 0] },
+    "class_type": "Qwen3PromptMaker",
+    "_meta": { "title": "Qwen3-TTS Prompt Maker" }
+  },
+  "6": {
+    "inputs": { "repo_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base", "source": "HuggingFace", "precision": "bf16", "attention": "auto", "local_model_path": "" },
+    "class_type": "Qwen3Loader",
+    "_meta": { "title": "Qwen3-TTS Loader" }
+  },
+  "9": {
+    "inputs": { "text": "声音参考文本", "instruct": "清晰自然的中文旁白", "language": "Auto", "seed": 729754692978412, "model": ["1", 0] },
+    "class_type": "Qwen3VoiceDesign",
+    "_meta": { "title": "Qwen3-TTS Voice Design" }
+  },
+  "10": { "inputs": { "audio": ["9", 0] }, "class_type": "PreviewAudio", "_meta": { "title": "预览音频" } },
+  "11": { "inputs": { "filename": "voice_profile", "prompt": ["5", 0] }, "class_type": "Qwen3SavePrompt", "_meta": { "title": "Qwen3-TTS Save Prompt" } }
+}

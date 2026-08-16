@@ -10,6 +10,7 @@ import { H3ShotControls } from './H3ShotControls';
 import { configureH3AudioInputs, configureH3VisualInputs } from '../utils/h3ShotWorkflow';
 import { resolveReferenceImage } from '../utils/characterReferences';
 import { composeStoryboardImagePrompt } from '../utils/imagePrompt';
+import { muxOriginalDriveAudio } from '../utils/audioProduction';
 
 export interface MVInfoCardHandle {
   triggerGenerateVideo: () => Promise<{ videoUrl: string; lastFrameUrl: string }>;
@@ -83,6 +84,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     updateMVInfoAsset,
     updateMVInfoFirstFrameSource,
     updateMVInfoImagePrompt,
+    updateMuxStatus,
     replaceMVInfoImage,
     mvData,
     h3GenerationMode,
@@ -93,7 +95,9 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const shotPlan = info.generation_plan;
   const firstFrameSource = info.first_frame_source ?? (info.type === 'Last_Frame_Continuity' ? 'previous-tail' : 't2i');
   const effectiveH3Mode = shotPlan?.mode ?? (h3GenerationMode === 'reference-images' ? 'Ref2VA' : 'I2VA');
-  const effectiveH3AudioMode = shotPlan?.audio_mode ?? h3AudioMode;
+  const effectiveH3AudioMode = ['music3-audio-first', 'qwen3-tts-audio-first'].includes(mvData?.director_plan?.audio_plan?.mode || '')
+    ? 'drive-audio'
+    : shotPlan?.audio_mode ?? h3AudioMode;
   const effectiveH3Length = shotPlan?.duration_frames ?? h3VideoLength;
   const characterReferences = (mvData?.characters ?? [])
     .filter((character) => Boolean(character.generated_assets?.image))
@@ -192,6 +196,12 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       .flatMap((segment) => segment.mvinfo.map((shot, index) => ({ segmentId: segment.segment_id, index, shot })));
     const currentShotIndex = orderedShots.findIndex((entry) => entry.segmentId === segmentId && entry.index === infoIndex);
     const liveCurrentShot = currentShotIndex >= 0 ? orderedShots[currentShotIndex].shot : info;
+    const audioFirstPlan = liveProject?.director_plan?.audio_plan;
+    const usesMusic3AudioFirst = ['music3-audio-first', 'qwen3-tts-audio-first'].includes(audioFirstPlan?.mode || '');
+    if (usesMusic3AudioFirst && audioFirstPlan.alignment_status !== 'locked') {
+      throw new Error('声音时间线尚未锁定，请先到“声音制作”完成校准和切分');
+    }
+    const driveAudioUrl = liveCurrentShot.generated_assets?.drive_audio || liveCurrentShot.generated_assets?.audio;
     const livePreviousTail = currentShotIndex > 0
       ? orderedShots[currentShotIndex - 1].shot.generated_assets?.last_frame
       : undefined;
@@ -229,7 +239,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', targetLastFrame);
     }
     const requiresExternalH3Audio = effectiveH3AudioMode === 'drive-audio' || effectiveH3AudioMode === 'reference-audio';
-    if (isH3Workflow && requiresExternalH3Audio && !info.generated_assets?.audio) {
+    if (isH3Workflow && requiresExternalH3Audio && !driveAudioUrl) {
       throw new Error(`声明了 ${effectiveH3AudioMode}，但尚未分配音频`);
     }
 
@@ -303,8 +313,9 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       let uploadedAudioFilename: string | null = null;
       const shouldUploadAudio = selectedVideoWorkflow === 'LTX2.3 V2I'
         || (isH3Workflow && requiresExternalH3Audio);
-      if (shouldUploadAudio && info.generated_assets?.audio) {
-        const audioRes = await fetch(info.generated_assets.audio);
+      if (shouldUploadAudio && driveAudioUrl) {
+        const audioRes = await fetch(driveAudioUrl);
+        if (!audioRes.ok) throw new Error(`Drive Audio 读取失败 (${audioRes.status})`);
         const audioBlob = await audioRes.blob();
         const audioFilename = `scene_${segmentId}_${infoIndex + 1}_${Date.now()}.mp3`;
         uploadedAudioFilename = await uploadAudioToComfy(audioBlob, audioFilename);
@@ -407,12 +418,30 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       const lastFrameUrl = outputs.images?.find(url => url.includes('type=output')) || outputs.images?.[0];
       if (!lastFrameUrl) throw new Error('ComfyUI 工作流完成但没有返回尾帧，无法保证后续镜头连续生成');
 
-      setGeneratedVideo(outputs.video);
-      updateMVInfoAsset(segmentId, infoIndex, 'video', outputs.video);
+      let finalVideoUrl = outputs.video;
+      if (usesMusic3AudioFirst) {
+        if (!driveAudioUrl) throw new Error('声音优先镜头缺少千问配音 / Music 3 配乐形成的 Drive Audio');
+        updateMVInfoAsset(segmentId, infoIndex, 'source_video', outputs.video);
+        updateMuxStatus(segmentId, infoIndex, 'pending');
+        try {
+          finalVideoUrl = await muxOriginalDriveAudio(
+            liveProject!.proposal_id,
+            liveCurrentShot.shot_id || `segment-${segmentId}-shot-${infoIndex + 1}`,
+            outputs.video,
+            driveAudioUrl,
+          );
+          updateMuxStatus(segmentId, infoIndex, 'ready');
+        } catch (muxError) {
+          updateMuxStatus(segmentId, infoIndex, 'failed', muxError instanceof Error ? muxError.message : String(muxError));
+          throw muxError;
+        }
+      }
+      setGeneratedVideo(finalVideoUrl);
+      updateMVInfoAsset(segmentId, infoIndex, 'video', finalVideoUrl);
       setGeneratedLastFrame(lastFrameUrl);
       updateMVInfoAsset(segmentId, infoIndex, 'last_frame', lastFrameUrl);
       onLastFrameGenerated?.(lastFrameUrl);
-      return { videoUrl: outputs.video, lastFrameUrl };
+      return { videoUrl: finalVideoUrl, lastFrameUrl };
 
     } catch (error) {
       console.error('Video generation failed:', error);
@@ -429,8 +458,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     effectiveH3Mode,
     generatedTargetLastFrame,
     h3ReferenceImages,
-    info.generated_assets?.audio,
-    info.video_prompt,
+    info,
     infoIndex,
     isGeneratingVideo,
     onLastFrameGenerated,
@@ -440,6 +468,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     selectedWorkflow,
     shotPlan,
     updateMVInfoAsset,
+    updateMuxStatus,
     videoOrientation,
     mvData?.characters,
   ]);
@@ -663,6 +692,14 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                   ? '已接入上一镜头的实际尾帧，并将它作为本镜头首帧提交。跨分段时同样生效。'
                   : '当前没有可承接的尾帧。请先生成上一镜头视频，或切换为“新画面 T2I”生成独立首帧。'}
               </div>
+            </div>
+          )}
+          {info.generated_assets?.drive_audio && (
+            <div className="flex items-center gap-2 rounded border border-cyan-400/20 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200">
+              <AudioLines size={12} />
+              <span className="max-w-[180px] truncate">{info.generated_assets.drive_audio_filename || 'music3_drive_audio.mp3'}</span>
+              <audio src={info.generated_assets.drive_audio} controls className="h-6 w-36" />
+              <span className="text-[9px] text-gray-400">{info.generated_assets.mux_status === 'ready' ? '原音轨已封装' : info.generated_assets.mux_status === 'failed' ? '封装失败' : '待封装'}</span>
             </div>
           )}
         </div>

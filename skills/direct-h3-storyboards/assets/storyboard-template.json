@@ -1,6 +1,6 @@
 {
   "schema": "mv-maker-project",
-  "schema_version": 3,
+  "schema_version": 4,
   "exported_at": "2026-01-01T00:00:00.000Z",
   "project": {
     "proposal_id": 1,
@@ -23,6 +23,35 @@
         "shared_negative_prompt": "替换为所有角色逐字复用的中文统一负面提示词",
         "character_sheet_layout": "横向16:9；左侧3/4全身主视图；中间正面、侧面、背面全身；右侧四个面部表情特写；底部眼睛、发型、服装、道具细节和色板",
         "preferred_image_workflow": "Z-Image-Turbo"
+      },
+      "audio_plan": {
+        "mode": "qwen3-tts-audio-first",
+        "workflow": "千问 3 TTS",
+        "music_workflow": "MiniMax Music 3",
+        "music_enabled": true,
+        "production_style": "musical-drama",
+        "alignment_status": "planned",
+        "narrator_voice": {
+          "voice_id": "VOICE-NARRATOR",
+          "speaker_label": "(S1)",
+          "instruct": "清晰自然、沉稳可信的中文旁白，吐字明确，语速适中，情绪克制，不要演唱。",
+          "reference_text": "替换为能稳定展示旁白音色、语速与情绪的中文参考文本。",
+          "language": "Auto",
+          "seed": 729754692978412,
+          "prompt_filename": "mv-maker-VOICE-NARRATOR",
+          "status": "idle"
+        },
+        "chapters": [
+          {
+            "chapter_id": "AUDIO-001",
+            "title": "替换为中文声音章节名",
+            "target_duration_seconds": 5,
+            "caption": "中文描述纯器乐配乐的情绪、乐器、速度与动态，明确无人声、无演唱、无吟唱",
+            "lyrics": "[Instrumental]\n(No vocals)",
+            "shot_refs": ["SHOT-001"],
+            "status": "idle"
+          }
+        ]
       }
     },
     "characters": [
@@ -36,6 +65,16 @@
           "layout": "横向16:9；3/4主视图；正面、侧面、背面；四个面部表情特写；眼睛、发型、服装、道具细节；色板",
           "z_image_prompt": "替换为 Z-Image-Turbo 中文角色板提示词",
           "krea_prompt": "替换为 Krea2 Turbo 中文角色板提示词"
+        },
+        "voice_profile": {
+          "voice_id": "VOICE-CHAR-001",
+          "speaker_label": "(S2)",
+          "instruct": "与该角色视觉年龄、性别表达和气质匹配的中文声音，写明音高、音色、语速、情绪强度与口音，不要演唱。",
+          "reference_text": "替换为能稳定展示该角色音色和说话方式的中文参考文本。",
+          "language": "Auto",
+          "seed": 729754692978413,
+          "prompt_filename": "mv-maker-VOICE-CHAR-001",
+          "status": "idle"
         }
       }
     ],
@@ -55,18 +94,34 @@
         },
         "mvinfo": [
           {
+            "shot_id": "SHOT-001",
             "timestamp": "00:00 - 00:05",
             "type": "New_Scene",
             "source_text": "替换为准确源文摘录",
             "lyrics": "(No dialogue)",
             "image_prompt": "替换为中文首帧图像提示词",
-            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] 替换为中文 H3 画面、动作、镜头和对白描述。\n\noverall_soundscape: 替换为中文环境与动作声音说明。\n\nnon_diegetic_music: 替换为中文非叙事音乐说明。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] 替换为中文 H3 画面、动作和镜头描述；人物口型、动作与节奏严格跟随 <Audio 1>，不得重新创作声音。\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-001",
+              "source_start_seconds": 0,
+              "duration_seconds": 5,
+              "audio_text": "替换为本镜头准确声音文本",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "替换为角色或旁白名",
+                  "voice_description": "替换为中文稳定声音描述",
+                  "voice_id": "VOICE-CHAR-001"
+                }
+              ],
+              "cut_status": "tentative"
+            },
             "generation_plan": {
               "model": "minimax-h3",
               "mode": "I2VA",
               "duration_seconds": 5,
               "duration_frames": 141,
-              "audio_mode": "native-audio",
+              "audio_mode": "drive-audio",
               "reference_images": []
             }
           }
@@ -80,7 +135,7 @@
     "video_orientation": "landscape",
     "h3": {
       "generation_mode": "director-routed",
-      "audio_mode": "native-audio",
+      "audio_mode": "drive-audio",
       "video_length_frames": 141,
       "reference_images": [null, null]
     }

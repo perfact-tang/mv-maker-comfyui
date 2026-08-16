@@ -46,6 +46,8 @@ try {
 }
 
 const project = parsed?.schema === 'mv-maker-project' ? parsed.project : parsed;
+let strictAudioPlan = null;
+const strictChapterIds = new Set();
 if (!isObject(project)) {
   fail('project must be an object');
 } else {
@@ -55,6 +57,7 @@ if (!isObject(project)) {
   if (!Array.isArray(project.storyboard) || project.storyboard.length === 0) fail('storyboard must be a non-empty array');
 
   if (!legacyCompatible) {
+    if (parsed?.schema === 'mv-maker-project' && parsed.schema_version !== 4) fail('strict projects must use schema_version 4');
     const plan = project.director_plan;
     if (!isObject(plan)) fail('director_plan is required in strict mode');
     else {
@@ -77,6 +80,38 @@ if (!isObject(project)) {
         }
         for (const field of ['style_name', 'shared_style_prefix', 'shared_negative_prompt', 'character_sheet_layout']) {
           if (!hasChinese(styleLock[field])) fail(`director_plan.visual_style_lock.${field} must contain Chinese prompt content`);
+        }
+      }
+      strictAudioPlan = plan.audio_plan;
+      if (!isObject(strictAudioPlan)) fail('director_plan.audio_plan is required');
+      else {
+        if (!['disabled', 'qwen3-tts-audio-first'].includes(strictAudioPlan.mode)) fail('director_plan.audio_plan.mode is invalid');
+        if (strictAudioPlan.mode !== 'disabled' && strictAudioPlan.workflow !== '千问 3 TTS') fail('director_plan.audio_plan.workflow must be 千问 3 TTS');
+        if (strictAudioPlan.mode !== 'disabled' && strictAudioPlan.music_workflow !== 'MiniMax Music 3') fail('director_plan.audio_plan.music_workflow must be MiniMax Music 3');
+        if (!['spoken-word', 'musical-drama'].includes(strictAudioPlan.production_style)) fail('director_plan.audio_plan.production_style is invalid');
+        if (!['planned', 'generated', 'aligned', 'locked'].includes(strictAudioPlan.alignment_status)) fail('director_plan.audio_plan.alignment_status is invalid');
+        if (!Array.isArray(strictAudioPlan.chapters)) fail('director_plan.audio_plan.chapters must be an array');
+        else for (const [chapterIndex, chapter] of strictAudioPlan.chapters.entries()) {
+          const at = `director_plan.audio_plan.chapters[${chapterIndex}]`;
+          if (!isObject(chapter)) { fail(`${at} must be an object`); continue; }
+          for (const field of ['chapter_id', 'title', 'caption', 'lyrics']) if (typeof chapter[field] !== 'string' || !chapter[field].trim()) fail(`${at}.${field} is required`);
+          if (strictChapterIds.has(chapter.chapter_id)) fail(`${at}.chapter_id is duplicated`);
+          strictChapterIds.add(chapter.chapter_id);
+          if (!Number.isFinite(chapter.target_duration_seconds) || chapter.target_duration_seconds <= 0 || chapter.target_duration_seconds > 300) fail(`${at}.target_duration_seconds must be between 1 and 300`);
+          if (!Array.isArray(chapter.shot_refs) || chapter.shot_refs.some((ref) => typeof ref !== 'string')) fail(`${at}.shot_refs must be a string array`);
+          if (!['idle', 'generating', 'ready', 'failed'].includes(chapter.status)) fail(`${at}.status is invalid`);
+        }
+        if (plan.content_form === 'music_video') {
+          if (strictAudioPlan.mode !== 'disabled' || strictAudioPlan.chapters?.length) fail('music_video must disable Music 3 and have no audio chapters');
+        } else if (strictAudioPlan.mode !== 'qwen3-tts-audio-first' || !strictAudioPlan.chapters?.length) {
+          fail('new promo and short_drama projects must use Qwen3 TTS audio-first with Music 3 score chapters');
+        } else {
+          const narrator = strictAudioPlan.narrator_voice;
+          if (!isObject(narrator)) fail('director_plan.audio_plan.narrator_voice is required');
+          else {
+            for (const field of ['voice_id', 'speaker_label', 'instruct', 'reference_text', 'language']) if (typeof narrator[field] !== 'string' || !narrator[field].trim()) fail(`director_plan.audio_plan.narrator_voice.${field} is required`);
+            if (!Number.isFinite(narrator.seed)) fail('director_plan.audio_plan.narrator_voice.seed must be a number');
+          }
         }
       }
     }
@@ -108,6 +143,13 @@ if (!isObject(project)) {
       if (!requiredLayoutTerms.every((term) => sheet.layout.includes(term))) fail(`${at}.reference_sheet.layout is missing required multi-view sections`);
       const selectedPrompt = imageWorkflow === 'Z-Image-Turbo' ? sheet.z_image_prompt : sheet.krea_prompt;
       if (character.description !== selectedPrompt) fail(`${at}.description must equal the selected workflow prompt`);
+      const voice = character.voice_profile;
+      if (!isObject(voice)) fail(`${at}.voice_profile is required`);
+      else {
+        for (const field of ['voice_id', 'speaker_label', 'instruct', 'reference_text', 'language']) if (typeof voice[field] !== 'string' || !voice[field].trim()) fail(`${at}.voice_profile.${field} is required`);
+        if (!Number.isFinite(voice.seed)) fail(`${at}.voice_profile.seed must be a number`);
+        if (!hasChinese(voice.instruct) || !hasChinese(voice.reference_text)) fail(`${at}.voice_profile must contain Chinese voice design content`);
+      }
     }
     if (parsed?.schema === 'mv-maker-project') {
       const settings = parsed.generation_settings;
@@ -123,6 +165,7 @@ if (!isObject(project)) {
         if (project.storyboard?.some((segment) => segment.mvinfo?.some((shot) => shot.generation_plan)) && settings.h3.generation_mode !== 'director-routed') {
           fail('generation_settings.h3.generation_mode must be director-routed when per-shot generation plans are present');
         }
+        if (strictAudioPlan?.mode === 'qwen3-tts-audio-first' && settings.h3.audio_mode !== 'drive-audio') fail('generation_settings.h3.audio_mode must be drive-audio for Qwen3 TTS projects');
       }
     }
   }
@@ -130,6 +173,7 @@ if (!isObject(project)) {
   let previousEnd = 0;
   let computedDuration = 0;
   let shotCount = 0;
+  const shotIds = new Set();
   for (const [segmentIndex, segment] of (project.storyboard ?? []).entries()) {
     if (!isObject(segment) || typeof segment.segment_id !== 'number' || !Array.isArray(segment.mvinfo)) {
       fail(`storyboard[${segmentIndex}] is invalid`);
@@ -138,6 +182,11 @@ if (!isObject(project)) {
     for (const [shotIndex, shot] of segment.mvinfo.entries()) {
       const at = `storyboard[${segmentIndex}].mvinfo[${shotIndex}]`;
       shotCount += 1;
+      if (!legacyCompatible) {
+        if (typeof shot.shot_id !== 'string' || !shot.shot_id.trim()) fail(`${at}.shot_id is required`);
+        else if (shotIds.has(shot.shot_id)) fail(`${at}.shot_id is duplicated`);
+        else shotIds.add(shot.shot_id);
+      }
       const range = parseRange(shot.timestamp);
       if (!range) fail(`${at}.timestamp is invalid`);
       else {
@@ -163,6 +212,22 @@ if (!isObject(project)) {
         fail(`${at}.timestamp duration does not match generation_plan.duration_seconds`);
       }
       if (!AUDIO_MODES.has(plan.audio_mode)) fail(`${at}.generation_plan.audio_mode is invalid`);
+      if (!legacyCompatible && strictAudioPlan?.mode === 'qwen3-tts-audio-first') {
+        if (plan.audio_mode !== 'drive-audio') fail(`${at}.generation_plan.audio_mode must be drive-audio`);
+        const audioPlan = shot.audio_plan;
+        if (!isObject(audioPlan)) fail(`${at}.audio_plan is required`);
+        else {
+          if (!strictChapterIds.has(audioPlan.chapter_id)) fail(`${at}.audio_plan.chapter_id does not exist`);
+          if (!Number.isFinite(audioPlan.source_start_seconds) || audioPlan.source_start_seconds < 0) fail(`${at}.audio_plan.source_start_seconds is invalid`);
+          if (audioPlan.duration_seconds !== plan.duration_seconds) fail(`${at}.audio_plan.duration_seconds must match generation_plan`);
+          if (typeof audioPlan.audio_text !== 'string') fail(`${at}.audio_plan.audio_text must be a string`);
+          if (!Array.isArray(audioPlan.speakers)) fail(`${at}.audio_plan.speakers must be an array`);
+          else for (const [speakerIndex, speaker] of audioPlan.speakers.entries()) if (!isObject(speaker) || typeof speaker.voice_id !== 'string' || !speaker.voice_id.trim()) fail(`${at}.audio_plan.speakers[${speakerIndex}].voice_id is required`);
+          if (!['tentative', 'confirmed'].includes(audioPlan.cut_status)) fail(`${at}.audio_plan.cut_status is invalid`);
+        }
+        if (!shot.video_prompt.includes('<Audio 1>')) fail(`${at}.video_prompt must reference <Audio 1>`);
+        if (!/non_diegetic_music:\s*N\/A\s*$/u.test(shot.video_prompt.trim())) fail(`${at}.video_prompt must end with non_diegetic_music: N/A`);
+      }
       const refs = plan.reference_images ?? [];
       if (!Array.isArray(refs)) fail(`${at}.generation_plan.reference_images must be an array`);
       if (plan.mode === 'Ref2VA') {

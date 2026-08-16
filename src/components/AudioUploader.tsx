@@ -123,7 +123,7 @@ export const AudioUploader: React.FC<AudioUploaderProps> = ({ proposalId }) => {
         <div className="min-w-0">
           <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
             <AudioLines size={12} className="text-emerald-400" />
-            音频上传（可选）
+            手动 Drive / Reference Audio
           </label>
           <p className="mt-1 text-[10px] text-gray-400">
             {sceneCount > 0
@@ -151,7 +151,7 @@ export const AudioUploader: React.FC<AudioUploaderProps> = ({ proposalId }) => {
             title="选择 WAV/MP3；每段包含标记的结束秒，并与下一段重叠 1 秒"
           >
             {isProcessing ? <Loader2 size={14} className="animate-spin" /> : <UploadCloud size={14} />}
-            {isProcessing ? '正在切分并分配…' : '切分并赋予各镜头音频'}
+            {isProcessing ? '正在切分并分配…' : '上传旧版驱动/参考音频'}
           </button>
           {assignedAudioCount > 0 && (
             <button

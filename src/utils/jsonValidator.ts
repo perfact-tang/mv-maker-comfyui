@@ -69,6 +69,13 @@ export const validateMVData = (data: unknown): ValidationResult => {
         }
       }
     }
+    if (character.voice_profile !== undefined) {
+      if (!isObject(character.voice_profile)) return { isValid: false, error: `${label}的 voice_profile 必须是对象` };
+      for (const field of ['voice_id', 'speaker_label', 'instruct', 'reference_text', 'language']) {
+        if (typeof character.voice_profile[field] !== 'string' || !String(character.voice_profile[field]).trim()) return { isValid: false, error: `${label}的 voice_profile.${field} 无效` };
+      }
+      if (!Number.isFinite(Number(character.voice_profile.seed))) return { isValid: false, error: `${label}的 voice_profile.seed 无效` };
+    }
   }
 
   if (!isObject(data.basics)) {
@@ -85,6 +92,59 @@ export const validateMVData = (data: unknown): ValidationResult => {
     return { isValid: false, error: "'storyboard' 必须是一个数组" };
   }
 
+  const directorPlan = isObject(data.director_plan) ? data.director_plan : undefined;
+  const audioPlan = directorPlan && isObject(directorPlan.audio_plan) ? directorPlan.audio_plan : undefined;
+  if (audioPlan) {
+    if (!['disabled', 'music3-audio-first', 'qwen3-tts-audio-first'].includes(String(audioPlan.mode))) {
+      return { isValid: false, error: "director_plan.audio_plan.mode 无效" };
+    }
+    if (!['MiniMax Music 3', '千问 3 TTS'].includes(String(audioPlan.workflow))) {
+      return { isValid: false, error: "director_plan.audio_plan.workflow 必须是千问 3 TTS 或 MiniMax Music 3" };
+    }
+    if (!['spoken-word', 'musical-drama'].includes(String(audioPlan.production_style))) {
+      return { isValid: false, error: "director_plan.audio_plan.production_style 无效" };
+    }
+    if (!['planned', 'generated', 'aligned', 'locked'].includes(String(audioPlan.alignment_status))) {
+      return { isValid: false, error: "director_plan.audio_plan.alignment_status 无效" };
+    }
+    if (!Array.isArray(audioPlan.chapters)) {
+      return { isValid: false, error: "director_plan.audio_plan.chapters 必须是数组" };
+    }
+    if (audioPlan.mode === 'disabled' && audioPlan.chapters.length > 0) {
+      return { isValid: false, error: "禁用 Music 3 时不能声明声音章节" };
+    }
+    if (directorPlan?.content_form === 'music_video' && audioPlan.mode !== 'disabled') {
+      return { isValid: false, error: 'MV 项目必须禁用 Music 3 声音优先流程' };
+    }
+    if (directorPlan?.content_form !== 'music_video' && audioPlan.mode === 'disabled') {
+      return { isValid: false, error: '新版讲解和小说项目必须使用千问 3 TTS 声音优先流程' };
+    }
+    if (audioPlan.mode === 'qwen3-tts-audio-first') {
+      if (audioPlan.workflow !== '千问 3 TTS' || audioPlan.music_workflow !== 'MiniMax Music 3') return { isValid: false, error: '千问 3 TTS 项目必须声明千问 3 TTS 配音和 MiniMax Music 3 配乐工作流' };
+      if (!isObject(audioPlan.narrator_voice)) return { isValid: false, error: '千问 3 TTS 项目缺少 narrator_voice' };
+    }
+    const chapterIds = new Set<string>();
+    for (const [chapterIndex, chapter] of audioPlan.chapters.entries()) {
+      if (!isObject(chapter)) return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节必须是对象` };
+      for (const field of ['chapter_id', 'title', 'caption', 'lyrics']) {
+        if (typeof chapter[field] !== 'string' || !String(chapter[field]).trim()) {
+          return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节缺少 ${field}` };
+        }
+      }
+      if (chapterIds.has(String(chapter.chapter_id))) return { isValid: false, error: `声音章节 ID 重复：${String(chapter.chapter_id)}` };
+      chapterIds.add(String(chapter.chapter_id));
+      if (!Number.isFinite(Number(chapter.target_duration_seconds)) || Number(chapter.target_duration_seconds) <= 0 || Number(chapter.target_duration_seconds) > 300) {
+        return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节时长必须在 1-300 秒` };
+      }
+      if (!Array.isArray(chapter.shot_refs) || chapter.shot_refs.some((ref) => typeof ref !== 'string')) {
+        return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节的 shot_refs 无效` };
+      }
+      if (!['idle', 'generating', 'ready', 'failed'].includes(String(chapter.status))) {
+        return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节状态无效` };
+      }
+    }
+  }
+
   for (let index = 0; index < data.storyboard.length; index += 1) {
     const segment = data.storyboard[index];
     if (!isObject(segment) || typeof segment.segment_id !== 'number') {
@@ -96,6 +156,19 @@ export const validateMVData = (data: unknown): ValidationResult => {
     for (let shotIndex = 0; shotIndex < segment.mvinfo.length; shotIndex += 1) {
       const shot = segment.mvinfo[shotIndex];
       if (!isObject(shot)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头必须是对象` };
+      if (shot.audio_plan !== undefined) {
+        if (!isObject(shot.audio_plan)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 audio_plan 无效` };
+        const shotAudio = shot.audio_plan;
+        if (typeof shotAudio.chapter_id !== 'string' || !shotAudio.chapter_id.trim()) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头缺少声音章节 ID` };
+        if (audioPlan?.mode !== 'disabled' && !(audioPlan.chapters as unknown[]).some((chapter) => isObject(chapter) && chapter.chapter_id === shotAudio.chapter_id)) {
+          return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头引用了不存在的声音章节` };
+        }
+        if (!Number.isFinite(Number(shotAudio.source_start_seconds)) || Number(shotAudio.source_start_seconds) < 0) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音起点无效` };
+        if (![5, 10, 15].includes(Number(shotAudio.duration_seconds))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音时长无效` };
+        if (typeof shotAudio.audio_text !== 'string' || !Array.isArray(shotAudio.speakers)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音文本或说话人无效` };
+        if (audioPlan?.mode === 'qwen3-tts-audio-first' && shotAudio.speakers.some((speaker) => !isObject(speaker) || typeof speaker.voice_id !== 'string' || !speaker.voice_id.trim())) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的说话人缺少 voice_id` };
+        if (!['tentative', 'confirmed'].includes(String(shotAudio.cut_status))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的切点状态无效` };
+      }
       if (shot.generation_plan === undefined) continue;
       if (!isObject(shot.generation_plan)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 generation_plan 无效` };
       const plan = shot.generation_plan;
@@ -103,6 +176,11 @@ export const validateMVData = (data: unknown): ValidationResult => {
       const seconds = Number(plan.duration_seconds);
       if (H3_DURATION_FRAMES[seconds] !== Number(plan.duration_frames)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的时长与帧数不匹配` };
       if (!['native-audio', 'drive-audio', 'reference-audio', 'no-audio'].includes(String(plan.audio_mode))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 audio_mode 无效` };
+      if (audioPlan && audioPlan.mode !== 'disabled') {
+        if (typeof shot.shot_id !== 'string' || !shot.shot_id.trim()) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头缺少 shot_id` };
+        if (plan.audio_mode !== 'drive-audio') return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头必须使用 drive-audio` };
+        if (!isObject(shot.audio_plan) || Number(shot.audio_plan.duration_seconds) !== seconds) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音时长必须与 H3 时长一致` };
+      }
       if (!Array.isArray(plan.reference_images)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 reference_images 必须是数组` };
       if (plan.mode === 'Ref2VA') {
         if (plan.reference_images.length < 1 || plan.reference_images.length > 2) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个 Ref2VA 镜头必须声明一至两张参考图` };

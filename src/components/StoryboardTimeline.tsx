@@ -1,6 +1,7 @@
 import React, { useRef, useImperativeHandle, forwardRef, useState, useMemo, useEffect } from 'react';
 import { StoryboardSegment, MVScriptData } from '../types/mv-data';
 import { SegmentCard, SegmentCardHandle } from './SegmentCard';
+import { useGlobalSettings } from '../stores/useGlobalSettings';
 
 interface StoryboardTimelineProps {
   storyboard: StoryboardSegment[];
@@ -13,6 +14,7 @@ export interface StoryboardTimelineHandle {
 }
 
 export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, StoryboardTimelineProps>(({ storyboard, basics }, ref) => {
+  const audioPlan = useGlobalSettings((state) => state.mvData?.director_plan?.audio_plan);
   const segmentRefs = useRef<(SegmentCardHandle | null)[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [startSegmentInput, setStartSegmentInput] = useState('');
@@ -61,6 +63,10 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
   useImperativeHandle(ref, () => ({
     generateAllSegments: async () => {
       if (isGeneratingGlobally || orderedStoryboard.length === 0) return;
+      if (audioPlan && audioPlan.mode !== 'disabled' && audioPlan.alignment_status !== 'locked') {
+        alert('请先到“声音制作”页面生成、校准并锁定全部 Drive Audio。');
+        return;
+      }
       setStartSegmentInput(String(suggestedStartSegmentId ?? ''));
       setSkipGenerated(true);
       setValidationError('');
@@ -91,7 +97,7 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
         setIsGeneratingGlobally(false);
       }
     },
-  }), [isGeneratingGlobally, orderedStoryboard, suggestedStartSegmentId]);
+  }), [audioPlan, isGeneratingGlobally, orderedStoryboard, suggestedStartSegmentId]);
 
   const handleConfirmGlobalGeneration = async () => {
     const requestedSegmentId = Number(startSegmentInput);

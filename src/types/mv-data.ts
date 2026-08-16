@@ -11,6 +11,67 @@ export interface MVScriptData {
   storyboard: StoryboardSegment[];
 }
 
+export type AudioPlanMode = 'disabled' | 'qwen3-tts-audio-first' | 'music3-audio-first';
+export type AudioProductionStyle = 'spoken-word' | 'musical-drama';
+export type AudioAlignmentStatus = 'planned' | 'generated' | 'aligned' | 'locked';
+export type AudioChapterStatus = 'idle' | 'generating' | 'ready' | 'failed';
+
+export interface AudioChapter {
+  chapter_id: string;
+  title: string;
+  target_duration_seconds: number;
+  caption: string;
+  lyrics: string;
+  shot_refs: string[];
+  generated_audio?: string;
+  actual_duration_seconds?: number;
+  seed?: number;
+  status: AudioChapterStatus;
+  error?: string;
+}
+
+export interface DirectorAudioPlan {
+  mode: AudioPlanMode;
+  workflow: '千问 3 TTS' | 'MiniMax Music 3';
+  music_workflow?: 'MiniMax Music 3';
+  music_enabled?: boolean;
+  production_style: AudioProductionStyle;
+  chapters: AudioChapter[];
+  alignment_status: AudioAlignmentStatus;
+  narrator_voice?: VoiceProfile;
+}
+
+export interface VoiceProfile {
+  voice_id: string;
+  speaker_label: string;
+  instruct: string;
+  reference_text: string;
+  language: string;
+  seed: number;
+  prompt_filename?: string;
+  preview_audio?: string;
+  status?: 'idle' | 'generating' | 'ready' | 'failed';
+  error?: string;
+}
+
+export interface ShotSpeaker {
+  speaker_label: string;
+  character_name?: string;
+  voice_description: string;
+  voice_id?: string;
+}
+
+export interface ShotAudioPlan {
+  chapter_id: string;
+  source_start_seconds: number;
+  duration_seconds: 5 | 10 | 15;
+  actual_voice_duration_seconds?: number;
+  voice_playback_rate?: number;
+  audio_text: string;
+  speakers: ShotSpeaker[];
+  cut_status: 'tentative' | 'confirmed';
+}
+
 export interface DirectorPlan {
   source_type: 'lyrics' | 'lrc' | 'novel' | 'story' | 'blog' | 'product_copy' | string;
   content_form: 'music_video' | 'short_drama' | 'promo';
@@ -24,6 +85,7 @@ export interface DirectorPlan {
   narrative_strategy: string;
   source_coverage_note: string;
   visual_style_lock?: VisualStyleLock;
+  audio_plan?: DirectorAudioPlan;
 }
 
 export interface VisualStyleLock {
@@ -50,6 +112,7 @@ export interface CharacterProfile {
   role?: string;
   traits?: string[];
   reference_sheet?: CharacterReferenceSheet;
+  voice_profile?: VoiceProfile;
   generated_assets?: {
     image?: string;
     video?: string;
@@ -101,7 +164,7 @@ export interface ProjectGenerationSettings {
 
 export interface MVProjectArchive {
   schema: 'mv-maker-project';
-  schema_version: 3;
+  schema_version: 4;
   exported_at: string;
   project: MVScriptData;
   generation_settings: ProjectGenerationSettings;
@@ -119,6 +182,7 @@ export interface StoryboardSegment {
 }
 
 export interface MVInfo {
+  shot_id?: string;
   timestamp: string;
   type: "New_Scene" | "Last_Frame_Continuity";
   first_frame_source?: 't2i' | 'previous-tail';
@@ -128,6 +192,7 @@ export interface MVInfo {
   last_frame_image_prompt?: string;
   video_prompt: string;
   generation_plan?: H3ShotGenerationPlan;
+  audio_plan?: ShotAudioPlan;
   generated_assets?: {
     image?: string;
     video?: string;
@@ -135,5 +200,14 @@ export interface MVInfo {
     target_last_frame?: string;
     audio?: string;
     audio_filename?: string;
+    drive_audio?: string;
+    drive_audio_filename?: string;
+    voice_audio?: string;
+    voice_audio_filename?: string;
+    music_audio?: string;
+    music_audio_filename?: string;
+    source_video?: string;
+    mux_status?: 'pending' | 'ready' | 'failed';
+    mux_error?: string;
   };
 }

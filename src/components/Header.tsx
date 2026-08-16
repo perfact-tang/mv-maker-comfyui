@@ -99,24 +99,28 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
 
   const handleSaveJson = () => {
     if (!mvData) return;
-
-    const archive = createProjectArchive(mvData, {
-      image_workflow: selectedWorkflow,
-      video_workflow: selectedVideoWorkflow,
-      video_orientation: videoOrientation,
-      h3: {
-        generation_mode: h3GenerationMode,
-        audio_mode: h3AudioMode,
-        video_length_frames: h3VideoLength,
-        reference_images: h3ReferenceImages,
-      },
-    });
-    const dataToSave = JSON.stringify(archive, null, 2);
-    const blob = new Blob([dataToSave], { type: 'application/json' });
-    saveAs(
-      blob,
-      `mv_project_${String(proposalId).padStart(3, '0')}_full_${new Date().toISOString().slice(0, 10)}.json`,
-    );
+    try {
+      const archive = createProjectArchive(mvData, {
+        image_workflow: selectedWorkflow,
+        video_workflow: selectedVideoWorkflow,
+        video_orientation: videoOrientation,
+        h3: {
+          generation_mode: h3GenerationMode,
+          audio_mode: h3AudioMode,
+          video_length_frames: h3VideoLength,
+          reference_images: h3ReferenceImages,
+        },
+      });
+      const dataToSave = JSON.stringify(archive, null, 2);
+      const blob = new Blob([dataToSave], { type: 'application/json' });
+      saveAs(
+        blob,
+        `mv_project_${String(proposalId).padStart(3, '0')}_full_${new Date().toISOString().slice(0, 10)}.json`,
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      alert(`保存完整项目失败：${detail}`);
+    }
   };
 
   return (
@@ -180,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
                 </div>
             </div>
 
-            <AudioUploader proposalId={proposalId} />
+            {!['music3-audio-first', 'qwen3-tts-audio-first'].includes(mvData?.director_plan?.audio_plan?.mode || '') && <AudioUploader proposalId={proposalId} />}
             {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && <H3VideoControls />}
             <div className="glass-card min-w-[310px] rounded-lg border border-white/10 bg-black/40 p-3">
               <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-gray-500">整体视频方向</label>
