@@ -102,6 +102,7 @@ interface GlobalSettingsState {
   updateMuxStatus: (segmentId: number, infoIndex: number, status: 'pending' | 'ready' | 'failed', error?: string) => void;
   updateMVInfoFirstFrameSource: (segmentId: number, infoIndex: number, source: 't2i' | 'previous-tail') => void;
   updateMVInfoImagePrompt: (segmentId: number, infoIndex: number, prompt: string) => void;
+  updateMVInfoLastFrameImagePrompt: (segmentId: number, infoIndex: number, prompt: string) => void;
   updateMVInfoGenerationPlan: (segmentId: number, infoIndex: number, generationPlan: NonNullable<MVScriptData['storyboard'][number]['mvinfo'][number]['generation_plan']>) => void;
   assignAudioChunks: (chunks: Array<{ url: string; filename: string }>) => void;
 }
@@ -615,6 +616,16 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
           if (segment.segment_id !== segmentId || !segment.mvinfo[infoIndex]) return segment;
           const mvinfo = [...segment.mvinfo];
           mvinfo[infoIndex] = { ...mvinfo[infoIndex], image_prompt: prompt };
+          return { ...segment, mvinfo };
+        });
+        return { mvData: { ...state.mvData, storyboard } };
+      }),
+      updateMVInfoLastFrameImagePrompt: (segmentId, infoIndex, prompt) => set((state) => {
+        if (!state.mvData) return state;
+        const storyboard = state.mvData.storyboard.map((segment) => {
+          if (segment.segment_id !== segmentId || !segment.mvinfo[infoIndex]) return segment;
+          const mvinfo = [...segment.mvinfo];
+          mvinfo[infoIndex] = { ...mvinfo[infoIndex], last_frame_image_prompt: prompt };
           return { ...segment, mvinfo };
         });
         return { mvData: { ...state.mvData, storyboard } };

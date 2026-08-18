@@ -84,6 +84,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     updateMVInfoAsset,
     updateMVInfoFirstFrameSource,
     updateMVInfoImagePrompt,
+    updateMVInfoLastFrameImagePrompt,
     updateMuxStatus,
     replaceMVInfoImage,
     mvData,
@@ -107,7 +108,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       imageUrl: character.generated_assets!.image!,
     }));
   const [previewMedia, setPreviewMedia] = useState<{ type: 'image' | 'video', url: string } | null>(null);
-  const promptRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
   const videoPromptRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const targetFrameInputRef = useRef<HTMLInputElement>(null);
@@ -129,8 +130,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const handleGenerate = async () => {
     if (isGenerating) return;
     
-    // Get the current text from the contentEditable div or fallback to props
-    const currentPrompt = promptRef.current?.innerText || info.image_prompt;
+    const currentPrompt = promptRef.current?.value || info.image_prompt;
     if (!currentPrompt) return;
 
     setIsGenerating(true);
@@ -210,7 +210,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       : liveCurrentShot.generated_assets?.image || generatedImage || null;
 
     if (!usesH3References && !sourceImage && firstFrameSource === 't2i') {
-      const imagePrompt = promptRef.current?.innerText.trim() || liveCurrentShot.image_prompt?.trim();
+      const imagePrompt = promptRef.current?.value.trim() || liveCurrentShot.image_prompt?.trim();
       if (!imagePrompt) throw new Error('选择了“新画面 T2I”，但没有画面提示词');
       sourceImage = await generateComfyImage(
         composeStoryboardImagePrompt(imagePrompt, basics?.art_style_description, videoOrientation),
@@ -498,7 +498,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       if (previousTail) reused += 1;
       else deferred += 1;
     } else if (regenerateExisting || !liveShot.generated_assets?.image) {
-      const prompt = promptRef.current?.innerText.trim() || liveShot.image_prompt?.trim();
+      const prompt = promptRef.current?.value.trim() || liveShot.image_prompt?.trim();
       if (!prompt) throw new Error('T2I 首帧缺少画面提示词');
       const imageUrl = await generateComfyImage(
         composeStoryboardImagePrompt(prompt, basics?.art_style_description, videoOrientation),
@@ -740,16 +740,14 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                     </div>
                 </div>
                 <p className="mb-1.5 text-[9px] text-cyan-300/70">实际提交时自动合并“镜头画面要求 + 项目整体艺术风格 + 画幅与角色一致性约束”。</p>
-                <div 
+                <textarea
                   ref={promptRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onBlur={(event) => updateMVInfoImagePrompt(segmentId, infoIndex, event.currentTarget.innerText.trim())}
-                  data-placeholder="请输入本镜头的新画面提示词……"
-                  className="bg-black/50 p-3 rounded text-xs text-gray-300 border border-cyan-900/30 hover:border-cyan-500/50 transition cursor-text selection:bg-neon-cyan/30 h-full focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/50 empty:before:content-[attr(data-placeholder)] empty:before:text-gray-600"
-                >
-                  {info.image_prompt || ''}
-                </div>
+                  value={info.image_prompt || ''}
+                  onChange={(event) => updateMVInfoImagePrompt(segmentId, infoIndex, event.target.value)}
+                  placeholder="请输入本镜头的新画面提示词……"
+                  rows={5}
+                  className="min-h-24 w-full resize-y rounded border border-cyan-900/30 bg-black/50 p-3 text-xs leading-5 text-gray-300 outline-none transition placeholder:text-gray-600 hover:border-cyan-500/50 focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan/50"
+                />
               </div>
               
               <div className="flex flex-col mt-6 gap-2">
@@ -791,7 +789,13 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                   </div>
                 </div>
                 <p className="mb-1.5 text-[9px] text-fuchsia-300/70">目标尾帧同样自动附加项目整体艺术风格，避免首帧与尾帧画风漂移。</p>
-                <div className="min-h-16 rounded border border-fuchsia-900/30 bg-black/50 p-3 text-xs text-gray-300">{info.last_frame_image_prompt || '此 FL2VA 镜头缺少 last_frame_image_prompt'}</div>
+                <textarea
+                  value={info.last_frame_image_prompt || ''}
+                  onChange={(event) => updateMVInfoLastFrameImagePrompt(segmentId, infoIndex, event.target.value)}
+                  placeholder="请输入 FL2VA 目标尾帧提示词……"
+                  rows={5}
+                  className="min-h-24 w-full resize-y rounded border border-fuchsia-900/30 bg-black/50 p-3 text-xs leading-5 text-gray-300 outline-none transition placeholder:text-gray-600 hover:border-fuchsia-500/50 focus:border-fuchsia-300 focus:ring-1 focus:ring-fuchsia-300/40"
+                />
               </div>
               <div className="flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded border border-white/10 bg-black/50 md:w-48">
                 {generatedTargetLastFrame ? <img src={generatedTargetLastFrame} alt="Target last frame" className="h-full w-full object-cover" /> : <span className="text-[10px] text-gray-600">等待目标尾帧</span>}
