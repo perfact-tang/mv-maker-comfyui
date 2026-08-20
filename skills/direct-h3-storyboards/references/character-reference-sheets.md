@@ -90,7 +90,7 @@ Krea2 Turbo 使用一段连贯、视觉优先的中文描述：
 
 ## 7. 质量检查
 
-人物视觉身份锁定后同步建立千问 3 TTS `voice_profile`。人物展示允许两种固定音色创建方法：文本定义使用 `voice-design`，其 `instruct` 描述音高、厚薄、语速、咬字、情绪和口音；参考声音使用 `voice-clone`，将用户上传文件保存为 `creation_reference_audio`，设置 `source: "uploaded-reference"` 和独立 ASR 输入语言。两种方法生成的输出都要测量实长，并以 `source: "generated-fixed-voice"` 保存为最终 `reference_audio`。声音制作绑定人物后，只有点击生成按钮才克隆最终固定音色。
+人物视觉身份锁定后同步建立千问 3 TTS `voice_profile`。人物展示允许两种固定音色创建方法：文本定义使用 `voice-design`；参考声音使用 `voice-clone`。参考声音可以是本地上传文件，也可以在网页授权麦克风后录制；统一保存为 `creation_reference_audio`，以 `capture_method` 区分来源，并记录实长、安全读取上限和 ASR 输入语言。两种方法的创建输出都保存为最终 `reference_audio`。声音制作绑定人物后，只有点击生成按钮才克隆最终固定音色。
 
 ## 8. 联合质量检查
 

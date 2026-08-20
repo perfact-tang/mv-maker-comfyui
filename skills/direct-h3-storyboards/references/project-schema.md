@@ -138,10 +138,13 @@
     "mime_type": "audio/wav",
     "duration_seconds": 12.5,
     "ref_audio_max_seconds": 60,
-    "source": "uploaded-reference"
+    "source": "uploaded-reference",
+    "capture_method": "file-upload"
   }
 }
 ```
+
+网页录音使用相同结构，仅将 `capture_method` 写为 `"browser-recording"`；录音结束后必须释放麦克风轨道，并按实际编码保存 MIME 和扩展名。
 
 - `ref_audio_max_seconds` 必须使用 `max(60, ceil(duration_seconds) + 1, 已有配置值)`，并严格大于参考音频实长。不得用它限制生成配音的目标长度；生成配音实长记录在镜头 `actual_voice_duration_seconds`，目标时长仍由镜头 5/10/15 秒设置决定。
 

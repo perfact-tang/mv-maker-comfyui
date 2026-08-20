@@ -73,7 +73,7 @@ FL2VA 的计划目标图保存在 `generated_assets.target_last_frame`，视频�
 
 ### 千问 3 TTS 配音 + Music 3 配乐
 
-v4 项目可在 `project.director_plan.audio_plan` 中声明 `qwen3-tts-audio-first`。人物展示通过下拉框提供两种固定音色创建方式：文本定义使用 Voice Design；上传参考声音使用 Voice Clone + ASR。两种方法的生成结果都会被测量并保存为人物最终固定音色。旁白固定音色使用 Voice Design 创建。声音制作选择人物或旁白后只建立绑定，点击“生成配音”时才以最终固定音色运行 Voice Clone + ASR。ASR 输入语言与逐镜头 TTS 输出语言分别保存，`ref_audio_max_seconds` 始终至少为 60 秒且大于参考实长。
+v4 项目可在 `project.director_plan.audio_plan` 中声明 `qwen3-tts-audio-first`。人物展示通过下拉框提供两种固定音色创建方式：文本定义使用 Voice Design；参考声音使用 Voice Clone + ASR。参考声音既可以上传本地文件，也可以授权麦克风后直接在网页录制；录音停止后会自动转换为创建参考、测量实长并标记来源。两种方法的生成结果都会保存为人物最终固定音色。声音制作选择人物或旁白后只建立绑定，点击“生成配音”时才克隆最终固定音色。
 
 声音优先项目必须先在人物页确认角色音色。随后“声音制作”的每个有对白镜头都像分镜人物参考一样选择说话人物：卡片立即展示该人物图片、固定 `voice_id`、音色说明和预览，并把人物与专属音色绑定到镜头。切换人物只清除旧配音和 Drive Audio，不会立即生成；点击该镜头“生成配音”后才以绑定的固定音色运行 Voice Clone + ASR。完成千问配音、可选 Music 3 配乐、混合与锁定后，才能批量生成 H3 视频。配音超过 5/10/15 秒镜头长度时会明确失败，不会截断人声；应精简台词或增加镜头时长。MV 项目使用 `audio_plan.mode: "disabled"`，继续沿用已有主音乐。
 

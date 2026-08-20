@@ -178,6 +178,7 @@ if (!isObject(project)) {
             for (const field of ['data_url', 'filename', 'mime_type']) if (typeof creationReference[field] !== 'string' || !creationReference[field].trim()) fail(`${at}.voice_profile.creation_reference_audio.${field} is required`);
             if (!Number.isFinite(creationReference.duration_seconds) || creationReference.duration_seconds <= 0 || !Number.isFinite(creationReference.ref_audio_max_seconds) || creationReference.ref_audio_max_seconds <= creationReference.duration_seconds || creationReference.ref_audio_max_seconds < 60) fail(`${at}.voice_profile creation reference duration safety is invalid`);
             if (creationReference.source !== 'uploaded-reference') fail(`${at}.voice_profile.creation_reference_audio.source must be uploaded-reference`);
+            if (creationReference.capture_method !== undefined && !['file-upload', 'browser-recording'].includes(creationReference.capture_method)) fail(`${at}.voice_profile.creation_reference_audio.capture_method is invalid`);
           }
         }
         if (voice.reference_audio !== undefined) {

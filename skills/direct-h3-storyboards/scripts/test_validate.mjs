@@ -37,6 +37,10 @@ try {
     value.project.characters[0].voice_profile.generation_mode = 'voice-clone';
     value.project.characters[0].voice_profile.creation_reference_audio = { data_url: 'data:audio/wav;base64,AA==', filename: 'source.wav', mime_type: 'audio/wav', duration_seconds: 12.5, ref_audio_max_seconds: 60, source: 'uploaded-reference' };
   }, true);
+  await run('valid-character-browser-recording', (value) => {
+    value.project.characters[0].voice_profile.generation_mode = 'voice-clone';
+    value.project.characters[0].voice_profile.creation_reference_audio = { data_url: 'data:audio/webm;base64,AA==', filename: 'recorded.webm', mime_type: 'audio/webm', duration_seconds: 9.8, ref_audio_max_seconds: 60, source: 'uploaded-reference', capture_method: 'browser-recording' };
+  }, true);
   await run('missing-shot-voice-id', (value) => { delete value.project.storyboard[0].mvinfo[0].audio_plan.speakers[0].voice_id; }, false);
   await run('unknown-shot-voice-id', (value) => { value.project.storyboard[0].mvinfo[0].audio_plan.speakers[0].voice_id = 'VOICE-UNKNOWN'; }, false);
   await run('duplicate-voice-id', (value) => { value.project.characters[0].voice_profile.voice_id = value.project.director_plan.audio_plan.narrator_voice.voice_id; }, false);

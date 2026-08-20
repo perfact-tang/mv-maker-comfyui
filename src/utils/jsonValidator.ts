@@ -85,6 +85,7 @@ export const validateMVData = (data: unknown): ValidationResult => {
         const sourceMaximum = Number(sourceReference.ref_audio_max_seconds);
         if (!Number.isFinite(sourceDuration) || sourceDuration <= 0 || !Number.isFinite(sourceMaximum) || sourceMaximum <= sourceDuration) return { isValid: false, error: `${label}的创建参考声音安全读取上限无效` };
         if (sourceReference.source !== undefined && sourceReference.source !== 'uploaded-reference') return { isValid: false, error: `${label}的 creation_reference_audio.source 无效` };
+        if (sourceReference.capture_method !== undefined && !['file-upload', 'browser-recording'].includes(String(sourceReference.capture_method))) return { isValid: false, error: `${label}的 creation_reference_audio.capture_method 无效` };
       }
       if (character.voice_profile.status === 'ready' && !isObject(character.voice_profile.reference_audio)) return { isValid: false, error: `${label}的固定音色已标记 ready 但缺少最终 reference_audio` };
       if (character.voice_profile.reference_audio !== undefined) {

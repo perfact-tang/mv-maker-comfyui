@@ -25,6 +25,7 @@ export interface VoiceReferenceAudio {
   duration_seconds: number;
   ref_audio_max_seconds: number;
   source?: 'generated-fixed-voice' | 'uploaded-reference';
+  capture_method?: 'file-upload' | 'browser-recording';
 }
 
 export interface AudioChapter {

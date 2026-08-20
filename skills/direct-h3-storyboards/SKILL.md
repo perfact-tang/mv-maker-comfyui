@@ -61,7 +61,7 @@ description: 将歌词、LRC、小说、故事、文章、解说文案和产品�
 
 同一张板内所有视图必须是同一人：脸型、五官间距、发际线、年龄、体型、服装结构、配色和道具完全一致。不得生成多个人、替代服装、剧情场景、海报、群像或相互遮挡的拼贴。
 
-每个会说话或可能说话的角色同时建立唯一 `voice_profile`：`voice_id`、稳定 `(Sx)`、预览文本、TTS 输出 `language` 和固定随机种子。人物展示的固定音色创建方式由下拉框决定：`voice-design` 使用中文 `instruct`；`voice-clone` 使用用户上传的 `creation_reference_audio` 和独立 ASR `reference_language`。无论哪种方法，创建输出都要保存为最终 `preview_audio` 与 `reference_audio`（`source: "generated-fixed-voice"`）。声音制作只绑定人物，点击“生成配音”后才以最终固定音色运行 Voice Clone + ASR。旁白先创建项目级固定音色，镜头选择旁白时同样克隆。
+每个会说话或可能说话的角色同时建立唯一 `voice_profile`：`voice_id`、稳定 `(Sx)`、预览文本、TTS 输出 `language` 和固定随机种子。人物展示的固定音色创建方式由下拉框决定：`voice-design` 使用中文 `instruct`；`voice-clone` 使用 `creation_reference_audio` 和独立 ASR `reference_language`。创建参考声音可来自本地文件上传或网页麦克风录音，分别记录 `capture_method: "file-upload"` 或 `"browser-recording"`。无论哪种方法，创建输出都保存为最终 `preview_audio` 与 `reference_audio`。声音制作只绑定人物，点击“生成配音”后才克隆最终固定音色。
 
 参考音频安全规则：`ref_audio_max_seconds = max(60, ceil(reference_audio.duration_seconds) + 1, 已有配置值)`。严禁写入小于或等于参考音频实长的值；ASR 输入语言不得与 TTS 输出语言混为一个字段。参考音频用于识别原说话内容和克隆音色，`audio_plan.tts_language` / 全局 `tts_language` 只控制新配音的输出语言。
 
