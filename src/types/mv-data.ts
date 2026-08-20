@@ -15,6 +15,9 @@ export type AudioPlanMode = 'disabled' | 'qwen3-tts-audio-first' | 'music3-audio
 export type AudioProductionStyle = 'spoken-word' | 'musical-drama';
 export type AudioAlignmentStatus = 'planned' | 'generated' | 'aligned' | 'locked';
 export type AudioChapterStatus = 'idle' | 'generating' | 'ready' | 'failed';
+export type MusicWorkflow = 'MiniMax Music 3' | 'Audio ACE Step 1.5';
+export type MusicGenerationMode = 'instrumental' | 'vocal';
+export type AceMusicLanguage = 'en' | 'ja' | 'zh' | 'es' | 'de' | 'fr' | 'pt' | 'ru' | 'it' | 'nl' | 'pl' | 'tr' | 'vi' | 'cs' | 'fa' | 'id' | 'ko' | 'uk' | 'hu' | 'ar' | 'sv' | 'ro' | 'el';
 export type Qwen3TtsLanguage = 'Auto' | 'Chinese' | 'English' | 'Japanese' | 'Korean' | 'German' | 'French' | 'Russian' | 'Portuguese' | 'Spanish' | 'Italian';
 export type Qwen3AsrLanguage = 'auto' | Exclude<Qwen3TtsLanguage, 'Auto'> | 'Cantonese' | 'Arabic' | 'Indonesian' | 'Thai' | 'Vietnamese' | 'Turkish' | 'Hindi' | 'Malay' | 'Dutch' | 'Swedish' | 'Danish' | 'Finnish' | 'Polish' | 'Czech' | 'Filipino' | 'Persian' | 'Greek' | 'Hungarian' | 'Macedonian' | 'Romanian';
 
@@ -34,6 +37,13 @@ export interface AudioChapter {
   target_duration_seconds: number;
   caption: string;
   lyrics: string;
+  music_workflow?: MusicWorkflow;
+  generation_mode?: MusicGenerationMode;
+  tags?: string;
+  bpm?: number;
+  time_signature?: '2' | '3' | '4' | '6';
+  language?: AceMusicLanguage;
+  key_scale?: string;
   shot_refs: string[];
   generated_audio?: string;
   actual_duration_seconds?: number;
@@ -45,7 +55,7 @@ export interface AudioChapter {
 export interface DirectorAudioPlan {
   mode: AudioPlanMode;
   workflow: '千问 3 TTS' | 'MiniMax Music 3';
-  music_workflow?: 'MiniMax Music 3';
+  music_workflow?: MusicWorkflow;
   music_enabled?: boolean;
   production_style: AudioProductionStyle;
   chapters: AudioChapter[];

@@ -65,13 +65,13 @@ Use `New_Scene` only for a true visual reset. Use `Last_Frame_Continuity` when t
 
 ## 7. Audio ownership
 
-- `music_video`: keep the supplied master track; do not invoke MiniMax Music 3.
-- `qwen3-tts-audio-first`: for promo and fiction, Qwen3 TTS generates clear per-shot narration/dialogue from a locked narrator or character `voice_id`; MiniMax Music 3 generates instrumental score chapters only.
-- `drive-audio`: the application mixes the exact Qwen3 voice at full level with Music 3 score at a lower level. This mixed shot audio dictates lip movement, action timing, and performance. The application discards H3's returned audio and remuxes the exact source mix into the final video.
+- `music_video`: keep the supplied master track; do not invoke a new music workflow unless the user explicitly asks to replace it.
+- `qwen3-tts-audio-first`: for promo and fiction, Qwen3 TTS generates clear per-shot narration/dialogue from a locked narrator or character `voice_id`; each music chapter independently selects MiniMax Music 3 or Audio ACE Step 1.5.
+- `drive-audio`: the application mixes the exact Qwen3 voice at full level with the selected chapter score at a lower level. This mixed shot audio dictates lip movement, action timing, and performance. The application discards H3's returned audio and remuxes the exact source mix into the final video.
 - `native-audio`: legacy fallback only; do not emit it for new v4 non-MV projects.
 - `reference-audio`: audio guides timbre, rhythm, or style without direct lock.
 - `no-audio`: explicitly export a silent video. Do not use it merely because the user did not upload audio.
 
 For MVs with master audio, align shots to the source timeline and prefer cuts at pauses, breaths, beats, or impacts. Never cut a required lyric mid-word unless the same vocal continues explicitly across the cut.
 
-声音采用两阶段流程。人物展示及旁白固定音色区先用 Qwen3 Voice Design 创建声音并锁定 `voice_id`、`instruct`、预览文本、输出语言、seed 和 Prompt；生成的预览音频自动成为克隆参考。声音制作选择人物或旁白时，再用 Qwen3 Voice Clone + ASR 为镜头生成对白。Voice Clone 必须将 ASR 输入 `reference_language` 与 TTS 输出 `language` 分开，记录参考实长，并把 `ref_audio_max_seconds` 设为至少 `max(60, ceil(duration) + 1)`。Music 3 不得接收旁白或对白文本。
+声音采用两阶段流程。人物展示及旁白固定音色区先用 Qwen3 Voice Design 创建声音并锁定 `voice_id`、`instruct`、预览文本、输出语言、seed 和 Prompt；生成的预览音频自动成为克隆参考。声音制作选择人物或旁白时，再用 Qwen3 Voice Clone + ASR 为镜头生成对白。Voice Clone 必须将 ASR 输入 `reference_language` 与 TTS 输出 `language` 分开，记录参考实长，并把 `ref_audio_max_seconds` 设为至少 `max(60, ceil(duration) + 1)`。音乐章节不得接收旁白或对白文本；`lyrics` 是音乐的时间脚本，纯音乐也必须包含结构段和括号内状态变化。

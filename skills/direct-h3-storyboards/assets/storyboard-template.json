@@ -47,9 +47,16 @@
           {
             "chapter_id": "AUDIO-001",
             "title": "替换为中文声音章节名",
-            "target_duration_seconds": 5,
-            "caption": "中文描述纯器乐配乐的情绪、乐器、速度与动态，明确无人声、无演唱、无吟唱",
-            "lyrics": "[Instrumental]\n(No vocals)",
+            "target_duration_seconds": 10,
+            "music_workflow": "MiniMax Music 3",
+            "generation_mode": "instrumental",
+            "caption": "替换为完整音乐画像：曲风、情绪、主辅乐器、音色材质、空间、能量曲线、对白频段避让与结尾方式",
+            "tags": "cinematic ambient, emotional score, restrained percussion, spacious mix",
+            "lyrics": "[Instrumental]\n[Intro]\n(Sparse motif establishes the scene and leaves space for dialogue)\n[Build]\n(Add one rhythmic and one harmonic layer)\n[Climax]\n(Fullest instrumental texture without covering speech)\n[Outro]\n(Resolve cleanly and fade without an abrupt cut)",
+            "bpm": 96,
+            "time_signature": "4",
+            "language": "en",
+            "key_scale": "C major",
             "shot_refs": ["SHOT-001"],
             "status": "idle"
           }

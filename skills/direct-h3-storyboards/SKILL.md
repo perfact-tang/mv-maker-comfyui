@@ -5,7 +5,7 @@ description: 将歌词、LRC、小说、故事、文章、解说文案和产品�
 
 # Direct H3 Storyboards
 
-把源文本转换为可执行的导演方案与 `mv-maker-project` v4 JSON。先同时锁定统一视觉系统、角色参考板和千问 3 TTS 音色，再规划逐镜头配音与 Music 3 纯器乐配乐，最后写由混合 Drive Audio 驱动的 H3 分镜；不得让各角色自行选择画风或音色。
+把源文本转换为可执行的导演方案与 `mv-maker-project` v4 JSON。先锁定统一视觉、角色参考板和千问 3 TTS 音色，再规划逐镜头配音，并按音乐章节选择 MiniMax Music 3 或 Audio ACE Step 1.5，最后写由混合 Drive Audio 驱动的 H3 分镜。
 
 ## 工作模式
 
@@ -32,7 +32,7 @@ description: 将歌词、LRC、小说、故事、文章、解说文案和产品�
 
 ### 1. 建立制作约束
 
-确定源类型、内容形式、语言、交付物、成片画幅、视频模型、图片工作流、可用片长和音频归属。未指定时使用 MiniMax H3、16:9、片长 `[5, 10, 15]`，图片工作流优先 `Z-Image-Turbo`。`music_video` 保留已有主音乐并禁用新的配音/配乐流程；`promo` 和 `short_drama` 默认使用千问 3 TTS 逐镜头配音，MiniMax Music 3 只按情绪章节生成纯器乐配乐，再把两者混合为 `drive-audio` 驱动 H3。不得让 H3 重新创作对白、音效或配乐。
+确定源类型、内容形式、语言、交付物、成片画幅、视频模型、图片工作流、可用片长和音频归属。未指定时使用 MiniMax H3、16:9、片长 `[5, 10, 15]`，图片工作流优先 `Z-Image-Turbo`。`music_video` 保留已有主音乐并禁用新的配音/配乐流程；`promo` 和 `short_drama` 默认使用千问 3 TTS 逐镜头配音，并按章节在 MiniMax Music 3 与 Audio ACE Step 1.5 中选择配乐，再把两者混合为 `drive-audio` 驱动 H3。不得让 H3 重新创作对白、音效或配乐。
 
 只要项目包含逐镜头 `generation_plan`，就把 `generation_settings.h3.generation_mode` 固定写为 `director-routed`；不得写入程序不支持的其他值。旧项目没有逐镜头计划时才使用 `first-frame` 或 `reference-images`。
 
@@ -73,11 +73,21 @@ description: 将歌词、LRC、小说、故事、文章、解说文案和产品�
 
 在角色板风格锁定后，建立环境锚点与空间方位。环境卡不得包含人物。再把源文单元分组为宏观 `storyboard` 段落和可执行 `mvinfo` 镜头。每个镜头只保留一个视觉主角、一个主要动作、明确的连续性承接、源文覆盖、精确时间和生成计划。
 
-### 5. 先规划千问配音与 Music 3 配乐
+### 5. 先规划千问配音与音乐章节
 
 `promo` 使用 `spoken-word`，以项目级单一旁白音色逐镜头生成自然清晰配音；`short_drama` 使用 `musical-drama`，但“musical”只描述戏剧组织，不要求唱歌，每个角色必须引用人物页锁定的 `voice_id`。同一镜头原则上只放一个主要说话人；多人连续对话拆成可独立配音的镜头。每个有对白镜头的首位说话人必须唯一解析到人物或旁白；声音制作把人物图片和已创建的固定音色作为同一选择项。选择人物或旁白时只更新绑定并清除旧人声与 Drive Audio，不触发生成；用户点击该镜头“生成配音”后，才以绑定的固定音色运行 Voice Clone + ASR。
 
-Music 3 只规划配乐章节：每章写纯器乐 `caption`、固定 `[Instrumental]\n(No vocals)`、`shot_refs` 和建议总时长；明确无人声、无演唱、无吟唱。连续地点和情绪尽量同章，明显转折时换章，单章不超过 300 秒。每镜头写稳定 `shot_id` 与 `audio_plan`，包括章节、章内起点、5/10/15 秒、准确 TTS 文本、说话人、`voice_id` 和 `tentative` 状态。必须让文本能在镜头时长内自然读完；过长就拆镜或增加到 10/15 秒，不能依赖后期截断或极端加速。
+每个音乐章节必须写 `music_workflow`、`generation_mode` 和精确 `target_duration_seconds`。连续地点与同一情绪弧尽量同章，明显转折换章。MiniMax 单章 1–300 秒，Audio ACE 单章 10–600 秒；时长必须覆盖 `shot_refs` 的连续镜头总长，不能用更短音乐再截断或静音补齐。
+
+每章都要形成可执行音乐设计，不得只写“悲伤配乐”“轻快背景乐”：
+
+- 总体描述包含曲风/子类型、核心情绪、主导与辅助乐器、音色材质、节奏密度、制作空间、能量曲线、对白频段避让和结尾方式。
+- Audio ACE 的 `tags` 只写曲风、情绪、乐器、演唱音色和制作质感；BPM、拍号、调性使用独立字段，不在标签里重复或冲突。
+- `lyrics` 始终是时间脚本。至少按 `[Intro]`、`[Build]` 或 `[Verse]`、`[Climax]` 或 `[Chorus]`、`[Outro]` 分段，每段用括号描述乐器进入/退出、密度、能量、演奏法和转场；各段必须能落入目标时长。
+- 纯音乐写 `generation_mode: "instrumental"`，首行为 `[Instrumental]`，其后仍保留完整结构与状态说明；不得退化为只有 `[Instrumental]` 或 `(No vocals)`。
+- 带歌词写 `generation_mode: "vocal"`，分段标签下面写真正要唱的歌词；歌词语言决定 `language`：中文 `zh`、英文 `en`、日文 `ja`、韩文 `ko`，其他语言使用对应 ISO 代码。不得把镜头旁白或对白复制成歌曲歌词。
+
+Audio ACE 优先用于需要显式 BPM、拍号、调性、歌词语言或长篇结构控制的章节；默认从稳定的 `4/4`、常见调性和 60–180 BPM 起步，华尔兹用 `3/4`，复拍摇摆感用 `6/8`。MiniMax Music 3 的 `caption` 同样必须包含完整音乐画像；纯音乐时追加无人声约束，但不能覆盖 `lyrics` 的时间结构。每镜头写稳定 `shot_id` 与 `audio_plan`，包括章节、章内起点、5/10/15 秒、准确 TTS 文本、说话人、`voice_id` 和 `tentative` 状态。文本必须在镜头时长内自然读完；过长就拆镜或增加到 10/15 秒。
 
 ### 6. 为每个 H3 镜头选路由
 
@@ -93,7 +103,7 @@ Music 3 只规划配乐章节：每章写纯器乐 `caption`、固定 `[Instrume
 
 图像与 H3 提示词正文全部使用中文，并保持 `references/h3-routing.md` 规定的字段顺序。H3 固定字段名可保留英文，字段值使用中文。对白只放在 `<d>[Chinese] ...</d>` 等协议块内。完成结构后不得追加游离风格段落。
 
-`source_text` 使用准确原文，千问 3 TTS 的 `audio_text` 保留准确对白或旁白；Music 3 不得接收对白。每镜头 `tts_language` 是配音输出语言，可覆盖全局输出语言；角色 `reference_language` 仅用于参考音频 ASR。生成后必须记录 `actual_voice_duration_seconds`，若自然可接受的语速仍不能完整落入 5/10/15 秒目标时长，则明确失败并拆镜或增时，不得截断人声。每个非 MV 镜头的 `generation_plan.audio_mode` 固定为 `drive-audio`；H3 正文说明画面、口型和动作跟随 `<Audio 1>` 中已经混合好的配音与配乐，`overall_soundscape` 只说明复用主音频，`non_diegetic_music` 固定写 `N/A`。
+`source_text` 使用准确原文，千问 3 TTS 的 `audio_text` 保留准确对白或旁白；MiniMax Music 3 与 Audio ACE 均不得接收对白。每镜头 `tts_language` 是配音输出语言，可覆盖全局输出语言；角色 `reference_language` 仅用于参考音频 ASR。生成后必须记录 `actual_voice_duration_seconds`，若自然可接受的语速仍不能完整落入 5/10/15 秒目标时长，则明确失败并拆镜或增时，不得截断人声。每个非 MV 镜头的 `generation_plan.audio_mode` 固定为 `drive-audio`；H3 正文说明画面、口型和动作跟随 `<Audio 1>` 中已经混合好的配音与配乐，`overall_soundscape` 只说明复用主音频，`non_diegetic_music` 固定写 `N/A`。
 
 ### 8. 验证与交付
 
@@ -105,7 +115,7 @@ node scripts/validate_storyboard.mjs <project.json>
 
 修复全部错误。另做一次角色板人工自检：统一风格前缀是否逐字一致、多视图是否齐全、是否明确同一人、是否含中文、所选图片工作流与 `description` 是否匹配。
 
-如果用户提供、引用或要求续写的是旧项目，旧文件只能作为内容来源，不能作为输出格式模板：必须补齐项目级千问 `narrator_voice`、人物 `voice_profile`、Music 3 纯器乐章节、每镜头唯一 `shot_id`、`audio_plan.voice_id`，并把非 MV 镜头及全局 H3 设置从 `native-audio` 改为 `drive-audio`。严格验证未输出 `VALID` 时禁止交付 JSON。
+如果用户提供、引用或要求续写的是旧项目，旧文件只能作为内容来源，不能作为输出格式模板：必须补齐项目级千问 `narrator_voice`、人物 `voice_profile`、结构完整的音乐章节、每镜头唯一 `shot_id`、`audio_plan.voice_id`，并把非 MV 镜头及全局 H3 设置从 `native-audio` 改为 `drive-audio`。严格验证未输出 `VALID` 时禁止交付 JSON。
 
 聊天中只报告形式/统一画风、总时长、段落数、镜头数、H3 模式分布、图片工作流和输出路径；除非用户明确要求，不粘贴大型 JSON。
 

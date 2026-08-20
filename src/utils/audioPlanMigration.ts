@@ -57,8 +57,10 @@ const makeGenerationPlan = (shot: MVInfo, model: string): H3ShotGenerationPlan =
 };
 
 const chapterCaption = (contentForm: 'promo' | 'short_drama') => contentForm === 'promo'
-  ? '温暖克制的电影级知识讲解配乐，节奏清晰但不抢注意力，保留旁白空间；纯器乐，无演唱、无人声、无吟唱。'
-  : '具有场景情绪和戏剧起伏的电影级氛围配乐，避开对白频段并保持转场连续；纯器乐，无演唱、无人声、无吟唱。';
+  ? '温暖克制的电影级知识讲解配乐；原声钢琴、柔和弦乐与轻质感打击乐；中低能量，清晰脉冲；宽阔但不空洞的空间；削弱人声中频，为旁白持续留出位置；结尾自然收束。'
+  : '电影级叙事氛围配乐；以场景核心情绪选择主导乐器，低密度开场、逐层增压、情绪峰值后克制回落；转场连续，削弱对白频段，避免突兀终止。';
+
+const chapterTimeline = '[Instrumental]\n[Intro]\n(Sparse texture establishes the scene mood; leave space for dialogue)\n[Build]\n(Add one rhythmic and one harmonic layer; energy rises gradually)\n[Climax]\n(Fullest instrumental arrangement without covering speech)\n[Outro]\n(Resolve the motif and fade cleanly; no abrupt cut)';
 
 const narratorVoice = (): VoiceProfile => ({
   voice_id: 'VOICE-NARRATOR',
@@ -92,7 +94,7 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
   if (!director || !plan || plan.mode === 'disabled') return project;
   const alreadyQwenReady = plan.mode === 'qwen3-tts-audio-first'
     && plan.workflow === '千问 3 TTS'
-    && plan.music_workflow === 'MiniMax Music 3'
+    && ['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(plan.music_workflow || 'MiniMax Music 3')
     && Boolean(plan.narrator_voice)
     && plan.narrator_voice?.generation_mode === 'voice-design'
     && Boolean(plan.narrator_voice.reference_language)
@@ -168,7 +170,7 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
         ...plan,
         mode: 'qwen3-tts-audio-first',
         workflow: '千问 3 TTS',
-        music_workflow: 'MiniMax Music 3',
+        music_workflow: plan.music_workflow ?? 'MiniMax Music 3',
         music_enabled: plan.music_enabled ?? true,
         tts_language: ttsLanguage,
         narrator_voice: narrator,
@@ -176,7 +178,14 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
         chapters: migratingMusic3VoicePlan ? plan.chapters.map((chapter) => ({
           ...chapter,
           caption: `${chapter.caption}；仅生成纯器乐背景配乐，避开对白频段，无演唱、无人声、无吟唱。`,
-          lyrics: '[Instrumental]\n(No vocals)',
+          lyrics: chapter.lyrics?.trim() && chapter.lyrics !== '[Instrumental]\n(No vocals)' ? chapter.lyrics : chapterTimeline,
+          music_workflow: chapter.music_workflow ?? plan.music_workflow ?? 'MiniMax Music 3',
+          generation_mode: chapter.generation_mode ?? 'instrumental',
+          tags: chapter.tags ?? chapter.caption,
+          bpm: chapter.bpm ?? 100,
+          time_signature: chapter.time_signature ?? '4',
+          language: chapter.language ?? 'en',
+          key_scale: chapter.key_scale ?? 'C major',
           generated_audio: undefined,
           actual_duration_seconds: undefined,
           status: 'idle' as const,
@@ -243,7 +252,14 @@ export const migrateProjectToV4AudioPlan = (project: MVScriptData): MVScriptData
         title: `声音章节 ${chapters.length + 1} · ${segment.content_narrative.slice(0, 24) || '未命名段落'}`,
         target_duration_seconds: chapterDuration,
         caption: chapterCaption(contentForm),
-        lyrics: '[Instrumental]\n(No vocals)',
+        lyrics: chapterTimeline,
+        music_workflow: 'MiniMax Music 3',
+        generation_mode: 'instrumental',
+        tags: chapterCaption(contentForm),
+        bpm: contentForm === 'promo' ? 96 : 84,
+        time_signature: '4',
+        language: 'en',
+        key_scale: contentForm === 'promo' ? 'C major' : 'A minor',
         shot_refs: chapterShots.map(({ shotId }) => shotId),
         status: 'idle',
       });

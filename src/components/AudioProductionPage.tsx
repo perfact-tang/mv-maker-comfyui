@@ -2,8 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import { AudioLines, CheckCircle2, Download, Headphones, Loader2, LockKeyhole, Music2, PackageOpen, RefreshCw, SkipBack, SkipForward, Sparkles, Upload, UserRound, WandSparkles, X } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
-import type { MVInfo, Qwen3TtsLanguage, VoiceProfile } from '../types/mv-data';
-import { generateMusic3Chapter, generateQwen3ShotVoice, generateQwen3Voice, makeGeneratedFixedVoiceReference, mixVoiceAndMusic, splitMusic3Chapter } from '../utils/audioProduction';
+import type { AceMusicLanguage, MusicGenerationMode, MusicWorkflow, MVInfo, Qwen3TtsLanguage, VoiceProfile } from '../types/mv-data';
+import { generateMusicChapter, generateQwen3ShotVoice, generateQwen3Voice, makeGeneratedFixedVoiceReference, mixVoiceAndMusic, splitMusic3Chapter } from '../utils/audioProduction';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { createProjectLrc, formatLrcTimestamp, matchLrcToProject, safeLrcFilename } from '../utils/lrcExport';
 import { QWEN3_TTS_LANGUAGES } from '../utils/qwen3TtsWorkflow';
@@ -23,6 +23,19 @@ type VoiceBatchDialog = {
   message: string;
   tone: 'success' | 'error';
 };
+
+const ACE_LANGUAGES: Array<{ value: AceMusicLanguage; label: string }> = [
+  { value: 'zh', label: '中文' }, { value: 'en', label: 'English' }, { value: 'ja', label: '日本語' },
+  { value: 'ko', label: '한국어' }, { value: 'es', label: 'Español' }, { value: 'de', label: 'Deutsch' },
+  { value: 'fr', label: 'Français' }, { value: 'pt', label: 'Português' }, { value: 'ru', label: 'Русский' },
+  { value: 'it', label: 'Italiano' }, { value: 'ar', label: 'العربية' }, { value: 'vi', label: 'Tiếng Việt' },
+  { value: 'nl', label: 'Nederlands' }, { value: 'pl', label: 'Polski' }, { value: 'tr', label: 'Türkçe' },
+  { value: 'cs', label: 'Čeština' }, { value: 'fa', label: 'فارسی' }, { value: 'id', label: 'Bahasa Indonesia' },
+  { value: 'uk', label: 'Українська' }, { value: 'hu', label: 'Magyar' }, { value: 'sv', label: 'Svenska' },
+  { value: 'ro', label: 'Română' }, { value: 'el', label: 'Ελληνικά' },
+];
+
+const KEY_SCALES = ['C major', 'C minor', 'C# major', 'C# minor', 'Db major', 'Db minor', 'D major', 'D minor', 'D# major', 'D# minor', 'Eb major', 'Eb minor', 'E major', 'E minor', 'F major', 'F minor', 'F# major', 'F# minor', 'Gb major', 'Gb minor', 'G major', 'G minor', 'G# major', 'G# minor', 'Ab major', 'Ab minor', 'A major', 'A minor', 'A# major', 'A# minor', 'Bb major', 'Bb minor', 'B major', 'B minor'];
 
 const hasSpokenText = (shot: MVInfo) => {
   const text = (shot.audio_plan?.audio_text || shot.lyrics || '').trim();
@@ -167,13 +180,13 @@ export const AudioProductionPage = () => {
     setBusy(`music:${chapterId}`);
     updateAudioChapter(chapterId, { status: 'generating', error: undefined });
     try {
-      const generated = await generateMusic3Chapter(chapter, replaceSeed);
-      updateAudioChapter(chapterId, { generated_audio: generated.audioUrl, actual_duration_seconds: chapter.target_duration_seconds, seed: generated.seed, status: 'ready' });
-      setMessage(`“${chapter.title}”纯器乐配乐已生成。`);
+      const generated = await generateMusicChapter({ ...chapter, music_workflow: chapter.music_workflow ?? plan.music_workflow ?? 'MiniMax Music 3' }, replaceSeed);
+      updateAudioChapter(chapterId, { generated_audio: generated.audioUrl, actual_duration_seconds: generated.actualDurationSeconds, seed: generated.seed, status: 'ready' });
+      setMessage(`“${chapter.title}”已通过 ${chapter.music_workflow ?? 'MiniMax Music 3'} 生成。`);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       updateAudioChapter(chapterId, { status: 'failed', error: detail });
-      setMessage(`Music 3 配乐失败：${detail}`);
+      setMessage(`${chapter.music_workflow ?? 'MiniMax Music 3'} 配乐失败：${detail}`);
     } finally {
       setBusy(null);
     }
@@ -208,7 +221,7 @@ export const AudioProductionPage = () => {
         updateMVInfoAsset(entry.segmentId, entry.infoIndex, 'drive_audio', drive.url);
         updateMVInfoAsset(entry.segmentId, entry.infoIndex, 'drive_audio_filename', drive.filename);
       }
-      setMessage('Music 3 纯器乐配乐已按镜头切分，并与千问 3 TTS 配音完成混合。');
+      setMessage('配乐已按镜头切分，并与千问 3 TTS 配音完成混合。');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
@@ -353,8 +366,26 @@ export const AudioProductionPage = () => {
         </article>;
       })}</section>
     </> : <>
-      <section className="glass-card rounded-xl border border-fuchsia-300/15 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-white">MiniMax Music 3 纯器乐配乐</h3><p className="mt-1 text-xs text-gray-500">不会再用于配音；生成后按镜头切分，以 18% 音量混入千问配音。</p></div><div className="flex gap-2"><button type="button" disabled={Boolean(busy)} onClick={generateAllMusic} className="rounded bg-fuchsia-400 px-4 py-2 text-sm font-bold text-black disabled:opacity-50">生成全部配乐</button><button type="button" disabled={Boolean(busy)} onClick={applyMusic} className="rounded border border-fuchsia-300/30 px-4 py-2 text-sm font-bold text-fuchsia-200 disabled:opacity-50">切分并混合</button></div></div></section>
-      {plan.chapters.map((chapter) => <section key={chapter.chapter_id} className="glass-card rounded-xl border border-white/10 p-5"><div className="mb-4 flex items-start justify-between gap-3"><div><h3 className="font-bold text-white">{chapter.title}</h3><p className="mt-1 text-xs text-gray-500">{chapter.chapter_id} · {chapter.target_duration_seconds}s · 纯器乐</p></div><div className="flex gap-2"><button type="button" disabled={Boolean(busy)} onClick={() => generateChapter(chapter.chapter_id, false)} className="flex items-center gap-1 rounded border border-fuchsia-300/30 px-3 py-1.5 text-xs text-fuchsia-200">{busy === `music:${chapter.chapter_id}` ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}保留种子</button><button type="button" disabled={Boolean(busy)} onClick={() => generateChapter(chapter.chapter_id, true)} className="flex items-center gap-1 rounded border border-white/15 px-3 py-1.5 text-xs text-gray-300"><WandSparkles size={13} />换种子</button></div></div><label className="text-xs text-gray-400">配乐描述<textarea value={chapter.caption} onChange={(event) => updateAudioChapter(chapter.chapter_id, { caption: event.target.value, status: 'idle' })} className="mt-1 h-24 w-full rounded border border-white/10 bg-black/40 p-2 text-xs text-gray-200" /></label><p className="mt-2 text-[10px] text-fuchsia-300">系统固定附加：纯器乐、无人声、无演唱、无吟唱。</p>{chapter.generated_audio && <audio controls src={chapter.generated_audio} className="mt-3 h-9 w-full" />}{chapter.error && <p className="mt-2 text-xs text-red-300">{chapter.error}</p>}</section>)}
+      <section className="glass-card rounded-xl border border-fuchsia-300/15 p-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-white">MiniMax Music 3 / Audio ACE 配乐</h3><p className="mt-1 text-xs text-gray-500">每章可独立选择工作流和纯音乐/歌词模式；生成后按镜头切分，以 18% 音量混入千问配音。</p></div><div className="flex gap-2"><button type="button" disabled={Boolean(busy)} onClick={generateAllMusic} className="rounded bg-fuchsia-400 px-4 py-2 text-sm font-bold text-black disabled:opacity-50">生成全部配乐</button><button type="button" disabled={Boolean(busy)} onClick={applyMusic} className="rounded border border-fuchsia-300/30 px-4 py-2 text-sm font-bold text-fuchsia-200 disabled:opacity-50">切分并混合</button></div></div></section>
+      {plan.chapters.map((chapter) => {
+        const workflow = chapter.music_workflow ?? plan.music_workflow ?? 'MiniMax Music 3';
+        const mode = chapter.generation_mode ?? 'instrumental';
+        const invalidate = <T extends object>(patch: T) => updateAudioChapter(chapter.chapter_id, { ...patch, generated_audio: undefined, actual_duration_seconds: undefined, status: 'idle', error: undefined });
+        return <section key={chapter.chapter_id} className="glass-card rounded-xl border border-white/10 p-5">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-white">{chapter.title}</h3><p className="mt-1 text-xs text-gray-500">{chapter.chapter_id} · 目标 {chapter.target_duration_seconds}s · {mode === 'instrumental' ? '纯音乐' : '带歌词'}</p></div><div className="flex gap-2"><button type="button" disabled={Boolean(busy)} onClick={() => generateChapter(chapter.chapter_id, false)} className="flex items-center gap-1 rounded border border-fuchsia-300/30 px-3 py-1.5 text-xs text-fuchsia-200">{busy === `music:${chapter.chapter_id}` ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}生成/保留种子</button><button type="button" disabled={Boolean(busy)} onClick={() => generateChapter(chapter.chapter_id, true)} className="flex items-center gap-1 rounded border border-white/15 px-3 py-1.5 text-xs text-gray-300"><WandSparkles size={13} />换种子</button></div></div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <label className="text-xs text-gray-400">音乐工作流<select value={workflow} disabled={Boolean(busy)} onChange={(event) => { const next = event.target.value as MusicWorkflow; invalidate(next === 'Audio ACE Step 1.5' ? { music_workflow: next, target_duration_seconds: Math.max(10, chapter.target_duration_seconds), tags: chapter.tags?.trim() || chapter.caption, bpm: chapter.bpm ?? 100, time_signature: chapter.time_signature ?? '4', language: chapter.language ?? 'en', key_scale: chapter.key_scale ?? 'C major' } : { music_workflow: next }); }} className="mt-1 w-full rounded border border-white/10 bg-black/60 p-2 text-xs text-gray-200"><option>MiniMax Music 3</option><option>Audio ACE Step 1.5</option></select></label>
+            <label className="text-xs text-gray-400">生成模式<select value={mode} disabled={Boolean(busy)} onChange={(event) => invalidate({ generation_mode: event.target.value as MusicGenerationMode })} className="mt-1 w-full rounded border border-white/10 bg-black/60 p-2 text-xs text-gray-200"><option value="instrumental">纯音乐（无演唱）</option><option value="vocal">带歌词歌曲</option></select></label>
+            <label className="text-xs text-gray-400">目标时长（秒）<input type="number" min={workflow === 'Audio ACE Step 1.5' ? 10 : 1} max={workflow === 'Audio ACE Step 1.5' ? 600 : 300} value={chapter.target_duration_seconds} disabled={Boolean(busy)} onChange={(event) => invalidate({ target_duration_seconds: Math.max(workflow === 'Audio ACE Step 1.5' ? 10 : 1, Number(event.target.value) || 1) })} className="mt-1 w-full rounded border border-white/10 bg-black/60 p-2 text-xs text-gray-200" /></label>
+            {workflow === 'Audio ACE Step 1.5' && <label className="text-xs text-gray-400">歌词语言<select value={chapter.language ?? (mode === 'vocal' ? 'zh' : 'en')} disabled={Boolean(busy) || mode === 'instrumental'} onChange={(event) => invalidate({ language: event.target.value as AceMusicLanguage })} className="mt-1 w-full rounded border border-white/10 bg-black/60 p-2 text-xs text-gray-200">{ACE_LANGUAGES.map((language) => <option key={language.value} value={language.value}>{language.label}</option>)}</select></label>}
+          </div>
+          {workflow === 'Audio ACE Step 1.5' && <div className="mt-3 grid gap-3 sm:grid-cols-3"><label className="text-xs text-gray-400">BPM（30–300）<input type="number" min={30} max={300} value={chapter.bpm ?? 100} onChange={(event) => invalidate({ bpm: Number(event.target.value) })} className="mt-1 w-full rounded border border-white/10 bg-black/60 p-2 text-xs text-gray-200" /></label><label className="text-xs text-gray-400">拍号<select value={chapter.time_signature ?? '4'} onChange={(event) => invalidate({ time_signature: event.target.value as '2' | '3' | '4' | '6' })} className="mt-1 w-full rounded border border-white/10 bg-black/60 p-2 text-xs text-gray-200"><option value="2">2/4</option><option value="3">3/4</option><option value="4">4/4（最稳定）</option><option value="6">6/8</option></select></label><label className="text-xs text-gray-400">调性<select value={chapter.key_scale ?? 'C major'} onChange={(event) => invalidate({ key_scale: event.target.value })} className="mt-1 w-full rounded border border-white/10 bg-black/60 p-2 text-xs text-gray-200">{KEY_SCALES.map((key) => <option key={key}>{key}</option>)}</select></label></div>}
+          <label className="mt-3 block text-xs text-gray-400">{workflow === 'Audio ACE Step 1.5' ? '标签（曲风、情绪、乐器、音色、制作质感；不要重复 BPM/拍号）' : 'MiniMax Music 3 配乐描述（风格、乐器、情绪、空间、能量曲线、对白避让）'}<textarea value={workflow === 'Audio ACE Step 1.5' ? (chapter.tags ?? chapter.caption) : chapter.caption} onChange={(event) => invalidate(workflow === 'Audio ACE Step 1.5' ? { tags: event.target.value } : { caption: event.target.value })} className="mt-1 h-24 w-full rounded border border-white/10 bg-black/40 p-2 text-xs text-gray-200" /></label>
+          <label className="mt-3 block text-xs text-gray-400">{mode === 'instrumental' ? '结构与状态脚本（不唱；用 [Intro]、[Build]、[Climax]、[Outro] 和括号说明变化）' : '歌词与演唱结构（用 [Verse]、[Chorus]、[Bridge] 等分段）'}<textarea value={chapter.lyrics} onChange={(event) => invalidate({ lyrics: event.target.value })} className="mt-1 h-44 w-full rounded border border-white/10 bg-black/40 p-2 font-mono text-xs leading-5 text-gray-200" /></label>
+          <p className="mt-2 text-[10px] text-fuchsia-300">时长会同时写入编码节点与 latent 节点；纯音乐会自动在脚本首行补充 [Instrumental]，不会清空后续状态描述。</p>
+          {chapter.generated_audio && <><audio controls src={chapter.generated_audio} className="mt-3 h-9 w-full" /><p className="mt-1 text-[10px] text-emerald-300">实际时长：{chapter.actual_duration_seconds?.toFixed(2) ?? '未知'} 秒</p></>}{chapter.error && <p className="mt-2 text-xs text-red-300">{chapter.error}</p>}
+        </section>;
+      })}
     </>}
   </div>;
 };

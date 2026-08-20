@@ -1,6 +1,6 @@
 # MV Maker 导演 JSON 约定
 
-输出完整 `mv-maker-project` 存档，`schema_version` 为 `4`。完整存档优先于旧版独立脚本，因为它能自动选择图片工作流、千问 3 TTS 配音、Music 3 配乐、H3 和画面方向。
+输出完整 `mv-maker-project` 存档，`schema_version` 为 `4`。完整存档优先于旧版独立脚本，因为它能自动选择图片工作流、千问 3 TTS 配音、MiniMax/Audio ACE 配乐、H3 和画面方向。
 
 ## 导演计划与统一视觉锁
 
@@ -29,7 +29,7 @@
 }
 ```
 
-## 千问 3 TTS 配音与 Music 3 配乐计划
+## 千问 3 TTS 配音与多工作流配乐计划
 
 非 MV 项目必须在 `director_plan.audio_plan` 中声明：
 
@@ -58,8 +58,15 @@
       "chapter_id": "AUDIO-001",
       "title": "中文情绪章节名",
       "target_duration_seconds": 15,
-      "caption": "中文纯器乐配乐设计，明确情绪、乐器、速度和动态，并要求无人声",
-      "lyrics": "[Instrumental]\n(No vocals)",
+      "music_workflow": "Audio ACE Step 1.5",
+      "generation_mode": "instrumental",
+      "caption": "电影级温暖知识讲解配乐；原声钢琴、柔和弦乐、轻质感打击乐；中低能量；为旁白留出中频；结尾自然收束",
+      "tags": "cinematic ambient, warm documentary score, acoustic piano, soft strings, light percussion, spacious mix",
+      "lyrics": "[Instrumental]\n[Intro]\n(Sparse piano motif, leave space for narration)\n[Build]\n(Soft strings enter, pulse becomes clearer)\n[Climax]\n(Fullest instrumental texture, still below the voice)\n[Outro]\n(Piano resolves, clean fade)",
+      "bpm": 96,
+      "time_signature": "4",
+      "language": "en",
+      "key_scale": "C major",
       "shot_refs": ["SHOT-001", "SHOT-002"],
       "status": "idle"
     }
@@ -67,7 +74,9 @@
 }
 ```
 
-`promo` 使用 `spoken-word`；小说、故事和短剧使用 `musical-drama`。这些值描述叙事组织，实际对白仍由千问 3 TTS 自然朗读，不要求演唱。Music 3 章节只负责纯器乐配乐，单章时长必须在 1–300 秒。`music_video` 使用 `mode: disabled`、空 `chapters`，沿用已有主音乐。
+`promo` 使用 `spoken-word`；小说、故事和短剧使用 `musical-drama`。这些值描述叙事组织，实际对白仍由千问 3 TTS 自然朗读。`music_workflow` 可为 `MiniMax Music 3` 或 `Audio ACE Step 1.5`，也可在章节级覆盖。MiniMax 章节 1–300 秒，Audio ACE 章节 10–600 秒。
+
+纯音乐使用 `generation_mode: "instrumental"`，`lyrics` 首行必须是 `[Instrumental]`，但后面仍要有分段和括号内状态说明。带歌词使用 `generation_mode: "vocal"`，歌词分段下面写可演唱文本，并让 `language` 与歌词语言一致。Audio ACE 的 `duration` 与 latent `seconds` 由应用同时写入；`bpm` 为 30–300，拍号只用 `2/4`、`3/4`、`4/4`、`6/8` 对应的 `"2"`、`"3"`、`"4"`、`"6"`。`music_video` 默认使用 `mode: disabled`、空 `chapters`，沿用已有主音乐。
 
 `form_subtype` 可选。严格模式下其他导演字段必须存在。`visual_style_lock` 是新版技能的强制输出。
 
@@ -224,4 +233,4 @@
 - `generation_settings.image_workflow` 只允许 `Z-Image-Turbo` 或 `Krea2 Turbo`；角色 `description` 必须与所选工作流对应的参考板提示词一致。
 - 旧项目缺少导演扩展字段时仍可由应用加载，但不属于本技能的新严格输出。
 - `generation_settings.h3` 继续作为旧项目的全局回退设置。
-- 应用可读取旧存档并迁移为千问 3 TTS 配音 + Music 3 配乐；本技能只输出新版 v4。
+- 应用可读取旧存档并迁移为千问 3 TTS 配音 + 可选 MiniMax/Audio ACE 配乐；本技能只输出新版 v4。

@@ -67,7 +67,7 @@ const normalizeAudioWorkflowLabels = (value: unknown): unknown => {
       audio_plan: {
         ...audioPlan,
         workflow,
-        ...(mode === 'qwen3-tts-audio-first' ? { music_workflow: 'MiniMax Music 3' } : {}),
+        ...(mode === 'qwen3-tts-audio-first' ? { music_workflow: ['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(String(audioPlan.music_workflow)) ? audioPlan.music_workflow : 'MiniMax Music 3' } : {}),
       },
     },
   };

@@ -157,7 +157,7 @@ export const validateMVData = (data: unknown): ValidationResult => {
       return { isValid: false, error: '新版讲解和小说项目必须使用千问 3 TTS 声音优先流程' };
     }
     if (audioPlan.mode === 'qwen3-tts-audio-first') {
-      if (audioPlan.workflow !== '千问 3 TTS' || audioPlan.music_workflow !== 'MiniMax Music 3') return { isValid: false, error: '千问 3 TTS 项目必须声明千问 3 TTS 配音和 MiniMax Music 3 配乐工作流' };
+      if (audioPlan.workflow !== '千问 3 TTS' || !['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(String(audioPlan.music_workflow))) return { isValid: false, error: '千问 3 TTS 项目必须声明 MiniMax Music 3 或 Audio ACE Step 1.5 配乐工作流' };
       if (!isObject(audioPlan.narrator_voice)) return { isValid: false, error: '千问 3 TTS 项目缺少 narrator_voice' };
       if (audioPlan.tts_language !== undefined && !qwenLanguages.includes(String(audioPlan.tts_language))) return { isValid: false, error: 'director_plan.audio_plan.tts_language 无效' };
       if (isObject(audioPlan.narrator_voice)) {
@@ -180,11 +180,19 @@ export const validateMVData = (data: unknown): ValidationResult => {
           return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节缺少 ${field}` };
         }
       }
+      const chapterWorkflow = String(chapter.music_workflow || audioPlan.music_workflow || 'MiniMax Music 3');
+      if (!['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(chapterWorkflow)) return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节 music_workflow 无效` };
+      if (chapter.generation_mode !== undefined && !['instrumental', 'vocal'].includes(String(chapter.generation_mode))) return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节 generation_mode 无效` };
+      const maxDuration = chapterWorkflow === 'Audio ACE Step 1.5' ? 600 : 300;
+      const minDuration = chapterWorkflow === 'Audio ACE Step 1.5' ? 10 : 1;
+      if (!Number.isFinite(Number(chapter.target_duration_seconds)) || Number(chapter.target_duration_seconds) < minDuration || Number(chapter.target_duration_seconds) > maxDuration) return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节时长必须为 ${minDuration}–${maxDuration} 秒` };
+      if (chapterWorkflow === 'Audio ACE Step 1.5') {
+        if (typeof chapter.tags !== 'string' || !chapter.tags.trim()) return { isValid: false, error: `第 ${chapterIndex + 1} 个 Audio ACE 章节缺少 tags` };
+        if (!Number.isFinite(Number(chapter.bpm)) || Number(chapter.bpm) < 30 || Number(chapter.bpm) > 300) return { isValid: false, error: `第 ${chapterIndex + 1} 个 Audio ACE 章节 bpm 必须为 30–300` };
+        if (!['2', '3', '4', '6'].includes(String(chapter.time_signature))) return { isValid: false, error: `第 ${chapterIndex + 1} 个 Audio ACE 章节 time_signature 无效` };
+      }
       if (chapterIds.has(String(chapter.chapter_id))) return { isValid: false, error: `声音章节 ID 重复：${String(chapter.chapter_id)}` };
       chapterIds.add(String(chapter.chapter_id));
-      if (!Number.isFinite(Number(chapter.target_duration_seconds)) || Number(chapter.target_duration_seconds) <= 0 || Number(chapter.target_duration_seconds) > 300) {
-        return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节时长必须在 1-300 秒` };
-      }
       if (!Array.isArray(chapter.shot_refs) || chapter.shot_refs.some((ref) => typeof ref !== 'string')) {
         return { isValid: false, error: `第 ${chapterIndex + 1} 个声音章节的 shot_refs 无效` };
       }

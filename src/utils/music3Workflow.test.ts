@@ -20,7 +20,8 @@ assert(String(workflow['35'].inputs.filename_prefix).endsWith('chapter_01'), 'sa
 assert(JSON.stringify(workflow['37:9'].inputs.seed) === JSON.stringify(['37:38', 0]), 'preserves sampler seed connection');
 
 const instrumental = createMusic3Workflow({ caption: '温暖配乐', lyrics: '不应出现的对白', maxDurationSeconds: 30, instrumental: true });
-assert(String(instrumental.workflow['37:13'].inputs.caption).includes('纯器乐配乐'), 'instrumental mode forbids vocals in caption');
-assert(instrumental.workflow['37:13'].inputs.lyrics === '[Instrumental]\n(No vocals)', 'instrumental mode never sends dialogue to Music 3');
+assert(String(instrumental.workflow['37:13'].inputs.caption).includes('Instrumental score only'), 'instrumental mode forbids vocals in caption');
+assert(String(instrumental.workflow['37:13'].inputs.lyrics).startsWith('[Instrumental]\n'), 'instrumental mode marks the timeline without discarding it');
+assert(String(instrumental.workflow['37:13'].inputs.lyrics).includes('不应出现的对白'), 'instrumental mode preserves the supplied temporal script');
 
 console.log('PASS Music 3 workflow configuration');

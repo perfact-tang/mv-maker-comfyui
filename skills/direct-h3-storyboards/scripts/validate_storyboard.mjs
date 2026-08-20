@@ -90,7 +90,7 @@ if (!isObject(project)) {
       else {
         if (!['disabled', 'qwen3-tts-audio-first'].includes(strictAudioPlan.mode)) fail('director_plan.audio_plan.mode is invalid');
         if (strictAudioPlan.mode !== 'disabled' && strictAudioPlan.workflow !== '千问 3 TTS') fail('director_plan.audio_plan.workflow must be 千问 3 TTS');
-        if (strictAudioPlan.mode !== 'disabled' && strictAudioPlan.music_workflow !== 'MiniMax Music 3') fail('director_plan.audio_plan.music_workflow must be MiniMax Music 3');
+        if (strictAudioPlan.mode !== 'disabled' && !['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(strictAudioPlan.music_workflow)) fail('director_plan.audio_plan.music_workflow must be MiniMax Music 3 or Audio ACE Step 1.5');
         if (!['spoken-word', 'musical-drama'].includes(strictAudioPlan.production_style)) fail('director_plan.audio_plan.production_style is invalid');
         if (!['planned', 'generated', 'aligned', 'locked'].includes(strictAudioPlan.alignment_status)) fail('director_plan.audio_plan.alignment_status is invalid');
         if (!Array.isArray(strictAudioPlan.chapters)) fail('director_plan.audio_plan.chapters must be an array');
@@ -100,7 +100,17 @@ if (!isObject(project)) {
           for (const field of ['chapter_id', 'title', 'caption', 'lyrics']) if (typeof chapter[field] !== 'string' || !chapter[field].trim()) fail(`${at}.${field} is required`);
           if (strictChapterIds.has(chapter.chapter_id)) fail(`${at}.chapter_id is duplicated`);
           strictChapterIds.add(chapter.chapter_id);
-          if (!Number.isFinite(chapter.target_duration_seconds) || chapter.target_duration_seconds <= 0 || chapter.target_duration_seconds > 300) fail(`${at}.target_duration_seconds must be between 1 and 300`);
+          const chapterWorkflow = chapter.music_workflow || strictAudioPlan.music_workflow || 'MiniMax Music 3';
+          if (!['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(chapterWorkflow)) fail(`${at}.music_workflow is invalid`);
+          const maxDuration = chapterWorkflow === 'Audio ACE Step 1.5' ? 600 : 300;
+          const minDuration = chapterWorkflow === 'Audio ACE Step 1.5' ? 10 : 1;
+          if (!Number.isFinite(chapter.target_duration_seconds) || chapter.target_duration_seconds < minDuration || chapter.target_duration_seconds > maxDuration) fail(`${at}.target_duration_seconds must be between ${minDuration} and ${maxDuration}`);
+          if (chapter.generation_mode !== undefined && !['instrumental', 'vocal'].includes(chapter.generation_mode)) fail(`${at}.generation_mode is invalid`);
+          if (chapterWorkflow === 'Audio ACE Step 1.5') {
+            if (typeof chapter.tags !== 'string' || !chapter.tags.trim()) fail(`${at}.tags is required for Audio ACE`);
+            if (!Number.isFinite(chapter.bpm) || chapter.bpm < 30 || chapter.bpm > 300) fail(`${at}.bpm must be between 30 and 300`);
+            if (!['2', '3', '4', '6'].includes(chapter.time_signature)) fail(`${at}.time_signature is invalid`);
+          }
           if (!Array.isArray(chapter.shot_refs) || chapter.shot_refs.some((ref) => typeof ref !== 'string')) fail(`${at}.shot_refs must be a string array`);
           if (!['idle', 'generating', 'ready', 'failed'].includes(chapter.status)) fail(`${at}.status is invalid`);
         }

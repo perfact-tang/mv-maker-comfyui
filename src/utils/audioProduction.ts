@@ -1,6 +1,7 @@
 import type { AudioChapter, MVInfo, Qwen3TtsLanguage, VoiceProfile, VoiceReferenceAudio } from '../types/mv-data';
 import { executeComfyWorkflow, uploadAudioToComfy } from './comfyApi';
 import { createMusic3Workflow } from './music3Workflow';
+import { createAudioAceWorkflow } from './audioAceWorkflow';
 import { createQwen3TtsWorkflow } from './qwen3TtsWorkflow';
 import { analyzeAudioUrl } from './audioAlignment';
 import { fitTtsDuration } from './audioTempo';
@@ -39,13 +40,40 @@ export const generateMusic3Chapter = async (chapter: AudioChapter, replaceSeed =
     maxDurationSeconds: chapter.target_duration_seconds,
     seed: replaceSeed ? undefined : chapter.seed,
     chapterId: chapter.chapter_id,
-    instrumental: true,
+    instrumental: (chapter.generation_mode ?? 'instrumental') === 'instrumental',
   });
   const outputs = await executeComfyWorkflow(workflow);
   const audioUrl = outputs.audios[0];
   if (!audioUrl) throw new Error('Music 3 配乐已完成，但 SaveAudioAdvanced 没有返回音频文件');
-  return { audioUrl, seed };
+  const analysis = await analyzeAudioUrl(audioUrl);
+  return { audioUrl, seed, actualDurationSeconds: analysis.durationSeconds };
 };
+
+export const generateAudioAceChapter = async (chapter: AudioChapter, replaceSeed = false) => {
+  const { workflow, seed } = createAudioAceWorkflow({
+    tags: chapter.tags?.trim() || chapter.caption,
+    lyrics: chapter.lyrics,
+    durationSeconds: chapter.target_duration_seconds,
+    mode: chapter.generation_mode ?? 'instrumental',
+    bpm: chapter.bpm ?? 100,
+    timeSignature: chapter.time_signature ?? '4',
+    language: chapter.language ?? 'en',
+    keyScale: chapter.key_scale ?? 'C major',
+    seed: replaceSeed ? undefined : chapter.seed,
+    chapterId: chapter.chapter_id,
+  });
+  const outputs = await executeComfyWorkflow(workflow);
+  const audioUrl = outputs.audios[0];
+  if (!audioUrl) throw new Error('Audio ACE 已执行，但 SaveAudioMP3 没有返回音频文件');
+  const analysis = await analyzeAudioUrl(audioUrl);
+  return { audioUrl, seed, actualDurationSeconds: analysis.durationSeconds };
+};
+
+export const generateMusicChapter = async (chapter: AudioChapter, replaceSeed = false) => (
+  chapter.music_workflow === 'Audio ACE Step 1.5'
+    ? generateAudioAceChapter(chapter, replaceSeed)
+    : generateMusic3Chapter(chapter, replaceSeed)
+);
 
 export const generateQwen3Voice = async (
   profile: VoiceProfile,
@@ -151,7 +179,7 @@ export const splitMusic3Chapter = async (
   chapter: AudioChapter,
   shots: MVInfo[],
 ): Promise<DriveAudioChunk[]> => {
-  if (!chapter.generated_audio) throw new Error('Music 3 配乐章节尚未生成');
+  if (!chapter.generated_audio) throw new Error('配乐章节尚未生成');
   const response = await fetch(chapter.generated_audio);
   if (!response.ok) throw new Error(`无法下载声音章节：HTTP ${response.status}`);
   const blob = await response.blob();
@@ -164,7 +192,7 @@ export const splitMusic3Chapter = async (
     method: 'POST',
     headers: {
       'Content-Type': blob.type || 'application/octet-stream',
-      'X-File-Name': encodeURIComponent(`music3-score-${chapter.chapter_id}.mp3`),
+      'X-File-Name': encodeURIComponent(`${chapter.music_workflow === 'Audio ACE Step 1.5' ? 'audio-ace' : 'music3'}-score-${chapter.chapter_id}.mp3`),
       'X-Proposal-Id': String(proposalId),
       'X-Chapter-Id': chapter.chapter_id,
       'X-Audio-Shots': JSON.stringify(shotPayload),
