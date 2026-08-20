@@ -3,10 +3,10 @@ import { FileAudio2, Loader2, Mic, Square, Trash2, Upload } from 'lucide-react';
 import type { Qwen3AsrLanguage, Qwen3TtsLanguage, VoiceProfile } from '../types/mv-data';
 import { analyzeAudioUrl } from '../utils/audioAlignment';
 import { QWEN3_ASR_LANGUAGES, safeRefAudioMaxSeconds } from '../utils/qwen3VoiceCloneWorkflow';
+import { QWEN3_TTS_LANGUAGES } from '../utils/qwen3TtsWorkflow';
 
 interface CharacterVoiceCreationMethodProps {
   profile: VoiceProfile;
-  outputLanguage: Qwen3TtsLanguage;
   disabled?: boolean;
   onChange: (patch: Partial<VoiceProfile>) => void;
 }
@@ -18,7 +18,7 @@ const fileToDataUrl = (file: File) => new Promise<string>((resolve, reject) => {
   reader.readAsDataURL(file);
 });
 
-export const CharacterVoiceCreationMethod = ({ profile, outputLanguage, disabled = false, onChange }: CharacterVoiceCreationMethodProps) => {
+export const CharacterVoiceCreationMethod = ({ profile, disabled = false, onChange }: CharacterVoiceCreationMethodProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [reading, setReading] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -137,6 +137,14 @@ export const CharacterVoiceCreationMethod = ({ profile, outputLanguage, disabled
 
   const formattedRecordingTime = `${String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:${String(recordingSeconds % 60).padStart(2, '0')}`;
 
+  const updateOutputLanguage = (language: Qwen3TtsLanguage) => onChange({
+    language,
+    reference_audio: undefined,
+    preview_audio: undefined,
+    prompt_filename: undefined,
+    status: 'idle',
+  });
+
   return <div className="mt-3 rounded-lg border border-white/10 bg-black/25 p-3">
     <div className="grid gap-3 sm:grid-cols-2">
       <label className="text-[10px] font-bold tracking-wider text-gray-500">固定音色创建方式
@@ -145,9 +153,15 @@ export const CharacterVoiceCreationMethod = ({ profile, outputLanguage, disabled
           <option value="voice-clone">上传参考声音（Voice Clone）</option>
         </select>
       </label>
-      <label className="text-[10px] font-bold tracking-wider text-gray-500">固定音色输出语言
-        <input disabled value={outputLanguage} className="mt-1 w-full cursor-not-allowed rounded border border-white/10 bg-black/20 px-2 py-2 text-xs text-gray-400" />
-      </label>
+      {method === 'voice-clone' ? <label className="text-[10px] font-bold tracking-wider text-gray-500">参考声音语言（ASR）
+        <select disabled={disabled || reading || recording} value={profile.reference_language ?? 'auto'} onChange={(event) => onChange({ reference_language: event.target.value as Qwen3AsrLanguage, reference_audio: undefined, preview_audio: undefined, status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/50 px-2 py-2 text-xs text-gray-200">
+          {QWEN3_ASR_LANGUAGES.map((language) => <option key={language} value={language}>{language}</option>)}
+        </select>
+      </label> : <label className="text-[10px] font-bold tracking-wider text-gray-500">固定音色输出语言
+        <select disabled={disabled || reading || recording} value={profile.language} onChange={(event) => updateOutputLanguage(event.target.value as Qwen3TtsLanguage)} className="mt-1 w-full rounded border border-white/10 bg-black/50 px-2 py-2 text-xs text-gray-200">
+          {QWEN3_TTS_LANGUAGES.map((language) => <option key={language} value={language}>{language}</option>)}
+        </select>
+      </label>}
     </div>
 
     {method === 'voice-clone' && <>
@@ -166,9 +180,9 @@ export const CharacterVoiceCreationMethod = ({ profile, outputLanguage, disabled
         <div className="mt-2 grid gap-2 text-[10px] text-gray-400 sm:grid-cols-3"><span>来源：{sourceAudio.capture_method === 'browser-recording' ? '网页录音' : '上传文件'}</span><span>参考声音：{sourceAudio.duration_seconds.toFixed(2)} 秒</span><span>安全读取上限：{safeRefAudioMaxSeconds(sourceAudio.duration_seconds, sourceAudio.ref_audio_max_seconds)} 秒</span></div>
         <audio controls src={sourceAudio.data_url} className="mt-2 h-8 w-full" />
       </div>}
-      <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">参考声音输入语言（ASR）
-        <select disabled={disabled || reading || recording} value={profile.reference_language ?? 'auto'} onChange={(event) => onChange({ reference_language: event.target.value as Qwen3AsrLanguage, reference_audio: undefined, preview_audio: undefined, status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/50 px-2 py-2 text-xs text-gray-200">
-          {QWEN3_ASR_LANGUAGES.map((language) => <option key={language} value={language}>{language}</option>)}
+      <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">固定音色输出语言
+        <select disabled={disabled || reading || recording} value={profile.language} onChange={(event) => updateOutputLanguage(event.target.value as Qwen3TtsLanguage)} className="mt-1 w-full rounded border border-white/10 bg-black/50 px-2 py-2 text-xs text-gray-200">
+          {QWEN3_TTS_LANGUAGES.map((language) => <option key={language} value={language}>{language}</option>)}
         </select>
       </label>
     </>}

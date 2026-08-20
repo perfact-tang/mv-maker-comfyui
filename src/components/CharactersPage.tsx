@@ -40,7 +40,6 @@ type GenerationStage = 'idle' | 'image' | 'done';
 
 const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardProps>(({ character, index }, ref) => {
   const {
-    mvData,
     selectedWorkflow,
     videoOrientation,
     updateCharacterDescription,
@@ -105,11 +104,10 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
     setIsVoiceGenerating(true);
     updateCharacterVoiceProfile(index, { status: 'generating', error: undefined });
     try {
-      const globalLanguage = mvData?.director_plan?.audio_plan?.tts_language ?? profile.language;
       const generationProfile = method === 'voice-clone'
         ? { ...profile, seed: undefined, generation_mode: 'voice-clone' as const, reference_audio: profile.creation_reference_audio }
         : { ...profile, seed: undefined, generation_mode: 'voice-design' as const, reference_audio: undefined };
-      const result = await generateQwen3Voice(generationProfile, profile.reference_text, true, globalLanguage);
+      const result = await generateQwen3Voice(generationProfile, profile.reference_text, true, profile.language);
       const referenceAudio = await makeGeneratedFixedVoiceReference(result.audioUrl, profile.voice_id);
       updateCharacterVoiceProfile(index, {
         generation_mode: method,
@@ -208,7 +206,7 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
 
           {character.voice_profile && <div className="mt-5 rounded-xl border border-cyan-300/15 bg-cyan-500/5 p-4">
             <div className="mb-3 flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-sm font-bold text-cyan-100"><Volume2 size={15} />千问 3 固定角色音色</div><p className="mt-1 font-mono text-[10px] text-gray-500">{character.voice_profile.voice_id} · {character.voice_profile.speaker_label}</p></div><button type="button" disabled={isVoiceGenerating} onClick={generateVoicePreview} className="inline-flex items-center gap-1.5 rounded border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-50">{isVoiceGenerating && <Loader2 size={13} className="animate-spin" />}生成音色</button></div>
-            <CharacterVoiceCreationMethod profile={character.voice_profile} outputLanguage={mvData?.director_plan?.audio_plan?.tts_language ?? character.voice_profile.language} disabled={isVoiceGenerating} onChange={(patch) => updateCharacterVoiceProfile(index, patch)} />
+            <CharacterVoiceCreationMethod profile={character.voice_profile} disabled={isVoiceGenerating} onChange={(patch) => updateCharacterVoiceProfile(index, patch)} />
             {(character.voice_profile.generation_mode ?? 'voice-design') === 'voice-design' && <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">人物固定音色定义 instruct<textarea value={character.voice_profile.instruct} onChange={(event) => updateCharacterVoiceProfile(index, { instruct: event.target.value, status: 'idle' })} rows={3} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>}
             <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">预览文本 / 后续配音测试文本<textarea value={character.voice_profile.reference_text} onChange={(event) => updateCharacterVoiceProfile(index, { reference_text: event.target.value, status: 'idle' })} rows={2} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>
             {character.voice_profile.preview_audio && <audio controls src={character.voice_profile.preview_audio} className="mt-3 h-8 w-full" />}
