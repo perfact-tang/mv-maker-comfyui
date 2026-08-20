@@ -11,9 +11,9 @@ interface ProjectNavigationProps {
 
 export const ProjectNavigation: React.FC<ProjectNavigationProps> = ({ activePage, characterCount, onPageChange }) => {
   const items = [
+    { id: 'characters' as const, label: '人物展示', detail: `${characterCount} 位人物图片`, icon: Users },
     { id: 'audio' as const, label: '声音制作', detail: '千问配音 + Music 3 配乐', icon: AudioLines },
     { id: 'storyboard' as const, label: '分镜制作', detail: '脚本、音频与镜头生成', icon: Clapperboard },
-    { id: 'characters' as const, label: '人物展示', detail: `${characterCount} 位人物图片`, icon: Users },
   ];
 
   return (

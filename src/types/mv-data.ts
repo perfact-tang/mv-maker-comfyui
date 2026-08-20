@@ -66,6 +66,7 @@ export interface DirectorAudioPlan {
 
 export interface VoiceProfile {
   voice_id: string;
+  linked_character_voice_id?: string;
   speaker_label: string;
   instruct: string;
   reference_text: string;

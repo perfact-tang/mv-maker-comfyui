@@ -210,10 +210,14 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
         const identityChanged = ['instruct', 'reference_text', 'language', 'seed', 'generation_mode', 'reference_language', 'creation_reference_audio', 'reference_audio']
           .some((field) => Object.prototype.hasOwnProperty.call(patch, field));
         if (!identityChanged) return { mvData: { ...state.mvData, characters } };
+        const audioPlan = state.mvData.director_plan?.audio_plan;
+        const narratorUsesCharacter = audioPlan?.narrator_voice?.linked_character_voice_id === currentProfile.voice_id;
         const storyboard = state.mvData.storyboard.map((segment) => ({
           ...segment,
           mvinfo: segment.mvinfo.map((info) => {
-            if (!info.audio_plan?.speakers.some((speaker) => speaker.voice_id === currentProfile.voice_id)) return info;
+            const usesCharacterDirectly = info.audio_plan?.speakers.some((speaker) => speaker.voice_id === currentProfile.voice_id);
+            const usesCharacterAsNarrator = narratorUsesCharacter && info.audio_plan?.speakers.some((speaker) => speaker.voice_id === audioPlan?.narrator_voice?.voice_id);
+            if (!usesCharacterDirectly && !usesCharacterAsNarrator) return info;
             const generatedAssets = { ...info.generated_assets };
             delete generatedAssets.voice_audio;
             delete generatedAssets.voice_audio_filename;
@@ -229,7 +233,7 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
       updateNarratorVoiceProfile: (patch) => set((state) => {
         const plan = state.mvData?.director_plan?.audio_plan;
         if (!state.mvData?.director_plan || !plan?.narrator_voice) return state;
-        const identityChanged = ['instruct', 'reference_text', 'language', 'seed', 'generation_mode', 'reference_language', 'reference_audio']
+        const identityChanged = ['instruct', 'reference_text', 'language', 'seed', 'generation_mode', 'reference_language', 'creation_reference_audio', 'reference_audio', 'linked_character_voice_id']
           .some((field) => Object.prototype.hasOwnProperty.call(patch, field));
         const storyboard = identityChanged ? state.mvData.storyboard.map((segment) => ({
           ...segment,
@@ -296,8 +300,12 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
         const director = data?.director_plan;
         const plan = director?.audio_plan;
         if (!data || !director || !plan) return state;
-        const character = data.characters.find((item) => item.voice_profile?.voice_id === voiceId);
-        const profile = character?.voice_profile || (plan.narrator_voice?.voice_id === voiceId ? plan.narrator_voice : undefined);
+        const isNarrator = plan.narrator_voice?.voice_id === voiceId;
+        const character = isNarrator ? undefined : data.characters.find((item) => item.voice_profile?.voice_id === voiceId);
+        const linkedNarratorCharacter = isNarrator
+          ? data.characters.find((item) => item.voice_profile?.voice_id === plan.narrator_voice?.linked_character_voice_id)
+          : undefined;
+        const profile = linkedNarratorCharacter?.voice_profile || character?.voice_profile || (isNarrator ? plan.narrator_voice : undefined);
         if (!profile) return state;
         if (!hasConfirmedFixedVoiceReference(profile)) return state;
         const storyboard = data.storyboard.map((segment) => {
@@ -320,10 +328,10 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
               voice_playback_rate: undefined,
               cut_status: 'tentative',
               speakers: [{
-                speaker_label: profile.speaker_label,
-                character_name: character?.name || '旁白',
+                speaker_label: isNarrator ? plan.narrator_voice!.speaker_label : profile.speaker_label,
+                character_name: isNarrator ? '旁白' : character?.name,
                 voice_description: profile.instruct,
-                voice_id: profile.voice_id,
+                voice_id: voiceId,
               }],
             },
           };

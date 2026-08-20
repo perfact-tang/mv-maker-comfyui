@@ -162,13 +162,29 @@ export const validateMVData = (data: unknown): ValidationResult => {
       if (audioPlan.tts_language !== undefined && !qwenLanguages.includes(String(audioPlan.tts_language))) return { isValid: false, error: 'director_plan.audio_plan.tts_language 无效' };
       if (isObject(audioPlan.narrator_voice)) {
         const narrator = audioPlan.narrator_voice;
+        if (narrator.linked_character_voice_id !== undefined) {
+          const linkedVoiceId = String(narrator.linked_character_voice_id).trim();
+          const linkedCharacterExists = data.characters.some((character) => isObject(character) && isObject(character.voice_profile) && String(character.voice_profile.voice_id || '').trim() === linkedVoiceId);
+          if (!linkedVoiceId || !linkedCharacterExists) return { isValid: false, error: 'narrator_voice.linked_character_voice_id 未匹配到人物固定音色' };
+        }
         if (narrator.generation_mode !== undefined && !['voice-design', 'voice-clone'].includes(String(narrator.generation_mode))) return { isValid: false, error: 'narrator_voice.generation_mode 无效' };
         if (narrator.reference_language !== undefined && !['auto', 'Chinese', 'English', 'Cantonese', 'Arabic', 'German', 'French', 'Spanish', 'Portuguese', 'Indonesian', 'Italian', 'Korean', 'Russian', 'Thai', 'Vietnamese', 'Japanese', 'Turkish', 'Hindi', 'Malay', 'Dutch', 'Swedish', 'Danish', 'Finnish', 'Polish', 'Czech', 'Filipino', 'Persian', 'Greek', 'Hungarian', 'Macedonian', 'Romanian'].includes(String(narrator.reference_language))) return { isValid: false, error: 'narrator_voice.reference_language 无效' };
-        if (narrator.generation_mode === 'voice-clone' && !isObject(narrator.reference_audio)) return { isValid: false, error: 'narrator_voice 选择了 voice-clone 但缺少 reference_audio' };
+        if (narrator.generation_mode === 'voice-clone' && narrator.status === 'ready' && !isObject(narrator.creation_reference_audio)) return { isValid: false, error: 'narrator_voice 通过参考声音创建固定音色，但缺少 creation_reference_audio' };
+        if (narrator.creation_reference_audio !== undefined) {
+          const sourceReference = narrator.creation_reference_audio;
+          if (!isObject(sourceReference) || typeof sourceReference.data_url !== 'string' || !sourceReference.data_url.trim() || typeof sourceReference.filename !== 'string' || !sourceReference.filename.trim() || typeof sourceReference.mime_type !== 'string' || !sourceReference.mime_type.trim()) return { isValid: false, error: 'narrator_voice.creation_reference_audio 文件信息无效' };
+          const sourceDuration = Number(sourceReference.duration_seconds);
+          const sourceMaximum = Number(sourceReference.ref_audio_max_seconds);
+          if (!Number.isFinite(sourceDuration) || sourceDuration <= 0 || !Number.isFinite(sourceMaximum) || sourceMaximum <= sourceDuration) return { isValid: false, error: 'narrator_voice 创建参考声音安全读取上限无效' };
+          if (sourceReference.source !== undefined && sourceReference.source !== 'uploaded-reference') return { isValid: false, error: 'narrator_voice.creation_reference_audio.source 无效' };
+          if (sourceReference.capture_method !== undefined && !['file-upload', 'browser-recording'].includes(String(sourceReference.capture_method))) return { isValid: false, error: 'narrator_voice.creation_reference_audio.capture_method 无效' };
+        }
+        if (narrator.status === 'ready' && !isObject(narrator.reference_audio)) return { isValid: false, error: 'narrator_voice 固定音色已标记 ready 但缺少 reference_audio' };
         if (narrator.reference_audio !== undefined) {
           const reference = narrator.reference_audio;
           if (!isObject(reference) || typeof reference.data_url !== 'string' || !reference.data_url.trim() || typeof reference.filename !== 'string' || !reference.filename.trim()) return { isValid: false, error: 'narrator_voice.reference_audio 文件信息无效' };
           if (!Number.isFinite(Number(reference.duration_seconds)) || Number(reference.duration_seconds) <= 0 || !Number.isFinite(Number(reference.ref_audio_max_seconds)) || Number(reference.ref_audio_max_seconds) <= Number(reference.duration_seconds)) return { isValid: false, error: 'narrator_voice.ref_audio_max_seconds 必须大于参考音频实长' };
+          if (reference.source !== undefined && reference.source !== 'generated-fixed-voice') return { isValid: false, error: 'narrator_voice.reference_audio.source 无效' };
         }
       }
     }

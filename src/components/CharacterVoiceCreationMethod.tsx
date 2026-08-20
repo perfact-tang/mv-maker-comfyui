@@ -171,7 +171,6 @@ export const CharacterVoiceCreationMethod = ({ profile, outputLanguage, disabled
           {QWEN3_ASR_LANGUAGES.map((language) => <option key={language} value={language}>{language}</option>)}
         </select>
       </label>
-      <p className="mt-2 text-[10px] leading-4 text-emerald-200/70">上传音频只用于创建固定音色；创建成功后的输出才会成为声音制作阶段使用的克隆参考。</p>
     </>}
     {error && <p className="mt-2 text-[10px] text-red-300">{error}</p>}
   </div>;

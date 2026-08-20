@@ -107,8 +107,8 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
     try {
       const globalLanguage = mvData?.director_plan?.audio_plan?.tts_language ?? profile.language;
       const generationProfile = method === 'voice-clone'
-        ? { ...profile, generation_mode: 'voice-clone' as const, reference_audio: profile.creation_reference_audio }
-        : { ...profile, generation_mode: 'voice-design' as const, reference_audio: undefined };
+        ? { ...profile, seed: undefined, generation_mode: 'voice-clone' as const, reference_audio: profile.creation_reference_audio }
+        : { ...profile, seed: undefined, generation_mode: 'voice-design' as const, reference_audio: undefined };
       const result = await generateQwen3Voice(generationProfile, profile.reference_text, true, globalLanguage);
       const referenceAudio = await makeGeneratedFixedVoiceReference(result.audioUrl, profile.voice_id);
       updateCharacterVoiceProfile(index, {
@@ -131,34 +131,46 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
   return (
     <article className="glass-card overflow-hidden rounded-2xl border border-white/10 p-5 md:p-6">
       <div className="grid gap-6 lg:grid-cols-[minmax(280px,0.9fr)_minmax(0,1.1fr)]">
-        <div className="flex min-h-[250px] items-center justify-center rounded-xl border border-white/10 bg-black/35 p-3">
-          <div
-            onClick={() => setIsImageEditOpen(true)}
-            className={`relative w-full cursor-pointer overflow-hidden rounded-lg bg-black ${videoOrientation === 'portrait' ? 'max-w-[220px]' : 'max-w-full'}`}
-            style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
-          >
-            {character.generated_assets?.image ? (
-              <img src={character.generated_assets.image} alt={`${character.name} 生成预览`} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-gray-600">
-                <UserRound size={36} strokeWidth={1.3} />
-                <span className="text-xs">等待生成人物图片</span>
-              </div>
-            )}
-            <span className="absolute left-2 top-2 rounded-md border border-white/10 bg-black/70 px-2 py-1 font-mono text-[10px] text-gray-300 backdrop-blur">
-              {dimensions.label} · {dimensions.width}×{dimensions.height}
-            </span>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                setIsImageEditOpen(true);
-              }}
-              className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/75 px-2.5 py-1.5 text-[11px] font-medium text-gray-200 opacity-80 backdrop-blur transition-all hover:border-neon-cyan/40 hover:text-white hover:opacity-100"
+        <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex min-h-[250px] flex-1 items-center justify-center rounded-xl border border-white/10 bg-black/35 p-3">
+            <div
+              onClick={() => setIsImageEditOpen(true)}
+              className={`relative w-full cursor-pointer overflow-hidden rounded-lg bg-black ${videoOrientation === 'portrait' ? 'max-w-[220px]' : 'max-w-full'}`}
+              style={{ aspectRatio: `${dimensions.width} / ${dimensions.height}` }}
             >
-              <PencilLine size={12} /> 图片编辑
-            </button>
+              {character.generated_assets?.image ? (
+                <img src={character.generated_assets.image} alt={`${character.name} 生成预览`} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-3 text-gray-600">
+                  <UserRound size={36} strokeWidth={1.3} />
+                  <span className="text-xs">等待生成人物图片</span>
+                </div>
+              )}
+              <span className="absolute left-2 top-2 rounded-md border border-white/10 bg-black/70 px-2 py-1 font-mono text-[10px] text-gray-300 backdrop-blur">
+                {dimensions.label} · {dimensions.width}×{dimensions.height}
+              </span>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsImageEditOpen(true);
+                }}
+                className="absolute bottom-2 right-2 inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-black/75 px-2.5 py-1.5 text-[11px] font-medium text-gray-200 opacity-80 backdrop-blur transition-all hover:border-neon-cyan/40 hover:text-white hover:opacity-100"
+              >
+                <PencilLine size={12} /> 图片编辑
+              </button>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={generate}
+            disabled={isGenerating}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-neon-cyan px-4 py-3 text-sm font-bold text-black shadow-[0_0_18px_rgba(6,182,212,0.22)] transition-all hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-60"
+          >
+            {stage === 'image' ? <><Loader2 size={17} className="animate-spin" /> 正在生成人物图片</> :
+              stage === 'done' ? <><CheckCircle2 size={17} /> 重新生成人物图片</> :
+              <><Play size={17} /> 生成人物图片</>}
+          </button>
         </div>
 
         <div className="flex min-w-0 flex-col">
@@ -195,33 +207,19 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
           )}
 
           {character.voice_profile && <div className="mt-5 rounded-xl border border-cyan-300/15 bg-cyan-500/5 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-sm font-bold text-cyan-100"><Volume2 size={15} />千问 3 固定角色音色</div><p className="mt-1 font-mono text-[10px] text-gray-500">{character.voice_profile.voice_id} · {character.voice_profile.speaker_label}</p></div><button type="button" disabled={isVoiceGenerating} onClick={generateVoicePreview} className="rounded border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-50">{isVoiceGenerating ? <Loader2 size={13} className="animate-spin" /> : '创建并确认固定音色'}</button></div>
+            <div className="mb-3 flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-sm font-bold text-cyan-100"><Volume2 size={15} />千问 3 固定角色音色</div><p className="mt-1 font-mono text-[10px] text-gray-500">{character.voice_profile.voice_id} · {character.voice_profile.speaker_label}</p></div><button type="button" disabled={isVoiceGenerating} onClick={generateVoicePreview} className="inline-flex items-center gap-1.5 rounded border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-50">{isVoiceGenerating && <Loader2 size={13} className="animate-spin" />}生成音色</button></div>
             <CharacterVoiceCreationMethod profile={character.voice_profile} outputLanguage={mvData?.director_plan?.audio_plan?.tts_language ?? character.voice_profile.language} disabled={isVoiceGenerating} onChange={(patch) => updateCharacterVoiceProfile(index, patch)} />
             {(character.voice_profile.generation_mode ?? 'voice-design') === 'voice-design' && <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">人物固定音色定义 instruct<textarea value={character.voice_profile.instruct} onChange={(event) => updateCharacterVoiceProfile(index, { instruct: event.target.value, status: 'idle' })} rows={3} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>}
             <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">预览文本 / 后续配音测试文本<textarea value={character.voice_profile.reference_text} onChange={(event) => updateCharacterVoiceProfile(index, { reference_text: event.target.value, status: 'idle' })} rows={2} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>
-            <p className="mt-3 rounded-lg border border-cyan-300/15 bg-cyan-500/5 p-3 text-[10px] leading-4 text-cyan-100/75">可以用文本定义或上传参考声音创建固定音色。确认后的生成结果会统一保存为声音制作阶段使用的 Voice Clone 参考音频。</p>
-            <label className="mt-3 block text-[10px] text-gray-500">Seed<input type="number" value={character.voice_profile.seed} onChange={(event) => updateCharacterVoiceProfile(index, { seed: Number(event.target.value), status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2 py-1.5 text-xs text-gray-200" /></label>
             {character.voice_profile.preview_audio && <audio controls src={character.voice_profile.preview_audio} className="mt-3 h-8 w-full" />}
             {character.voice_profile.status === 'ready' && character.voice_profile.reference_audio && <p className="mt-2 text-[10px] text-emerald-300">固定音色已确认；声音制作选择该人物后将以此音频运行克隆工作流。</p>}
           </div>}
 
-          <div className="mt-auto pt-5">
-            {error && (
-              <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-950/25 px-3 py-2 text-xs text-red-300">
-                <AlertCircle size={14} className="mt-0.5 flex-none" /> {error}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={generate}
-              disabled={isGenerating}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-neon-cyan px-4 py-3 text-sm font-bold text-black shadow-[0_0_18px_rgba(6,182,212,0.22)] transition-all hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-60"
-            >
-              {stage === 'image' ? <><Loader2 size={17} className="animate-spin" /> 正在生成人物图片</> :
-                stage === 'done' ? <><CheckCircle2 size={17} /> 重新生成人物图片</> :
-                <><Play size={17} /> 生成人物图片</>}
-            </button>
-          </div>
+          {error && (
+            <div className="mt-5 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-950/25 px-3 py-2 text-xs text-red-300">
+              <AlertCircle size={14} className="mt-0.5 flex-none" /> {error}
+            </div>
+          )}
         </div>
       </div>
       <ImageEditModal

@@ -11,11 +11,13 @@ import { ProjectNavigation, ProjectPage } from './components/ProjectNavigation';
 import { ParsedProjectFile } from './utils/projectArchive';
 import { AudioProductionPage } from './components/AudioProductionPage';
 import { LanguageSwitcher } from './components/LanguageSwitcher';
+import { getStartupProjectPage } from './utils/projectPageRouting';
+import { CloseProjectControl } from './components/CloseProjectControl';
 
 function App() {
   const { mvData, loadProject } = useGlobalSettings();
   const timelineRef = useRef<StoryboardTimelineHandle>(null);
-  const [activePage, setActivePage] = useState<ProjectPage>('storyboard');
+  const [activePage, setActivePage] = useState<ProjectPage>('characters');
 
   // Generate segment IDs for scrollspy
   const segmentIds = mvData?.storyboard.map(s => `segment-${s.segment_id}`) || [];
@@ -30,7 +32,7 @@ function App() {
   const handleDataLoaded = ({ project, generationSettings }: ParsedProjectFile) => {
     loadProject(project, generationSettings);
     const loadedProject = useGlobalSettings.getState().mvData;
-    setActivePage(loadedProject?.director_plan?.audio_plan && loadedProject.director_plan.audio_plan.mode !== 'disabled' ? 'audio' : 'storyboard');
+    setActivePage(loadedProject ? getStartupProjectPage(loadedProject) : 'characters');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -93,6 +95,7 @@ function App() {
             <footer className="mt-20 border-t border-white/5 py-10 text-center text-xs text-gray-600">
               <p>MV AI Prompt可视化工具 &copy; {new Date().getFullYear()}</p>
             </footer>
+            {activePage === 'storyboard' && <CloseProjectControl />}
           </div>
         </div>
       )}

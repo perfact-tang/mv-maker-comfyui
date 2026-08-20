@@ -96,8 +96,9 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
     && plan.workflow === '千问 3 TTS'
     && ['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(plan.music_workflow || 'MiniMax Music 3')
     && Boolean(plan.narrator_voice)
-    && plan.narrator_voice?.generation_mode === 'voice-design'
+    && ['voice-design', 'voice-clone'].includes(plan.narrator_voice?.generation_mode || 'voice-design')
     && Boolean(plan.narrator_voice.reference_language)
+    && (plan.narrator_voice.generation_mode !== 'voice-clone' || plan.narrator_voice.status !== 'ready' || Boolean(plan.narrator_voice.creation_reference_audio))
     && (plan.narrator_voice.status !== 'ready' || plan.narrator_voice.reference_audio?.source === 'generated-fixed-voice')
     && QWEN3_TTS_LANGUAGE_SET.has(plan.tts_language as Qwen3TtsLanguage)
     && project.characters.every((character) => Boolean(character.voice_profile)
@@ -125,7 +126,7 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
     ? {
       ...plan.narrator_voice,
       language: normalizeTtsLanguage(plan.narrator_voice.language),
-      generation_mode: 'voice-design' as const,
+      generation_mode: plan.narrator_voice.generation_mode === 'voice-clone' ? 'voice-clone' as const : 'voice-design' as const,
       reference_language: plan.narrator_voice.reference_language ?? 'auto',
       ...(plan.narrator_voice.reference_audio?.source === 'generated-fixed-voice'
         ? {}

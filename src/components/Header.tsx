@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { ChevronDown, Download, Sparkles, LogOut, FileArchive } from 'lucide-react';
+import { ChevronDown, Download, Sparkles, FileArchive } from 'lucide-react';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { AudioUploader } from './AudioUploader';
 import { H3VideoControls } from './H3VideoControls';
 import { VideoOrientationControl } from './VideoOrientationControl';
-import { createProjectArchive } from '../utils/projectArchive';
+import { downloadProjectArchive } from '../utils/downloadProjectArchive';
 import { createProjectLrc, safeLrcFilename } from '../utils/lrcExport';
 
 interface HeaderProps {
@@ -29,7 +29,6 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
     h3VideoLength,
     h3ReferenceImages,
     mvData,
-    setMvData,
   } = useGlobalSettings();
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -81,16 +80,10 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
     }
   };
 
-  const handleReset = () => {
-    if (confirm('确定要关闭当前项目吗？\n\n虽然我们会自动保存进度，但建议在关闭前先手动保存 JSON 备份。')) {
-      setMvData(null);
-    }
-  };
-
   const handleSaveJson = () => {
     if (!mvData) return;
     try {
-      const archive = createProjectArchive(mvData, {
+      downloadProjectArchive(mvData, {
         image_workflow: selectedWorkflow,
         video_workflow: selectedVideoWorkflow,
         video_orientation: videoOrientation,
@@ -101,12 +94,6 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
           reference_images: h3ReferenceImages,
         },
       });
-      const dataToSave = JSON.stringify(archive, null, 2);
-      const blob = new Blob([dataToSave], { type: 'application/json' });
-      saveAs(
-        blob,
-        `mv_project_${String(proposalId).padStart(3, '0')}_full_${new Date().toISOString().slice(0, 10)}.json`,
-      );
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       alert(`保存完整项目失败：${detail}`);
@@ -211,27 +198,19 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
               保存完整项目
             </button>
 
-            <button 
-              onClick={handleReset}
-              className="flex min-h-11 items-center justify-center gap-2 rounded border border-red-500/30 bg-red-900/50 px-4 py-2 text-center text-sm font-bold text-red-200 transition-all hover:bg-red-900/80 hover:shadow-[0_0_15px_rgba(255,0,0,0.3)]"
-              title="关闭并返回上传页"
-            >
-              <LogOut size={16} />
-              关闭
-            </button>
+            {isAllGenerated && (
+              <button
+                onClick={handleDownloadAll}
+                disabled={isDownloading}
+                className="flex min-h-11 items-center justify-center gap-2 rounded bg-green-600/80 px-4 py-2 text-center text-sm font-bold text-white shadow-[0_0_15px_rgba(0,255,0,0.3)] transition-all hover:-translate-y-0.5 hover:bg-green-600 hover:shadow-[0_0_25px_rgba(0,255,0,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
+                title="下载所有视频和LRC字幕文件"
+              >
+                <FileArchive size={16} />
+                {isDownloading ? '打包下载中...' : '下载所有视频'}
+              </button>
+            )}
           </div>
 
-          {isAllGenerated && (
-            <button 
-              onClick={handleDownloadAll}
-              disabled={isDownloading}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded bg-green-600/80 px-4 py-2 text-center text-sm font-bold text-white shadow-[0_0_15px_rgba(0,255,0,0.3)] transition-all hover:-translate-y-0.5 hover:bg-green-600 hover:shadow-[0_0_25px_rgba(0,255,0,0.5)] disabled:cursor-not-allowed disabled:opacity-50 sm:ml-auto sm:w-auto"
-              title="下载所有视频和LRC字幕文件"
-            >
-              <FileArchive size={16} />
-              {isDownloading ? '打包下载中...' : '下载所有视频'}
-            </button>
-          )}
         </div>
       </div>
     </header>

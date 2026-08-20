@@ -119,6 +119,27 @@ assert(validateMVData(uploadedReferenceCreation).isValid, 'uploaded-reference ch
 delete uploadedReferenceCreation.characters[0].voice_profile!.creation_reference_audio;
 assert(!validateMVData(uploadedReferenceCreation).isValid, 'ready uploaded-reference creation must retain its source audio');
 
+const narratorReferenceCreation = structuredClone(characterBoundAudio);
+narratorReferenceCreation.director_plan!.audio_plan!.narrator_voice = {
+  ...narratorReferenceCreation.director_plan!.audio_plan!.narrator_voice!,
+  generation_mode: 'voice-clone',
+  reference_language: 'Chinese',
+  status: 'idle',
+  creation_reference_audio: { data_url: 'data:audio/wav;base64,AA==', filename: 'narrator-source.wav', mime_type: 'audio/wav', duration_seconds: 9.5, ref_audio_max_seconds: 60, source: 'uploaded-reference', capture_method: 'file-upload' },
+  reference_audio: undefined,
+};
+assert(validateMVData(narratorReferenceCreation).isValid, 'pending narrator voice-clone creation must validate before fixed voice generation');
+narratorReferenceCreation.director_plan!.audio_plan!.narrator_voice!.status = 'ready';
+narratorReferenceCreation.director_plan!.audio_plan!.narrator_voice!.preview_audio = 'data:audio/wav;base64,AA==';
+narratorReferenceCreation.director_plan!.audio_plan!.narrator_voice!.reference_audio = { data_url: 'data:audio/wav;base64,AA==', filename: 'narrator-fixed.wav', mime_type: 'audio/wav', duration_seconds: 7.5, ref_audio_max_seconds: 60, source: 'generated-fixed-voice' };
+assert(validateMVData(narratorReferenceCreation).isValid, 'ready narrator voice-clone creation must validate');
+
+const linkedNarratorVoice = structuredClone(characterBoundAudio);
+linkedNarratorVoice.director_plan!.audio_plan!.narrator_voice!.linked_character_voice_id = 'VOICE-CHAR-001';
+assert(validateMVData(linkedNarratorVoice).isValid, 'narrator may link to an existing character fixed voice');
+linkedNarratorVoice.director_plan!.audio_plan!.narrator_voice!.linked_character_voice_id = 'VOICE-UNKNOWN';
+assert(!validateMVData(linkedNarratorVoice).isValid, 'narrator linked character voice must resolve');
+
 const cloneProfile = structuredClone(audioFirst);
 cloneProfile.characters.push({ name: '角色', description: '角色生成提示词', voice_profile: {
   voice_id: 'VOICE-CHAR-001', speaker_label: '(S2)', instruct: '稳定角色音色', reference_text: '预览文本', language: 'Japanese', seed: 42,

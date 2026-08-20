@@ -9,6 +9,8 @@ import { createProjectLrc, formatLrcTimestamp, matchLrcToProject, safeLrcFilenam
 import { QWEN3_TTS_LANGUAGES } from '../utils/qwen3TtsWorkflow';
 import { ShotVoiceCharacterSelector } from './ShotVoiceCharacterSelector';
 import { hasConfirmedFixedVoiceReference } from '../utils/voiceCloneProfile';
+import { hasSpokenText } from '../utils/projectPageRouting';
+import { CharacterVoiceCreationMethod } from './CharacterVoiceCreationMethod';
 
 type VoiceBatchProgress = {
   phase: 'generating' | 'cooling';
@@ -36,11 +38,7 @@ const ACE_LANGUAGES: Array<{ value: AceMusicLanguage; label: string }> = [
 ];
 
 const KEY_SCALES = ['C major', 'C minor', 'C# major', 'C# minor', 'Db major', 'Db minor', 'D major', 'D minor', 'D# major', 'D# minor', 'Eb major', 'Eb minor', 'E major', 'E minor', 'F major', 'F minor', 'F# major', 'F# minor', 'Gb major', 'Gb minor', 'G major', 'G minor', 'G# major', 'G# minor', 'Ab major', 'Ab minor', 'A major', 'A minor', 'A# major', 'A# minor', 'Bb major', 'Bb minor', 'B major', 'B minor'];
-
-const hasSpokenText = (shot: MVInfo) => {
-  const text = (shot.audio_plan?.audio_text || shot.lyrics || '').trim();
-  return Boolean(text) && !/^(\(No dialogue\)|（?无对白|（?本镜头无对白)/i.test(text);
-};
+const VOICE_BATCH_COOLDOWN_SECONDS = 5;
 
 export const AudioProductionPage = () => {
   const { mvData, updateAudioChapter, updateNarratorVoiceProfile, updateMVInfoAsset, updateMVInfoAudioTiming, updateMVInfoAudioText, updateMVInfoAudioTexts, setGlobalTtsLanguage, setShotTtsLanguage, setShotVoiceId, lockAudioTimeline, upgradeCurrentProjectAudioPlan } = useGlobalSettings();
@@ -81,10 +79,17 @@ export const AudioProductionPage = () => {
     return <div className="glass-card rounded-xl border border-cyan-300/20 p-8"><h2 className="text-xl font-bold text-white">声音制作</h2><p className="mt-3 text-sm text-gray-400">当前项目为 MV，沿用主音乐时间线，不调用千问 3 TTS 或 Music 3 配乐流程。</p></div>;
   }
 
+  const linkedNarratorCharacter = plan.narrator_voice?.linked_character_voice_id
+    ? mvData.characters.find((character) => character.voice_profile?.voice_id === plan.narrator_voice?.linked_character_voice_id)
+    : undefined;
+  const narratorSourceProfile = plan.narrator_voice?.linked_character_voice_id
+    ? linkedNarratorCharacter?.voice_profile
+    : plan.narrator_voice;
+
   const resolveVoice = (shot: MVInfo): VoiceProfile | undefined => {
     const voiceId = shot.audio_plan?.speakers[0]?.voice_id;
     return mvData.characters.find((character) => character.voice_profile?.voice_id === voiceId)?.voice_profile
-      || (voiceId === plan.narrator_voice?.voice_id ? plan.narrator_voice : undefined);
+      || (voiceId === plan.narrator_voice?.voice_id ? narratorSourceProfile : undefined);
   };
 
   const generateVoice = async (entry: typeof orderedShots[number]) => {
@@ -133,7 +138,7 @@ export const AudioProductionPage = () => {
 
         if (index < pendingEntries.length - 1) {
           setBusy('voice:cooldown');
-          for (let seconds = 20; seconds > 0; seconds -= 1) {
+          for (let seconds = VOICE_BATCH_COOLDOWN_SECONDS; seconds > 0; seconds -= 1) {
             setVoiceBatchProgress({ phase: 'cooling', current: index + 1, total: pendingEntries.length, shotLabel, cooldownSeconds: seconds });
             await new Promise((resolve) => window.setTimeout(resolve, 1000));
           }
@@ -150,21 +155,38 @@ export const AudioProductionPage = () => {
 
   const generateNarratorPreview = async () => {
     if (!plan.narrator_voice) return;
+    if (plan.narrator_voice.linked_character_voice_id) {
+      setMessage('当前旁白正在使用人物音色；如需单独生成旁白音色，请先将音色来源切换为“独立旁白”。');
+      return;
+    }
+    const profile = plan.narrator_voice;
+    const method = profile.generation_mode ?? 'voice-design';
+    if (!profile.reference_text.trim() || (method === 'voice-design' && !profile.instruct.trim())) {
+      setMessage(method === 'voice-design' ? '请先填写旁白音色定义和预览文本。' : '请先填写旁白预览文本。');
+      return;
+    }
+    if (method === 'voice-clone' && !profile.creation_reference_audio) {
+      setMessage('请先上传或录制用于创建旁白固定音色的参考声音。');
+      return;
+    }
     setBusy('narrator-preview');
     setMessage(null);
     updateNarratorVoiceProfile({ status: 'generating', error: undefined });
     try {
-      const result = await generateQwen3Voice({ ...plan.narrator_voice, generation_mode: 'voice-design', reference_audio: undefined }, plan.narrator_voice.reference_text, true, plan.tts_language ?? plan.narrator_voice.language);
-      const referenceAudio = await makeGeneratedFixedVoiceReference(result.audioUrl, plan.narrator_voice.voice_id);
+      const generationProfile = method === 'voice-clone'
+        ? { ...profile, seed: undefined, generation_mode: 'voice-clone' as const, reference_audio: profile.creation_reference_audio }
+        : { ...profile, seed: undefined, generation_mode: 'voice-design' as const, reference_audio: undefined };
+      const result = await generateQwen3Voice(generationProfile, profile.reference_text, true, plan.tts_language ?? profile.language);
+      const referenceAudio = await makeGeneratedFixedVoiceReference(result.audioUrl, profile.voice_id);
       updateNarratorVoiceProfile({
-        generation_mode: 'voice-design',
+        generation_mode: method,
         preview_audio: result.audioUrl,
         reference_audio: referenceAudio,
         seed: result.seed,
         prompt_filename: result.promptFilename,
         status: 'ready',
       });
-      setMessage('旁白固定音色已通过 Voice Design 创建；选择旁白镜头时将以该音频运行 Voice Clone。');
+      setMessage(`旁白固定音色已通过 ${method === 'voice-clone' ? 'Voice Clone' : 'Voice Design'} 创建；选择旁白镜头时将以该音频运行 Voice Clone。`);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       updateNarratorVoiceProfile({ status: 'failed', error: detail });
@@ -330,14 +352,11 @@ export const AudioProductionPage = () => {
     {panel === 'voice' ? <>
       {plan.narrator_voice && <section className="glass-card rounded-xl border border-cyan-300/15 p-5">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div><h3 className="font-bold text-white">旁白固定音色</h3><p className="text-xs text-gray-500">{plan.narrator_voice.voice_id} · seed {plan.narrator_voice.seed}</p></div>
-          <div className="flex gap-2"><button type="button" disabled={Boolean(busy)} onClick={generateNarratorPreview} className="rounded border border-cyan-300/30 px-3 py-2 text-xs text-cyan-200 disabled:opacity-50">{busy === 'narrator-preview' ? <Loader2 size={13} className="animate-spin" /> : '创建旁白固定音色'}</button><button type="button" disabled={Boolean(busy)} onClick={generateAllVoices} className="flex items-center gap-2 rounded bg-cyan-400 px-4 py-2 text-sm font-bold text-black disabled:cursor-wait disabled:opacity-50">{busy?.startsWith('voice:') ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}{voiceBatchProgress ? `生成配音 ${voiceBatchProgress.current}/${voiceBatchProgress.total}` : '生成全部配音'}</button></div>
+          <div><h3 className="font-bold text-white">旁白固定音色</h3><p className="text-xs text-gray-500">{plan.narrator_voice.voice_id}</p></div>
+          <div className="flex gap-2">{!plan.narrator_voice.linked_character_voice_id && <button type="button" disabled={Boolean(busy)} onClick={generateNarratorPreview} className="inline-flex items-center gap-1.5 rounded border border-cyan-300/30 px-3 py-2 text-xs text-cyan-200 disabled:opacity-50">{busy === 'narrator-preview' && <Loader2 size={13} className="animate-spin" />}生成旁白音色</button>}<button type="button" disabled={Boolean(busy)} onClick={generateAllVoices} className="flex items-center gap-2 rounded bg-cyan-400 px-4 py-2 text-sm font-bold text-black disabled:cursor-wait disabled:opacity-50">{busy?.startsWith('voice:') ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}{voiceBatchProgress ? `生成配音 ${voiceBatchProgress.current}/${voiceBatchProgress.total}` : '生成全部配音'}</button></div>
         </div>
-        <label className="text-xs text-gray-400">音色定义 instruct（文字设计模式使用）<textarea value={plan.narrator_voice.instruct} onChange={(event) => updateNarratorVoiceProfile({ instruct: event.target.value, status: 'idle' })} className="mt-1 h-20 w-full rounded border border-white/10 bg-black/40 p-2 text-xs text-gray-200" /></label>
-        <label className="mt-3 block text-xs text-gray-400">预览文本<textarea value={plan.narrator_voice.reference_text} onChange={(event) => updateNarratorVoiceProfile({ reference_text: event.target.value, status: 'idle' })} className="mt-1 h-16 w-full rounded border border-white/10 bg-black/40 p-2 text-xs text-gray-200" /></label>
-        <p className="mt-3 rounded-lg border border-cyan-300/15 bg-cyan-500/5 p-3 text-[10px] leading-4 text-cyan-100/75">这里用 Voice Design 创建旁白固定音色；镜头选择旁白时，会把该预览作为参考音频运行 Voice Clone + ASR。</p>
-        {plan.narrator_voice.preview_audio && <audio controls src={plan.narrator_voice.preview_audio} className="mt-3 h-8 w-full" />}
-        {plan.narrator_voice.prompt_filename && <p className="mt-2 text-[10px] text-emerald-300">Prompt：{plan.narrator_voice.prompt_filename}</p>}
+        <label className="block text-xs font-bold text-cyan-100">旁白音色来源<select disabled={Boolean(busy)} value={plan.narrator_voice.linked_character_voice_id ?? plan.narrator_voice.voice_id} onChange={(event) => updateNarratorVoiceProfile({ linked_character_voice_id: event.target.value === plan.narrator_voice!.voice_id ? undefined : event.target.value })} className="mt-2 w-full rounded border border-cyan-300/25 bg-black/50 px-3 py-2.5 text-xs text-gray-200"><option value={plan.narrator_voice.voice_id}>独立旁白音色</option>{mvData.characters.filter((character) => character.voice_profile).map((character) => <option key={character.voice_profile!.voice_id} value={character.voice_profile!.voice_id}>{character.name} · {hasConfirmedFixedVoiceReference(character.voice_profile) ? '固定音色已创建' : '固定音色未创建'}</option>)}</select></label>
+        {plan.narrator_voice.linked_character_voice_id ? <div className="mt-4 flex gap-4 rounded-xl border border-cyan-300/20 bg-cyan-500/5 p-4">{linkedNarratorCharacter?.generated_assets?.image ? <img src={linkedNarratorCharacter.generated_assets.image} alt={linkedNarratorCharacter.name} className="h-24 w-36 rounded-lg object-cover" /> : <div className="flex h-24 w-36 items-center justify-center rounded-lg bg-black/40"><UserRound size={30} className="text-cyan-200/60" /></div>}<div className="min-w-0 flex-1"><p className="font-bold text-white">使用人物音色：{linkedNarratorCharacter?.name || '未找到人物'}</p><p className="mt-1 font-mono text-[10px] text-cyan-300">{narratorSourceProfile?.voice_id || plan.narrator_voice.linked_character_voice_id}</p><p className={`mt-2 text-xs ${hasConfirmedFixedVoiceReference(narratorSourceProfile) ? 'text-emerald-300' : 'text-amber-300'}`}>{hasConfirmedFixedVoiceReference(narratorSourceProfile) ? '固定音色已创建，可以生成旁白配音。' : '该人物尚未创建固定音色，请先到人物展示完成创建。'}</p>{narratorSourceProfile?.preview_audio && <audio controls src={narratorSourceProfile.preview_audio} className="mt-3 h-8 w-full" />}</div></div> : <><CharacterVoiceCreationMethod profile={plan.narrator_voice} outputLanguage={plan.tts_language ?? plan.narrator_voice.language} disabled={Boolean(busy)} onChange={updateNarratorVoiceProfile} />{(plan.narrator_voice.generation_mode ?? 'voice-design') === 'voice-design' && <label className="mt-3 block text-xs text-gray-400">音色定义 instruct<textarea value={plan.narrator_voice.instruct} onChange={(event) => updateNarratorVoiceProfile({ instruct: event.target.value, status: 'idle' })} className="mt-1 h-20 w-full rounded border border-white/10 bg-black/40 p-2 text-xs text-gray-200" /></label>}<label className="mt-3 block text-xs text-gray-400">预览文本<textarea value={plan.narrator_voice.reference_text} onChange={(event) => updateNarratorVoiceProfile({ reference_text: event.target.value, status: 'idle' })} className="mt-1 h-16 w-full rounded border border-white/10 bg-black/40 p-2 text-xs text-gray-200" /></label>{plan.narrator_voice.preview_audio && <audio controls src={plan.narrator_voice.preview_audio} className="mt-3 h-8 w-full" />}{plan.narrator_voice.prompt_filename && <p className="mt-2 text-[10px] text-emerald-300">Prompt：{plan.narrator_voice.prompt_filename}</p>}{hasConfirmedFixedVoiceReference(plan.narrator_voice) && <p className="mt-2 text-[10px] text-emerald-300">旁白固定音色已创建，可以用于镜头配音。</p>}</>}
       </section>}
       <section className="grid gap-3 md:grid-cols-2">{orderedShots.map((entry) => {
         const profile = resolveVoice(entry.shot);
@@ -353,7 +372,7 @@ export const AudioProductionPage = () => {
               {spoken && <button type="button" disabled={Boolean(busy) || !voiceBindingReady} onClick={async () => { setMessage(null); try { await generateVoice(entry); setMessage(`${shotLabel} 配音已生成。`); } catch (error) { setMessage(error instanceof Error ? error.message : String(error)); } finally { setBusy(null); } }} className="rounded border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-50">{busy === `voice:${entry.shot.shot_id}` ? <Loader2 size={13} className="animate-spin" /> : '生成配音'}</button>}
             </div>
           </div>
-          {spoken && <div className="mt-3"><ShotVoiceCharacterSelector characters={mvData.characters} narrator={plan.narrator_voice} selectedVoiceId={entry.shot.audio_plan?.speakers[0]?.voice_id} disabled={Boolean(busy)} onSelect={(voiceId) => {
+          {spoken && <div className="mt-3"><ShotVoiceCharacterSelector characters={mvData.characters} narrator={narratorSourceProfile} narratorVoiceId={plan.narrator_voice?.voice_id} selectedVoiceId={entry.shot.audio_plan?.speakers[0]?.voice_id} disabled={Boolean(busy)} onSelect={(voiceId) => {
             setShotVoiceId(entry.segmentId, entry.infoIndex, voiceId);
             setMessage(`${shotLabel} 已绑定所选人物或旁白的固定音色。点击“生成配音”后才会运行千问 3 Voice Clone + ASR。`);
           }} /></div>}

@@ -6,15 +6,17 @@ import { hasConfirmedFixedVoiceReference } from '../utils/voiceCloneProfile';
 interface ShotVoiceCharacterSelectorProps {
   characters: CharacterProfile[];
   narrator?: VoiceProfile;
+  narratorVoiceId?: string;
   selectedVoiceId?: string;
   disabled?: boolean;
   onSelect: (voiceId: string) => void;
 }
 
-export const ShotVoiceCharacterSelector = ({ characters, narrator, selectedVoiceId, disabled = false, onSelect }: ShotVoiceCharacterSelectorProps) => {
+export const ShotVoiceCharacterSelector = ({ characters, narrator, narratorVoiceId, selectedVoiceId, disabled = false, onSelect }: ShotVoiceCharacterSelectorProps) => {
   const [open, setOpen] = useState(false);
+  const narratorBindingVoiceId = narratorVoiceId ?? narrator?.voice_id;
   const selectedCharacter = characters.find((character) => character.voice_profile?.voice_id === selectedVoiceId);
-  const selectedProfile = selectedCharacter?.voice_profile || (narrator?.voice_id === selectedVoiceId ? narrator : undefined);
+  const selectedProfile = selectedCharacter?.voice_profile || (narratorBindingVoiceId === selectedVoiceId ? narrator : undefined);
   const selectedName = selectedCharacter?.name || (selectedProfile ? '旁白' : '尚未选择人物');
   const imageUrl = selectedCharacter?.generated_assets?.image;
   const selectedReady = hasConfirmedFixedVoiceReference(selectedProfile);
@@ -50,7 +52,7 @@ export const ShotVoiceCharacterSelector = ({ characters, narrator, selectedVoice
           <button type="button" onClick={() => setOpen(false)} className="rounded p-2 text-gray-400 hover:bg-white/10 hover:text-white"><X size={18} /></button>
         </div>
         <div className="grid max-h-[65vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-3 lg:grid-cols-4">
-          {narrator && <button type="button" disabled={!hasConfirmedFixedVoiceReference(narrator)} onClick={() => choose(narrator.voice_id)} className={`overflow-hidden rounded-xl border text-left transition ${selectedVoiceId === narrator.voice_id ? 'border-cyan-300 bg-cyan-500/10 ring-1 ring-cyan-300/50' : 'border-white/10 bg-black/30 hover:border-cyan-300/40'} disabled:cursor-not-allowed disabled:opacity-40`}>
+          {narrator && narratorBindingVoiceId && <button type="button" disabled={!hasConfirmedFixedVoiceReference(narrator)} onClick={() => choose(narratorBindingVoiceId)} className={`overflow-hidden rounded-xl border text-left transition ${selectedVoiceId === narratorBindingVoiceId ? 'border-cyan-300 bg-cyan-500/10 ring-1 ring-cyan-300/50' : 'border-white/10 bg-black/30 hover:border-cyan-300/40'} disabled:cursor-not-allowed disabled:opacity-40`}>
             <div className="flex aspect-video items-center justify-center bg-black/50"><UserRound size={34} className="text-cyan-200/60" /></div>
             <div className="p-3"><p className="font-bold text-white">旁白</p><p className={`mt-1 text-[9px] ${hasConfirmedFixedVoiceReference(narrator) ? 'text-emerald-300' : 'text-amber-300'}`}>{hasConfirmedFixedVoiceReference(narrator) ? '固定音色已创建' : '先创建旁白固定音色'}</p></div>
           </button>}

@@ -46,6 +46,20 @@ const settings: ProjectGenerationSettings = {
 assert(migrateGenerationSettingsToV4AudioPlan(settings, migrated)?.h3.audio_mode === 'drive-audio', 'global H3 settings should migrate');
 assert(migrateProjectToV4AudioPlan(migrated) === migrated, 'migration must be idempotent');
 
+const narratorCloneProject = structuredClone(migrated);
+narratorCloneProject.director_plan!.audio_plan!.narrator_voice = {
+  ...narratorCloneProject.director_plan!.audio_plan!.narrator_voice!,
+  generation_mode: 'voice-clone',
+  reference_language: 'Chinese',
+  status: 'ready',
+  preview_audio: 'data:audio/wav;base64,AA==',
+  creation_reference_audio: { data_url: 'data:audio/wav;base64,AA==', filename: 'narrator-source.wav', mime_type: 'audio/wav', duration_seconds: 9.5, ref_audio_max_seconds: 60, source: 'uploaded-reference', capture_method: 'file-upload' },
+  reference_audio: { data_url: 'data:audio/wav;base64,AA==', filename: 'narrator-fixed.wav', mime_type: 'audio/wav', duration_seconds: 7.5, ref_audio_max_seconds: 60, source: 'generated-fixed-voice' },
+};
+const migratedNarratorClone = migrateProjectToV4AudioPlan(narratorCloneProject);
+assert(migratedNarratorClone === narratorCloneProject, 'ready narrator Voice Clone project must remain migration-idempotent');
+assert(migratedNarratorClone.director_plan?.audio_plan?.narrator_voice?.generation_mode === 'voice-clone', 'migration must preserve narrator Voice Clone mode');
+
 const projectWithOldWorkflowLabel = structuredClone(migrated);
 (projectWithOldWorkflowLabel.director_plan!.audio_plan as unknown as { workflow: string }).workflow = 'Qwen3 TTS';
 const archive = createProjectArchive(projectWithOldWorkflowLabel, settings);
