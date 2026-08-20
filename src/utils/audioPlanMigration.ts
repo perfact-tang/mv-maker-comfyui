@@ -67,6 +67,8 @@ const narratorVoice = (): VoiceProfile => ({
   reference_text: '我们从一个看似简单的问题开始，沿着线索逐步理解事情背后的原因。',
   language: 'Auto',
   seed: 729754692978412,
+  generation_mode: 'voice-design',
+  reference_language: 'auto',
   prompt_filename: 'mv-maker-VOICE-NARRATOR',
   status: 'idle',
 });
@@ -78,6 +80,8 @@ const characterVoice = (name: string, role: string | undefined, index: number): 
   reference_text: `我是${name}。无论面对什么情况，我都会保持自己的判断，并把想说的话清楚地表达出来。`,
   language: 'Auto',
   seed: 729754692978413 + index,
+  generation_mode: 'voice-design',
+  reference_language: 'auto',
   prompt_filename: `mv-maker-VOICE-CHAR-${String(index + 1).padStart(3, '0')}`,
   status: 'idle',
 });
@@ -90,18 +94,41 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
     && plan.workflow === '千问 3 TTS'
     && plan.music_workflow === 'MiniMax Music 3'
     && Boolean(plan.narrator_voice)
+    && plan.narrator_voice?.generation_mode === 'voice-design'
+    && Boolean(plan.narrator_voice.reference_language)
+    && (plan.narrator_voice.status !== 'ready' || plan.narrator_voice.reference_audio?.source === 'generated-fixed-voice')
     && QWEN3_TTS_LANGUAGE_SET.has(plan.tts_language as Qwen3TtsLanguage)
-    && project.characters.every((character) => Boolean(character.voice_profile))
+    && project.characters.every((character) => Boolean(character.voice_profile)
+      && ['voice-design', 'voice-clone'].includes(character.voice_profile!.generation_mode || 'voice-design')
+      && Boolean(character.voice_profile!.reference_language)
+      && (character.voice_profile!.generation_mode !== 'voice-clone' || character.voice_profile!.status !== 'ready' || Boolean(character.voice_profile!.creation_reference_audio))
+      && (character.voice_profile!.status !== 'ready' || character.voice_profile!.reference_audio?.source === 'generated-fixed-voice'))
     && project.storyboard.every((segment) => segment.mvinfo.every((shot) => !shot.audio_plan || ((!shot.audio_plan.tts_language || QWEN3_TTS_LANGUAGE_SET.has(shot.audio_plan.tts_language)) && shot.audio_plan.speakers.every((speaker) => Boolean(speaker.voice_id)))));
   if (alreadyQwenReady) return project;
   const characters = project.characters.map((character, index) => ({
     ...character,
     voice_profile: character.voice_profile
-      ? { ...character.voice_profile, language: normalizeTtsLanguage(character.voice_profile.language) }
+      ? {
+        ...character.voice_profile,
+        language: normalizeTtsLanguage(character.voice_profile.language),
+        generation_mode: character.voice_profile.generation_mode === 'voice-clone' ? 'voice-clone' as const : 'voice-design' as const,
+        reference_language: character.voice_profile.reference_language ?? 'auto',
+        ...(character.voice_profile.reference_audio?.source === 'generated-fixed-voice'
+          ? {}
+          : { reference_audio: undefined, preview_audio: undefined, prompt_filename: undefined, status: 'idle' as const }),
+      }
       : characterVoice(character.name, character.role, index),
   }));
   const narrator = plan.narrator_voice
-    ? { ...plan.narrator_voice, language: normalizeTtsLanguage(plan.narrator_voice.language) }
+    ? {
+      ...plan.narrator_voice,
+      language: normalizeTtsLanguage(plan.narrator_voice.language),
+      generation_mode: 'voice-design' as const,
+      reference_language: plan.narrator_voice.reference_language ?? 'auto',
+      ...(plan.narrator_voice.reference_audio?.source === 'generated-fixed-voice'
+        ? {}
+        : { reference_audio: undefined, preview_audio: undefined, prompt_filename: undefined, status: 'idle' as const }),
+    }
     : narratorVoice();
   const ttsLanguage = normalizeTtsLanguage(plan.tts_language ?? narrator.language);
   const migratingMusic3VoicePlan = plan.mode === 'music3-audio-first';

@@ -82,6 +82,53 @@ const nativeAudioFirst = structuredClone(audioFirst);
 nativeAudioFirst.storyboard[0].mvinfo[0].generation_plan.audio_mode = 'native-audio';
 assert(!validateMVData(nativeAudioFirst).isValid, 'Music 3 audio-first shot cannot fall back to native audio');
 
+const characterBoundAudio = structuredClone(audioFirst);
+characterBoundAudio.director_plan!.audio_plan = {
+  ...characterBoundAudio.director_plan!.audio_plan!,
+  mode: 'qwen3-tts-audio-first',
+  workflow: '千问 3 TTS',
+  music_workflow: 'MiniMax Music 3',
+  narrator_voice: {
+    voice_id: 'VOICE-NARRATOR', speaker_label: '(S1)', instruct: '稳定旁白音色', reference_text: '测试旁白音色', language: 'Auto', seed: 41,
+  },
+};
+characterBoundAudio.characters.push({ name: '角色', description: '角色生成提示词', voice_profile: {
+  voice_id: 'VOICE-CHAR-001', speaker_label: '(S2)', instruct: '稳定角色音色', reference_text: '测试角色音色', language: 'Japanese', seed: 42,
+} });
+characterBoundAudio.storyboard[0].mvinfo[0].audio_plan!.speakers = [{ speaker_label: '(S2)', character_name: '角色', voice_description: '稳定角色音色', voice_id: 'VOICE-CHAR-001' }];
+assert(validateMVData(characterBoundAudio).isValid, 'Qwen shot voice_id bound to a character must validate');
+
+const unknownShotVoice = structuredClone(characterBoundAudio);
+unknownShotVoice.storyboard[0].mvinfo[0].audio_plan!.speakers[0].voice_id = 'VOICE-UNKNOWN';
+assert(!validateMVData(unknownShotVoice).isValid, 'Qwen shot voice_id must resolve to a character or narrator');
+
+const duplicateCharacterVoice = structuredClone(characterBoundAudio);
+duplicateCharacterVoice.characters[0].voice_profile!.voice_id = 'VOICE-NARRATOR';
+assert(!validateMVData(duplicateCharacterVoice).isValid, 'character and narrator voice_id values must be unique');
+
+const uploadedReferenceCreation = structuredClone(characterBoundAudio);
+uploadedReferenceCreation.characters[0].voice_profile = {
+  ...uploadedReferenceCreation.characters[0].voice_profile!,
+  generation_mode: 'voice-clone',
+  status: 'ready',
+  preview_audio: 'data:audio/wav;base64,AA==',
+  creation_reference_audio: { data_url: 'data:audio/wav;base64,AA==', filename: 'source.wav', mime_type: 'audio/wav', duration_seconds: 12.5, ref_audio_max_seconds: 60, source: 'uploaded-reference' },
+  reference_audio: { data_url: 'data:audio/wav;base64,AA==', filename: 'fixed.wav', mime_type: 'audio/wav', duration_seconds: 8.5, ref_audio_max_seconds: 60, source: 'generated-fixed-voice' },
+};
+assert(validateMVData(uploadedReferenceCreation).isValid, 'uploaded-reference character fixed-voice creation must validate');
+delete uploadedReferenceCreation.characters[0].voice_profile!.creation_reference_audio;
+assert(!validateMVData(uploadedReferenceCreation).isValid, 'ready uploaded-reference creation must retain its source audio');
+
+const cloneProfile = structuredClone(audioFirst);
+cloneProfile.characters.push({ name: '角色', description: '角色生成提示词', voice_profile: {
+  voice_id: 'VOICE-CHAR-001', speaker_label: '(S2)', instruct: '稳定角色音色', reference_text: '预览文本', language: 'Japanese', seed: 42,
+  generation_mode: 'voice-clone', reference_language: 'Chinese',
+  reference_audio: { data_url: 'data:audio/wav;base64,AA==', filename: 'reference.wav', mime_type: 'audio/wav', duration_seconds: 18.4, ref_audio_max_seconds: 60 },
+} });
+assert(validateMVData(cloneProfile).isValid, 'safe reference-audio voice clone profile must validate');
+cloneProfile.characters[0].voice_profile.reference_audio!.ref_audio_max_seconds = 10;
+assert(!validateMVData(cloneProfile).isValid, 'ref_audio_max_seconds below the real duration must fail');
+
 const tooManyRefs = structuredClone(singleRef);
 tooManyRefs.storyboard[0].mvinfo[0].generation_plan.reference_images.push(
   { label: '<Picture 2>', purpose: '场景参考', prompt: '<Picture 2> 定义场景。' },

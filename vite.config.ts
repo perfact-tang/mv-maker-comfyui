@@ -200,6 +200,8 @@ const audioUploadPlugin = () => ({
         const playbackRate = Number(req.headers['x-playback-rate'] || 1);
         if (!Number.isFinite(actualDuration) || actualDuration <= 0) throw new Error('TTS actual duration is invalid.');
         if (!Number.isFinite(playbackRate) || playbackRate < 1) throw new Error('TTS playback rate must be at least 1.0.');
+        if (playbackRate > 1.2 + Number.EPSILON) throw new Error('TTS playback rate exceeds the safe 1.2x limit; refusing to truncate speech.');
+        if ((actualDuration / playbackRate) > duration - 0.1) throw new Error('TTS audio does not fit the target shot duration; refusing to truncate speech.');
         const body = await readRequestBody(req);
         if (!body.length) throw new Error('TTS audio is empty.');
         const proposalId = String(req.headers['x-proposal-id'] || 'project').replace(/[^a-zA-Z0-9_-]/g, '');

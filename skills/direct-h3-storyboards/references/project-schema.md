@@ -48,6 +48,8 @@
     "reference_text": "用于锁定旁白音色、语速和情绪的中文参考文本。",
     "language": "Auto",
     "seed": 729754692978412,
+    "generation_mode": "voice-design",
+    "reference_language": "auto",
     "prompt_filename": "mv-maker-VOICE-NARRATOR",
     "status": "idle"
   },
@@ -93,7 +95,8 @@
     "reference_text": "用于锁定该角色音色和说话方式的中文参考文本。",
     "language": "Auto",
     "seed": 729754692978413,
-    "prompt_filename": "mv-maker-VOICE-CHAR-001",
+    "generation_mode": "voice-design",
+    "reference_language": "auto",
     "status": "idle"
   }
 }
@@ -106,7 +109,41 @@
 - 工作流为 `Krea2 Turbo` 时，`description` 与 `reference_sheet.krea_prompt` 完全相同。
 - 每张板只展示一个角色的多个角度。全部视图的脸、年龄、体型、服装、配色和道具必须一致。
 - 没有人物时 `characters` 使用空数组。
-- 每个角色必须有唯一 `voice_profile`；人物页生成预览后保存 `preview_audio` 和 Prompt 文件名。同一角色的所有镜头引用同一个 `voice_id`。
+- 每个角色必须有唯一 `voice_profile`。`generation_mode: "voice-design"` 表示用文本定义创建；`generation_mode: "voice-clone"` 表示用上传参考声音创建，并且必须包含 `creation_reference_audio`。两种方式的生成结果统一写入 `preview_audio` 和最终 `reference_audio`；声音制作才克隆最终固定音色。
+- `language` 是 TTS 输出语言；`reference_language` 是参考音频 ASR 输入语言，两者必须独立。逐镜头 `audio_plan.tts_language` 可以覆盖输出语言，但不能修改 ASR 输入语言。
+- 人物展示创建固定音色后，应用自动补入：
+
+```json
+{
+  "reference_audio": {
+    "data_url": "data:audio/wav;base64,...",
+    "filename": "角色参考音色.wav",
+    "mime_type": "audio/wav",
+    "duration_seconds": 18.42,
+    "ref_audio_max_seconds": 60,
+    "source": "generated-fixed-voice"
+  }
+}
+```
+
+使用上传参考声音创建时，生成前还要保存：
+
+```json
+{
+  "generation_mode": "voice-clone",
+  "reference_language": "Chinese",
+  "creation_reference_audio": {
+    "data_url": "data:audio/wav;base64,...",
+    "filename": "上传的参考声音.wav",
+    "mime_type": "audio/wav",
+    "duration_seconds": 12.5,
+    "ref_audio_max_seconds": 60,
+    "source": "uploaded-reference"
+  }
+}
+```
+
+- `ref_audio_max_seconds` 必须使用 `max(60, ceil(duration_seconds) + 1, 已有配置值)`，并严格大于参考音频实长。不得用它限制生成配音的目标长度；生成配音实长记录在镜头 `actual_voice_duration_seconds`，目标时长仍由镜头 5/10/15 秒设置决定。
 
 ## 镜头字段
 
@@ -123,6 +160,7 @@
     "chapter_id": "AUDIO-001",
     "source_start_seconds": 0,
     "duration_seconds": 5,
+    "actual_voice_duration_seconds": 4.3,
     "audio_text": "本镜头对应的准确声音文本",
     "speakers": [
       {
@@ -171,7 +209,8 @@
 - 时长/帧数只允许 `5/141`、`10/260`、`15/379`。
 - H3 固定字段名和参考标签保留英文；字段正文必须为中文。
 - v4 非 MV 镜头必须有唯一 `shot_id` 和 `audio_plan`，其章节必须存在于 `director_plan.audio_plan.chapters`。
-- 每个说话人必须有 `voice_id`，并能解析到人物 `voice_profile` 或项目级 `narrator_voice`。
+- 每个说话人必须有 `voice_id`，并且在整个项目中唯一解析到一个人物 `voice_profile` 或项目级 `narrator_voice`；重复或悬空的 `voice_id` 都是无效项目。
+- 声音制作按镜头选择人物时，必须同时展示并绑定该人物的 `generated_assets.image` 与 `voice_profile`，不能独立选择不属于该人物的声音。切换人物后清除旧 `voice_audio`、`drive_audio` 及其文件名，并将 `cut_status` 与全局对齐状态恢复为待生成。
 - `audio_plan.duration_seconds` 必须与 `generation_plan.duration_seconds` 一致；前期使用 `tentative`，千问配音确认能完整读完且最终混音完成后写为 `confirmed`。
 - 非 MV 镜头必须使用 `drive-audio`，提示词引用 `<Audio 1>`，并以 `non_diegetic_music: N/A` 结束。
 

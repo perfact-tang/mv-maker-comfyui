@@ -38,6 +38,8 @@
           "reference_text": "替换为能稳定展示旁白音色、语速与情绪的中文参考文本。",
           "language": "Auto",
           "seed": 729754692978412,
+          "generation_mode": "voice-design",
+          "reference_language": "auto",
           "prompt_filename": "mv-maker-VOICE-NARRATOR",
           "status": "idle"
         },
@@ -73,6 +75,8 @@
           "reference_text": "替换为能稳定展示该角色音色和说话方式的中文参考文本。",
           "language": "Auto",
           "seed": 729754692978413,
+          "generation_mode": "voice-design",
+          "reference_language": "auto",
           "prompt_filename": "mv-maker-VOICE-CHAR-001",
           "status": "idle"
         }

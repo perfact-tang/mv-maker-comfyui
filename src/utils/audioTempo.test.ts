@@ -7,9 +7,13 @@ const assert = (condition: unknown, message: string) => {
 const normal = fitTtsDuration(6.1, 5);
 assert(normal.durationSeconds === 10 && normal.playbackRate === 1 && !normal.forcedCompression, 'expands a normal voice to the next H3 duration');
 
-const overflow = fitTtsDuration(18.3, 10);
-assert(overflow.durationSeconds === 15, 'fits overflow voice into the longest H3 shot');
-assert(overflow.playbackRate > 1.2 && overflow.forcedCompression, 'allows compression beyond the former safety limit');
+let overflowFailed = false;
+try {
+  fitTtsDuration(18.3, 10);
+} catch (error) {
+  overflowFailed = error instanceof Error && error.message.includes('不会截断人声');
+}
+assert(overflowFailed, 'voice that cannot safely fit must fail instead of being truncated or extremely accelerated');
 
 const extremeRate = 9.2;
 const filters = buildAtempoFilterChain(extremeRate);

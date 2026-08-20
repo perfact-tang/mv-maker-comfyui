@@ -17,9 +17,7 @@ export const fitTtsDuration = (actualDurationSeconds: number, preferredDuration:
     }
   }
 
-  const durationSeconds = H3_DURATIONS[H3_DURATIONS.length - 1];
-  const playbackRate = actualDurationSeconds / (durationSeconds - END_PADDING_SECONDS);
-  return { durationSeconds, playbackRate: Math.max(1, playbackRate), forcedCompression: true };
+  throw new Error(`配音实长 ${actualDurationSeconds.toFixed(1)} 秒，即使使用最高 ${SAFE_TTS_PLAYBACK_RATE.toFixed(1)}× 安全语速也无法完整放入 15 秒镜头；请缩短台词或拆分镜头，系统不会截断人声`);
 };
 
 // FFmpeg's atempo filter is most portable in the 0.5-2.0 range. Split large

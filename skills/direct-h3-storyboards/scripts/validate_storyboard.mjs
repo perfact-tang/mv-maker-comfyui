@@ -6,6 +6,8 @@ import { resolve } from 'node:path';
 const FRAME_MAP = new Map([[5, 141], [10, 260], [15, 379]]);
 const MODES = new Set(['I2VA', 'FL2VA', 'Ref2VA']);
 const AUDIO_MODES = new Set(['native-audio', 'drive-audio', 'reference-audio', 'no-audio']);
+const TTS_LANGUAGES = new Set(['Auto', 'Chinese', 'English', 'Japanese', 'Korean', 'German', 'French', 'Russian', 'Portuguese', 'Spanish', 'Italian']);
+const ASR_LANGUAGES = new Set(['auto', 'Chinese', 'English', 'Cantonese', 'Arabic', 'German', 'French', 'Spanish', 'Portuguese', 'Indonesian', 'Italian', 'Korean', 'Russian', 'Thai', 'Vietnamese', 'Japanese', 'Turkish', 'Hindi', 'Malay', 'Dutch', 'Swedish', 'Danish', 'Finnish', 'Polish', 'Czech', 'Filipino', 'Persian', 'Greek', 'Hungarian', 'Macedonian', 'Romanian']);
 
 const fail = (message) => {
   console.error(`INVALID: ${message}`);
@@ -48,6 +50,7 @@ try {
 const project = parsed?.schema === 'mv-maker-project' ? parsed.project : parsed;
 let strictAudioPlan = null;
 const strictChapterIds = new Set();
+const strictVoiceIds = new Set();
 if (!isObject(project)) {
   fail('project must be an object');
 } else {
@@ -111,6 +114,18 @@ if (!isObject(project)) {
           else {
             for (const field of ['voice_id', 'speaker_label', 'instruct', 'reference_text', 'language']) if (typeof narrator[field] !== 'string' || !narrator[field].trim()) fail(`director_plan.audio_plan.narrator_voice.${field} is required`);
             if (!Number.isFinite(narrator.seed)) fail('director_plan.audio_plan.narrator_voice.seed must be a number');
+            if (typeof narrator.voice_id === 'string' && narrator.voice_id.trim()) strictVoiceIds.add(narrator.voice_id);
+            if (narrator.generation_mode !== 'voice-design') fail('director_plan.audio_plan.narrator_voice must use voice-design for fixed-voice creation');
+            if (!TTS_LANGUAGES.has(narrator.language)) fail('director_plan.audio_plan.narrator_voice.language is invalid');
+            if (!ASR_LANGUAGES.has(narrator.reference_language)) fail('director_plan.audio_plan.narrator_voice.reference_language is invalid');
+            if (narrator.reference_audio !== undefined) {
+              const reference = narrator.reference_audio;
+              if (!isObject(reference)) fail('director_plan.audio_plan.narrator_voice.reference_audio is invalid');
+              else {
+                if (!Number.isFinite(reference.duration_seconds) || reference.duration_seconds <= 0 || !Number.isFinite(reference.ref_audio_max_seconds) || reference.ref_audio_max_seconds <= reference.duration_seconds || reference.ref_audio_max_seconds < 60) fail('director_plan.audio_plan.narrator_voice reference duration safety is invalid');
+                if (reference.source !== 'generated-fixed-voice') fail('director_plan.audio_plan.narrator_voice.reference_audio.source must be generated-fixed-voice');
+              }
+            }
           }
         }
       }
@@ -148,7 +163,32 @@ if (!isObject(project)) {
       else {
         for (const field of ['voice_id', 'speaker_label', 'instruct', 'reference_text', 'language']) if (typeof voice[field] !== 'string' || !voice[field].trim()) fail(`${at}.voice_profile.${field} is required`);
         if (!Number.isFinite(voice.seed)) fail(`${at}.voice_profile.seed must be a number`);
+        if (typeof voice.voice_id === 'string' && voice.voice_id.trim()) {
+          if (strictVoiceIds.has(voice.voice_id)) fail(`${at}.voice_profile.voice_id is duplicated`);
+          strictVoiceIds.add(voice.voice_id);
+        }
         if (!hasChinese(voice.instruct) || !hasChinese(voice.reference_text)) fail(`${at}.voice_profile must contain Chinese voice design content`);
+        if (!['voice-design', 'voice-clone'].includes(voice.generation_mode)) fail(`${at}.voice_profile.generation_mode is invalid`);
+        if (!TTS_LANGUAGES.has(voice.language)) fail(`${at}.voice_profile.language is invalid`);
+        if (!ASR_LANGUAGES.has(voice.reference_language)) fail(`${at}.voice_profile.reference_language is invalid`);
+        if (voice.generation_mode === 'voice-clone') {
+          const creationReference = voice.creation_reference_audio;
+          if (!isObject(creationReference)) fail(`${at}.voice_profile.creation_reference_audio is required for uploaded-reference creation`);
+          else {
+            for (const field of ['data_url', 'filename', 'mime_type']) if (typeof creationReference[field] !== 'string' || !creationReference[field].trim()) fail(`${at}.voice_profile.creation_reference_audio.${field} is required`);
+            if (!Number.isFinite(creationReference.duration_seconds) || creationReference.duration_seconds <= 0 || !Number.isFinite(creationReference.ref_audio_max_seconds) || creationReference.ref_audio_max_seconds <= creationReference.duration_seconds || creationReference.ref_audio_max_seconds < 60) fail(`${at}.voice_profile creation reference duration safety is invalid`);
+            if (creationReference.source !== 'uploaded-reference') fail(`${at}.voice_profile.creation_reference_audio.source must be uploaded-reference`);
+          }
+        }
+        if (voice.reference_audio !== undefined) {
+          const reference = voice.reference_audio;
+          if (!isObject(reference)) fail(`${at}.voice_profile.reference_audio is invalid`);
+          else {
+            for (const field of ['data_url', 'filename', 'mime_type']) if (typeof reference[field] !== 'string' || !reference[field].trim()) fail(`${at}.voice_profile.reference_audio.${field} is required`);
+            if (!Number.isFinite(reference.duration_seconds) || reference.duration_seconds <= 0 || !Number.isFinite(reference.ref_audio_max_seconds) || reference.ref_audio_max_seconds <= reference.duration_seconds || reference.ref_audio_max_seconds < 60) fail(`${at}.voice_profile reference duration safety is invalid`);
+            if (reference.source !== 'generated-fixed-voice') fail(`${at}.voice_profile.reference_audio.source must be generated-fixed-voice`);
+          }
+        }
       }
     }
     if (parsed?.schema === 'mv-maker-project') {
@@ -222,7 +262,10 @@ if (!isObject(project)) {
           if (audioPlan.duration_seconds !== plan.duration_seconds) fail(`${at}.audio_plan.duration_seconds must match generation_plan`);
           if (typeof audioPlan.audio_text !== 'string') fail(`${at}.audio_plan.audio_text must be a string`);
           if (!Array.isArray(audioPlan.speakers)) fail(`${at}.audio_plan.speakers must be an array`);
-          else for (const [speakerIndex, speaker] of audioPlan.speakers.entries()) if (!isObject(speaker) || typeof speaker.voice_id !== 'string' || !speaker.voice_id.trim()) fail(`${at}.audio_plan.speakers[${speakerIndex}].voice_id is required`);
+          else for (const [speakerIndex, speaker] of audioPlan.speakers.entries()) {
+            if (!isObject(speaker) || typeof speaker.voice_id !== 'string' || !speaker.voice_id.trim()) fail(`${at}.audio_plan.speakers[${speakerIndex}].voice_id is required`);
+            else if (!strictVoiceIds.has(speaker.voice_id)) fail(`${at}.audio_plan.speakers[${speakerIndex}].voice_id does not resolve to a character or narrator`);
+          }
           if (!['tentative', 'confirmed'].includes(audioPlan.cut_status)) fail(`${at}.audio_plan.cut_status is invalid`);
         }
         if (!shot.video_prompt.includes('<Audio 1>')) fail(`${at}.video_prompt must reference <Audio 1>`);

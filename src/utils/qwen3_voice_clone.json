@@ -1,0 +1,65 @@
+{
+  "1": {
+    "inputs": {
+      "repo_id": "Qwen/Qwen3-ASR-1.7B",
+      "source": "HuggingFace",
+      "precision": "bf16",
+      "attention": "auto",
+      "forced_aligner": "None",
+      "local_model_path": ""
+    },
+    "class_type": "Qwen3ASRLoader",
+    "_meta": { "title": "Qwen3-ASR Loader" }
+  },
+  "2": {
+    "inputs": {
+      "language": "auto",
+      "context": "",
+      "return_timestamps": false,
+      "model": ["1", 0],
+      "audio": ["4", 0]
+    },
+    "class_type": "Qwen3ASRTranscribe",
+    "_meta": { "title": "Qwen3-ASR Transcribe" }
+  },
+  "4": {
+    "inputs": { "audio": "001_SHOT-001_voice.mp3" },
+    "class_type": "LoadAudio",
+    "_meta": { "title": "加载音频" }
+  },
+  "5": {
+    "inputs": { "source": ["2", 0] },
+    "class_type": "PreviewAny",
+    "_meta": { "title": "预览任意" }
+  },
+  "6": {
+    "inputs": {
+      "repo_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+      "source": "HuggingFace",
+      "precision": "bf16",
+      "attention": "auto",
+      "local_model_path": ""
+    },
+    "class_type": "Qwen3Loader",
+    "_meta": { "title": "Qwen3-TTS Loader" }
+  },
+  "7": {
+    "inputs": { "audio": ["9", 0] },
+    "class_type": "PreviewAudio",
+    "_meta": { "title": "预览音频" }
+  },
+  "9": {
+    "inputs": {
+      "text": "こんにちは。元気ですか",
+      "seed": 1079234860675968,
+      "language": "Japanese",
+      "ref_text": ["2", 0],
+      "max_new_tokens": 2048,
+      "ref_audio_max_seconds": 60,
+      "model": ["6", 0],
+      "ref_audio": ["4", 0]
+    },
+    "class_type": "Qwen3VoiceClone",
+    "_meta": { "title": "Qwen3-TTS Voice Clone" }
+  }
+}

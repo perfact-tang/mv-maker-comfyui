@@ -16,6 +16,16 @@ export type AudioProductionStyle = 'spoken-word' | 'musical-drama';
 export type AudioAlignmentStatus = 'planned' | 'generated' | 'aligned' | 'locked';
 export type AudioChapterStatus = 'idle' | 'generating' | 'ready' | 'failed';
 export type Qwen3TtsLanguage = 'Auto' | 'Chinese' | 'English' | 'Japanese' | 'Korean' | 'German' | 'French' | 'Russian' | 'Portuguese' | 'Spanish' | 'Italian';
+export type Qwen3AsrLanguage = 'auto' | Exclude<Qwen3TtsLanguage, 'Auto'> | 'Cantonese' | 'Arabic' | 'Indonesian' | 'Thai' | 'Vietnamese' | 'Turkish' | 'Hindi' | 'Malay' | 'Dutch' | 'Swedish' | 'Danish' | 'Finnish' | 'Polish' | 'Czech' | 'Filipino' | 'Persian' | 'Greek' | 'Hungarian' | 'Macedonian' | 'Romanian';
+
+export interface VoiceReferenceAudio {
+  data_url: string;
+  filename: string;
+  mime_type: string;
+  duration_seconds: number;
+  ref_audio_max_seconds: number;
+  source?: 'generated-fixed-voice' | 'uploaded-reference';
+}
 
 export interface AudioChapter {
   chapter_id: string;
@@ -50,6 +60,10 @@ export interface VoiceProfile {
   reference_text: string;
   language: Qwen3TtsLanguage;
   seed: number;
+  generation_mode?: 'voice-design' | 'voice-clone';
+  reference_language?: Qwen3AsrLanguage;
+  creation_reference_audio?: VoiceReferenceAudio;
+  reference_audio?: VoiceReferenceAudio;
   prompt_filename?: string;
   preview_audio?: string;
   status?: 'idle' | 'generating' | 'ready' | 'failed';

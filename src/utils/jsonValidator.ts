@@ -75,6 +75,26 @@ export const validateMVData = (data: unknown): ValidationResult => {
         if (typeof character.voice_profile[field] !== 'string' || !String(character.voice_profile[field]).trim()) return { isValid: false, error: `${label}的 voice_profile.${field} 无效` };
       }
       if (!Number.isFinite(Number(character.voice_profile.seed))) return { isValid: false, error: `${label}的 voice_profile.seed 无效` };
+      if (character.voice_profile.generation_mode !== undefined && !['voice-design', 'voice-clone'].includes(String(character.voice_profile.generation_mode))) return { isValid: false, error: `${label}的 voice_profile.generation_mode 无效` };
+      if (character.voice_profile.reference_language !== undefined && !['auto', 'Chinese', 'English', 'Cantonese', 'Arabic', 'German', 'French', 'Spanish', 'Portuguese', 'Indonesian', 'Italian', 'Korean', 'Russian', 'Thai', 'Vietnamese', 'Japanese', 'Turkish', 'Hindi', 'Malay', 'Dutch', 'Swedish', 'Danish', 'Finnish', 'Polish', 'Czech', 'Filipino', 'Persian', 'Greek', 'Hungarian', 'Macedonian', 'Romanian'].includes(String(character.voice_profile.reference_language))) return { isValid: false, error: `${label}的 voice_profile.reference_language 无效` };
+      if (character.voice_profile.generation_mode === 'voice-clone' && character.voice_profile.status === 'ready' && !isObject(character.voice_profile.creation_reference_audio)) return { isValid: false, error: `${label}通过参考声音创建固定音色，但缺少 creation_reference_audio` };
+      if (character.voice_profile.creation_reference_audio !== undefined) {
+        const sourceReference = character.voice_profile.creation_reference_audio;
+        if (!isObject(sourceReference) || typeof sourceReference.data_url !== 'string' || !sourceReference.data_url.trim() || typeof sourceReference.filename !== 'string' || !sourceReference.filename.trim() || typeof sourceReference.mime_type !== 'string' || !sourceReference.mime_type.trim()) return { isValid: false, error: `${label}的创建参考声音文件信息无效` };
+        const sourceDuration = Number(sourceReference.duration_seconds);
+        const sourceMaximum = Number(sourceReference.ref_audio_max_seconds);
+        if (!Number.isFinite(sourceDuration) || sourceDuration <= 0 || !Number.isFinite(sourceMaximum) || sourceMaximum <= sourceDuration) return { isValid: false, error: `${label}的创建参考声音安全读取上限无效` };
+        if (sourceReference.source !== undefined && sourceReference.source !== 'uploaded-reference') return { isValid: false, error: `${label}的 creation_reference_audio.source 无效` };
+      }
+      if (character.voice_profile.status === 'ready' && !isObject(character.voice_profile.reference_audio)) return { isValid: false, error: `${label}的固定音色已标记 ready 但缺少最终 reference_audio` };
+      if (character.voice_profile.reference_audio !== undefined) {
+        const reference = character.voice_profile.reference_audio;
+        if (!isObject(reference) || typeof reference.data_url !== 'string' || !reference.data_url.trim() || typeof reference.filename !== 'string' || !reference.filename.trim() || typeof reference.mime_type !== 'string' || !reference.mime_type.trim()) return { isValid: false, error: `${label}的 reference_audio 文件信息无效` };
+        const duration = Number(reference.duration_seconds);
+        const maximum = Number(reference.ref_audio_max_seconds);
+        if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(maximum) || maximum <= duration) return { isValid: false, error: `${label}的 ref_audio_max_seconds 必须大于参考音频实长` };
+        if (reference.source !== undefined && reference.source !== 'generated-fixed-voice') return { isValid: false, error: `${label}的最终 reference_audio.source 无效` };
+      }
     }
   }
 
@@ -95,6 +115,21 @@ export const validateMVData = (data: unknown): ValidationResult => {
   const directorPlan = isObject(data.director_plan) ? data.director_plan : undefined;
   const audioPlan = directorPlan && isObject(directorPlan.audio_plan) ? directorPlan.audio_plan : undefined;
   const qwenLanguages = ['Auto', 'Chinese', 'English', 'Japanese', 'Korean', 'German', 'French', 'Russian', 'Portuguese', 'Spanish', 'Italian'];
+  const knownVoiceIds = new Set<string>();
+  for (const character of data.characters) {
+    if (!isObject(character) || !isObject(character.voice_profile)) continue;
+    const voiceId = String(character.voice_profile.voice_id || '').trim();
+    if (!voiceId) continue;
+    if (knownVoiceIds.has(voiceId)) return { isValid: false, error: `人物音色 voice_id 重复：${voiceId}` };
+    knownVoiceIds.add(voiceId);
+  }
+  if (audioPlan && isObject(audioPlan.narrator_voice)) {
+    const narratorVoiceId = String(audioPlan.narrator_voice.voice_id || '').trim();
+    if (narratorVoiceId) {
+      if (knownVoiceIds.has(narratorVoiceId)) return { isValid: false, error: `旁白与人物使用了重复 voice_id：${narratorVoiceId}` };
+      knownVoiceIds.add(narratorVoiceId);
+    }
+  }
   if (audioPlan) {
     if (!['disabled', 'music3-audio-first', 'qwen3-tts-audio-first'].includes(String(audioPlan.mode))) {
       return { isValid: false, error: "director_plan.audio_plan.mode 无效" };
@@ -124,6 +159,17 @@ export const validateMVData = (data: unknown): ValidationResult => {
       if (audioPlan.workflow !== '千问 3 TTS' || audioPlan.music_workflow !== 'MiniMax Music 3') return { isValid: false, error: '千问 3 TTS 项目必须声明千问 3 TTS 配音和 MiniMax Music 3 配乐工作流' };
       if (!isObject(audioPlan.narrator_voice)) return { isValid: false, error: '千问 3 TTS 项目缺少 narrator_voice' };
       if (audioPlan.tts_language !== undefined && !qwenLanguages.includes(String(audioPlan.tts_language))) return { isValid: false, error: 'director_plan.audio_plan.tts_language 无效' };
+      if (isObject(audioPlan.narrator_voice)) {
+        const narrator = audioPlan.narrator_voice;
+        if (narrator.generation_mode !== undefined && !['voice-design', 'voice-clone'].includes(String(narrator.generation_mode))) return { isValid: false, error: 'narrator_voice.generation_mode 无效' };
+        if (narrator.reference_language !== undefined && !['auto', 'Chinese', 'English', 'Cantonese', 'Arabic', 'German', 'French', 'Spanish', 'Portuguese', 'Indonesian', 'Italian', 'Korean', 'Russian', 'Thai', 'Vietnamese', 'Japanese', 'Turkish', 'Hindi', 'Malay', 'Dutch', 'Swedish', 'Danish', 'Finnish', 'Polish', 'Czech', 'Filipino', 'Persian', 'Greek', 'Hungarian', 'Macedonian', 'Romanian'].includes(String(narrator.reference_language))) return { isValid: false, error: 'narrator_voice.reference_language 无效' };
+        if (narrator.generation_mode === 'voice-clone' && !isObject(narrator.reference_audio)) return { isValid: false, error: 'narrator_voice 选择了 voice-clone 但缺少 reference_audio' };
+        if (narrator.reference_audio !== undefined) {
+          const reference = narrator.reference_audio;
+          if (!isObject(reference) || typeof reference.data_url !== 'string' || !reference.data_url.trim() || typeof reference.filename !== 'string' || !reference.filename.trim()) return { isValid: false, error: 'narrator_voice.reference_audio 文件信息无效' };
+          if (!Number.isFinite(Number(reference.duration_seconds)) || Number(reference.duration_seconds) <= 0 || !Number.isFinite(Number(reference.ref_audio_max_seconds)) || Number(reference.ref_audio_max_seconds) <= Number(reference.duration_seconds)) return { isValid: false, error: 'narrator_voice.ref_audio_max_seconds 必须大于参考音频实长' };
+        }
+      }
     }
     const chapterIds = new Set<string>();
     for (const [chapterIndex, chapter] of audioPlan.chapters.entries()) {
@@ -170,6 +216,7 @@ export const validateMVData = (data: unknown): ValidationResult => {
         if (![5, 10, 15].includes(Number(shotAudio.duration_seconds))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音时长无效` };
         if (typeof shotAudio.audio_text !== 'string' || !Array.isArray(shotAudio.speakers)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音文本或说话人无效` };
         if (audioPlan?.mode === 'qwen3-tts-audio-first' && shotAudio.speakers.some((speaker) => !isObject(speaker) || typeof speaker.voice_id !== 'string' || !speaker.voice_id.trim())) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的说话人缺少 voice_id` };
+        if (audioPlan?.mode === 'qwen3-tts-audio-first' && shotAudio.speakers.some((speaker) => isObject(speaker) && typeof speaker.voice_id === 'string' && !knownVoiceIds.has(speaker.voice_id))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头引用了不存在的人物/旁白 voice_id` };
         if (!['tentative', 'confirmed'].includes(String(shotAudio.cut_status))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的切点状态无效` };
       }
       if (shot.generation_plan === undefined) continue;

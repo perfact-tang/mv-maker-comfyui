@@ -1,11 +1,26 @@
-import type { AudioChapter, MVInfo, Qwen3TtsLanguage, VoiceProfile } from '../types/mv-data';
-import { executeComfyWorkflow } from './comfyApi';
+import type { AudioChapter, MVInfo, Qwen3TtsLanguage, VoiceProfile, VoiceReferenceAudio } from '../types/mv-data';
+import { executeComfyWorkflow, uploadAudioToComfy } from './comfyApi';
 import { createMusic3Workflow } from './music3Workflow';
 import { createQwen3TtsWorkflow } from './qwen3TtsWorkflow';
 import { analyzeAudioUrl } from './audioAlignment';
 import { fitTtsDuration } from './audioTempo';
+import { createQwen3VoiceCloneWorkflow, safeRefAudioMaxSeconds } from './qwen3VoiceCloneWorkflow';
+import { shouldUseQwen3VoiceClone } from './voiceCloneProfile';
 
 export { fitTtsDuration } from './audioTempo';
+
+export const makeGeneratedFixedVoiceReference = async (audioUrl: string, voiceId: string): Promise<VoiceReferenceAudio> => {
+  const analysis = await analyzeAudioUrl(audioUrl);
+  const durationSeconds = Number(analysis.durationSeconds.toFixed(3));
+  return {
+    data_url: audioUrl,
+    filename: `${voiceId.replace(/[^a-zA-Z0-9_-]/g, '_')}-fixed-voice.wav`,
+    mime_type: 'audio/wav',
+    duration_seconds: durationSeconds,
+    ref_audio_max_seconds: safeRefAudioMaxSeconds(durationSeconds),
+    source: 'generated-fixed-voice',
+  };
+};
 
 export interface DriveAudioChunk {
   shotId: string;
@@ -32,7 +47,36 @@ export const generateMusic3Chapter = async (chapter: AudioChapter, replaceSeed =
   return { audioUrl, seed };
 };
 
-export const generateQwen3Voice = async (profile: VoiceProfile, text = profile.reference_text, savePrompt = true, language?: Qwen3TtsLanguage) => {
+export const generateQwen3Voice = async (
+  profile: VoiceProfile,
+  text = profile.reference_text,
+  savePrompt = true,
+  language?: Qwen3TtsLanguage,
+  requireVoiceClone = false,
+) => {
+  const usesVoiceClone = shouldUseQwen3VoiceClone(profile, requireVoiceClone);
+  if (usesVoiceClone) {
+    const reference = profile.reference_audio;
+    if (!reference?.data_url || !reference.filename || !reference.duration_seconds) {
+      throw new Error(`${profile.voice_id} 已选择参考音频克隆，但尚未上传有效的参考音色文件`);
+    }
+    const referenceResponse = await fetch(reference.data_url);
+    if (!referenceResponse.ok) throw new Error(`无法读取 ${profile.voice_id} 的参考音色文件：HTTP ${referenceResponse.status}`);
+    const uploadedFilename = await uploadAudioToComfy(await referenceResponse.blob(), reference.filename);
+    const { workflow, seed, refAudioMaxSeconds } = createQwen3VoiceCloneWorkflow({
+      text,
+      outputLanguage: language ?? profile.language,
+      referenceLanguage: profile.reference_language ?? 'auto',
+      referenceAudioFilename: uploadedFilename,
+      referenceAudioDurationSeconds: reference.duration_seconds,
+      refAudioMaxSeconds: reference.ref_audio_max_seconds,
+      seed: profile.seed,
+    });
+    const outputs = await executeComfyWorkflow(workflow);
+    const audioUrl = outputs.audios[0];
+    if (!audioUrl) throw new Error('千问 3 Voice Clone 已执行，但 PreviewAudio 没有返回可用音频');
+    return { audioUrl, seed, promptFilename: undefined, refAudioMaxSeconds };
+  }
   const { workflow, seed, promptFilename } = createQwen3TtsWorkflow({
     text,
     instruct: profile.instruct,
@@ -44,7 +88,7 @@ export const generateQwen3Voice = async (profile: VoiceProfile, text = profile.r
   const outputs = await executeComfyWorkflow(workflow);
   const audioUrl = outputs.audios[0];
   if (!audioUrl) throw new Error('千问 3 TTS 已执行，但 PreviewAudio 没有返回可用音频');
-  return { audioUrl, seed, promptFilename };
+  return { audioUrl, seed, promptFilename, refAudioMaxSeconds: undefined };
 };
 
 export const generateQwen3ShotVoice = async (
@@ -52,11 +96,12 @@ export const generateQwen3ShotVoice = async (
   shot: MVInfo,
   profile: VoiceProfile,
   language?: Qwen3TtsLanguage,
+  requireVoiceClone = false,
 ): Promise<DriveAudioChunk> => {
   const duration = shot.audio_plan?.duration_seconds ?? shot.generation_plan?.duration_seconds ?? 5;
   const text = shot.audio_plan?.audio_text?.trim() || shot.lyrics.trim();
   if (!text || text === '(No dialogue)') throw new Error(`${shot.shot_id || '镜头'} 没有可配音文本`);
-  const generated = await generateQwen3Voice(profile, text, false, language);
+  const generated = await generateQwen3Voice(profile, text, false, language, requireVoiceClone);
   const analysis = await analyzeAudioUrl(generated.audioUrl);
   const fitted = fitTtsDuration(analysis.durationSeconds, duration);
   const audioResponse = await fetch(generated.audioUrl);

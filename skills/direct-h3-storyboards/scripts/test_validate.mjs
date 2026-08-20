@@ -32,7 +32,21 @@ try {
   await run('timeline-gap', (value) => { value.project.storyboard[0].mvinfo[0].timestamp = '00:05 - 00:10'; }, false);
   await run('invalid-frames', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.duration_frames = 260; }, false);
   await run('missing-character-voice', (value) => { delete value.project.characters[0].voice_profile; }, false);
+  await run('character-display-voice-clone', (value) => { value.project.characters[0].voice_profile.generation_mode = 'voice-clone'; }, false);
+  await run('valid-character-uploaded-reference', (value) => {
+    value.project.characters[0].voice_profile.generation_mode = 'voice-clone';
+    value.project.characters[0].voice_profile.creation_reference_audio = { data_url: 'data:audio/wav;base64,AA==', filename: 'source.wav', mime_type: 'audio/wav', duration_seconds: 12.5, ref_audio_max_seconds: 60, source: 'uploaded-reference' };
+  }, true);
   await run('missing-shot-voice-id', (value) => { delete value.project.storyboard[0].mvinfo[0].audio_plan.speakers[0].voice_id; }, false);
+  await run('unknown-shot-voice-id', (value) => { value.project.storyboard[0].mvinfo[0].audio_plan.speakers[0].voice_id = 'VOICE-UNKNOWN'; }, false);
+  await run('duplicate-voice-id', (value) => { value.project.characters[0].voice_profile.voice_id = value.project.director_plan.audio_plan.narrator_voice.voice_id; }, false);
+  await run('valid-generated-fixed-voice-reference', (value) => {
+    value.project.characters[0].voice_profile.reference_language = 'Japanese';
+    value.project.characters[0].voice_profile.reference_audio = { data_url: 'data:audio/wav;base64,AA==', filename: 'fixed.wav', mime_type: 'audio/wav', duration_seconds: 18.4, ref_audio_max_seconds: 60, source: 'generated-fixed-voice' };
+  }, true);
+  await run('unsafe-reference-audio-limit', (value) => {
+    value.project.characters[0].voice_profile.reference_audio = { data_url: 'data:audio/wav;base64,AA==', filename: 'reference.wav', mime_type: 'audio/wav', duration_seconds: 61, ref_audio_max_seconds: 60 };
+  }, false);
   await run('global-native-audio', (value) => { value.generation_settings.h3.audio_mode = 'native-audio'; }, false);
   await run('fl2va-missing-target-prompt', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.mode = 'FL2VA'; }, false);
   await run('ref2va-missing-references', (value) => { value.project.storyboard[0].mvinfo[0].generation_plan.mode = 'Ref2VA'; }, false);

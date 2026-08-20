@@ -12,6 +12,7 @@ import {
 } from '../types/mv-data';
 import { H3_AUDIO_FRAMES } from '../utils/audioAlignment';
 import { migrateGenerationSettingsToV4AudioPlan, migrateProjectToV4AudioPlan } from '../utils/audioPlanMigration';
+import { hasConfirmedFixedVoiceReference } from '../utils/voiceCloneProfile';
 
 export type H3GenerationMode = ProjectGenerationSettings['h3']['generation_mode'];
 export type H3AudioMode = ProjectGenerationSettings['h3']['audio_mode'];
@@ -87,6 +88,7 @@ interface GlobalSettingsState {
   updateNarratorVoiceProfile: (patch: Partial<VoiceProfile>) => void;
   setGlobalTtsLanguage: (language: Qwen3TtsLanguage) => void;
   setShotTtsLanguage: (segmentId: number, infoIndex: number, language?: Qwen3TtsLanguage) => void;
+  setShotVoiceId: (segmentId: number, infoIndex: number, voiceId: string) => void;
   updateCharacterAsset: (characterIndex: number, assetType: 'image' | 'video', url: string, orientation?: VideoOrientation) => void;
   replaceCharacterImage: (characterIndex: number, url: string) => void;
   replaceMVInfoImage: (segmentId: number, infoIndex: number, url: string) => void;
@@ -203,13 +205,46 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
       updateCharacterVoiceProfile: (characterIndex, patch) => set((state) => {
         if (!state.mvData?.characters[characterIndex]?.voice_profile) return state;
         const characters = [...state.mvData.characters];
-        characters[characterIndex] = { ...characters[characterIndex], voice_profile: { ...characters[characterIndex].voice_profile!, ...patch } };
-        return { mvData: { ...state.mvData, characters } };
+        const currentProfile = characters[characterIndex].voice_profile!;
+        characters[characterIndex] = { ...characters[characterIndex], voice_profile: { ...currentProfile, ...patch } };
+        const identityChanged = ['instruct', 'reference_text', 'language', 'seed', 'generation_mode', 'reference_language', 'creation_reference_audio', 'reference_audio']
+          .some((field) => Object.prototype.hasOwnProperty.call(patch, field));
+        if (!identityChanged) return { mvData: { ...state.mvData, characters } };
+        const storyboard = state.mvData.storyboard.map((segment) => ({
+          ...segment,
+          mvinfo: segment.mvinfo.map((info) => {
+            if (!info.audio_plan?.speakers.some((speaker) => speaker.voice_id === currentProfile.voice_id)) return info;
+            const generatedAssets = { ...info.generated_assets };
+            delete generatedAssets.voice_audio;
+            delete generatedAssets.voice_audio_filename;
+            delete generatedAssets.drive_audio;
+            delete generatedAssets.drive_audio_filename;
+            generatedAssets.mux_status = 'pending';
+            return { ...info, generated_assets: generatedAssets, audio_plan: { ...info.audio_plan, actual_voice_duration_seconds: undefined, voice_playback_rate: undefined, cut_status: 'tentative' as const } };
+          }),
+        }));
+        const director = state.mvData.director_plan;
+        return { mvData: { ...state.mvData, characters, storyboard, ...(director?.audio_plan ? { director_plan: { ...director, audio_plan: { ...director.audio_plan, alignment_status: 'planned' } } } : {}) } };
       }),
       updateNarratorVoiceProfile: (patch) => set((state) => {
         const plan = state.mvData?.director_plan?.audio_plan;
         if (!state.mvData?.director_plan || !plan?.narrator_voice) return state;
-        return { mvData: { ...state.mvData, director_plan: { ...state.mvData.director_plan, audio_plan: { ...plan, narrator_voice: { ...plan.narrator_voice, ...patch } } } } };
+        const identityChanged = ['instruct', 'reference_text', 'language', 'seed', 'generation_mode', 'reference_language', 'reference_audio']
+          .some((field) => Object.prototype.hasOwnProperty.call(patch, field));
+        const storyboard = identityChanged ? state.mvData.storyboard.map((segment) => ({
+          ...segment,
+          mvinfo: segment.mvinfo.map((info) => {
+            if (!info.audio_plan?.speakers.some((speaker) => speaker.voice_id === plan.narrator_voice!.voice_id)) return info;
+            const generatedAssets = { ...info.generated_assets };
+            delete generatedAssets.voice_audio;
+            delete generatedAssets.voice_audio_filename;
+            delete generatedAssets.drive_audio;
+            delete generatedAssets.drive_audio_filename;
+            generatedAssets.mux_status = 'pending';
+            return { ...info, generated_assets: generatedAssets, audio_plan: { ...info.audio_plan, actual_voice_duration_seconds: undefined, voice_playback_rate: undefined, cut_status: 'tentative' as const } };
+          }),
+        })) : state.mvData.storyboard;
+        return { mvData: { ...state.mvData, storyboard, director_plan: { ...state.mvData.director_plan, audio_plan: { ...plan, alignment_status: identityChanged ? 'planned' : plan.alignment_status, narrator_voice: { ...plan.narrator_voice, ...patch } } } } };
       }),
       setGlobalTtsLanguage: (language) => set((state) => {
         const director = state.mvData?.director_plan;
@@ -255,6 +290,46 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
           return { ...segment, mvinfo };
         });
         return { mvData: { ...state.mvData, storyboard, director_plan: { ...director, audio_plan: { ...plan, alignment_status: 'planned' } } } };
+      }),
+      setShotVoiceId: (segmentId, infoIndex, voiceId) => set((state) => {
+        const data = state.mvData;
+        const director = data?.director_plan;
+        const plan = director?.audio_plan;
+        if (!data || !director || !plan) return state;
+        const character = data.characters.find((item) => item.voice_profile?.voice_id === voiceId);
+        const profile = character?.voice_profile || (plan.narrator_voice?.voice_id === voiceId ? plan.narrator_voice : undefined);
+        if (!profile) return state;
+        if (!hasConfirmedFixedVoiceReference(profile)) return state;
+        const storyboard = data.storyboard.map((segment) => {
+          if (segment.segment_id !== segmentId || !segment.mvinfo[infoIndex]?.audio_plan) return segment;
+          const mvinfo = [...segment.mvinfo];
+          const info = mvinfo[infoIndex];
+          if (info.audio_plan!.speakers[0]?.voice_id === voiceId && info.audio_plan!.speakers.length === 1) return segment;
+          const generatedAssets = { ...info.generated_assets };
+          delete generatedAssets.voice_audio;
+          delete generatedAssets.voice_audio_filename;
+          delete generatedAssets.drive_audio;
+          delete generatedAssets.drive_audio_filename;
+          generatedAssets.mux_status = 'pending';
+          mvinfo[infoIndex] = {
+            ...info,
+            generated_assets: generatedAssets,
+            audio_plan: {
+              ...info.audio_plan!,
+              actual_voice_duration_seconds: undefined,
+              voice_playback_rate: undefined,
+              cut_status: 'tentative',
+              speakers: [{
+                speaker_label: profile.speaker_label,
+                character_name: character?.name || '旁白',
+                voice_description: profile.instruct,
+                voice_id: profile.voice_id,
+              }],
+            },
+          };
+          return { ...segment, mvinfo };
+        });
+        return { mvData: { ...data, storyboard, director_plan: { ...director, audio_plan: { ...plan, alignment_status: 'planned' } } } };
       }),
       updateCharacterAsset: (characterIndex, assetType, url, orientation) => set((state) => {
         if (!state.mvData || !state.mvData.characters[characterIndex]) return state;
@@ -698,7 +773,7 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
     }),
     {
       name: 'mv-maker-storage',
-      version: 7,
+      version: 9,
       storage: createJSONStorage(() => localStorage),
       migrate: (persistedState, version) => {
         const state = persistedState as Partial<GlobalSettingsState>;
@@ -708,7 +783,7 @@ export const useGlobalSettings = create<GlobalSettingsState>()(
         if (version < 3 && !['Krea2 Turbo', 'Z-Image-Turbo'].includes(state.selectedWorkflow || '')) {
           state.selectedWorkflow = 'Krea2 Turbo';
         }
-        if (version < 7 && state.mvData) {
+        if (version < 9 && state.mvData) {
           state.mvData = migrateProjectToV4AudioPlan(state.mvData);
           if (state.mvData.director_plan?.audio_plan?.mode === 'qwen3-tts-audio-first') {
             state.h3GenerationMode = 'director-routed';

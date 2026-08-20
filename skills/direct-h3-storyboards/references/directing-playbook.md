@@ -74,4 +74,4 @@ Use `New_Scene` only for a true visual reset. Use `Last_Frame_Continuity` when t
 
 For MVs with master audio, align shots to the source timeline and prefer cuts at pauses, breaths, beats, or impacts. Never cut a required lyric mid-word unless the same vocal continues explicitly across the cut.
 
-Qwen3 Voice Design consistency depends on keeping `voice_id`, `instruct`, reference text, language, seed, and saved Prompt stable. Music 3 must never receive narration/dialogue text and must be explicitly prompted for instrumental-only output.
+声音采用两阶段流程。人物展示及旁白固定音色区先用 Qwen3 Voice Design 创建声音并锁定 `voice_id`、`instruct`、预览文本、输出语言、seed 和 Prompt；生成的预览音频自动成为克隆参考。声音制作选择人物或旁白时，再用 Qwen3 Voice Clone + ASR 为镜头生成对白。Voice Clone 必须将 ASR 输入 `reference_language` 与 TTS 输出 `language` 分开，记录参考实长，并把 `ref_audio_max_seconds` 设为至少 `max(60, ceil(duration) + 1)`。Music 3 不得接收旁白或对白文本。

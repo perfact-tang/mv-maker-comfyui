@@ -15,10 +15,11 @@ import {
 import { CharacterProfile } from '../types/mv-data';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { generateComfyImage } from '../utils/comfyApi';
-import { generateQwen3Voice } from '../utils/audioProduction';
+import { generateQwen3Voice, makeGeneratedFixedVoiceReference } from '../utils/audioProduction';
 import { VIDEO_DIMENSIONS } from '../utils/characterVideoWorkflow';
 import { VideoOrientationControl } from './VideoOrientationControl';
 import { ImageEditModal } from './ImageEditModal';
+import { CharacterVoiceCreationMethod } from './CharacterVoiceCreationMethod';
 
 interface CharactersPageProps {
   characters: CharacterProfile[];
@@ -91,8 +92,13 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
 
   const generateVoicePreview = async () => {
     const profile = character.voice_profile;
-    if (!profile?.instruct.trim() || !profile.reference_text.trim()) {
-      setError('请先填写人物音色定义和参考文本。');
+    const method = profile?.generation_mode ?? 'voice-design';
+    if (!profile?.reference_text.trim() || (method === 'voice-design' && !profile.instruct.trim())) {
+      setError(method === 'voice-design' ? '请先填写人物音色定义和固定音色示例文本。' : '请先填写固定音色示例文本。');
+      return;
+    }
+    if (method === 'voice-clone' && !profile.creation_reference_audio) {
+      setError('请先上传用于创建固定音色的参考声音。');
       return;
     }
     setError(null);
@@ -100,8 +106,19 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
     updateCharacterVoiceProfile(index, { status: 'generating', error: undefined });
     try {
       const globalLanguage = mvData?.director_plan?.audio_plan?.tts_language ?? profile.language;
-      const result = await generateQwen3Voice(profile, profile.reference_text, true, globalLanguage);
-      updateCharacterVoiceProfile(index, { preview_audio: result.audioUrl, seed: result.seed, prompt_filename: result.promptFilename, status: 'ready' });
+      const generationProfile = method === 'voice-clone'
+        ? { ...profile, generation_mode: 'voice-clone' as const, reference_audio: profile.creation_reference_audio }
+        : { ...profile, generation_mode: 'voice-design' as const, reference_audio: undefined };
+      const result = await generateQwen3Voice(generationProfile, profile.reference_text, true, globalLanguage);
+      const referenceAudio = await makeGeneratedFixedVoiceReference(result.audioUrl, profile.voice_id);
+      updateCharacterVoiceProfile(index, {
+        generation_mode: method,
+        preview_audio: result.audioUrl,
+        reference_audio: referenceAudio,
+        seed: result.seed,
+        prompt_filename: result.promptFilename,
+        status: 'ready',
+      });
     } catch (voiceError) {
       const detail = voiceError instanceof Error ? voiceError.message : String(voiceError);
       updateCharacterVoiceProfile(index, { status: 'failed', error: detail });
@@ -178,12 +195,14 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
           )}
 
           {character.voice_profile && <div className="mt-5 rounded-xl border border-cyan-300/15 bg-cyan-500/5 p-4">
-            <div className="mb-3 flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-sm font-bold text-cyan-100"><Volume2 size={15} />千问 3 TTS 固定音色</div><p className="mt-1 font-mono text-[10px] text-gray-500">{character.voice_profile.voice_id} · {character.voice_profile.speaker_label}</p></div><button type="button" disabled={isVoiceGenerating} onClick={generateVoicePreview} className="rounded border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-50">{isVoiceGenerating ? <Loader2 size={13} className="animate-spin" /> : '生成音色预览'}</button></div>
-            <label className="block text-[10px] font-bold tracking-wider text-gray-500">音色定义 instruct<textarea value={character.voice_profile.instruct} onChange={(event) => updateCharacterVoiceProfile(index, { instruct: event.target.value, status: 'idle' })} rows={3} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>
-            <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">参考文本<textarea value={character.voice_profile.reference_text} onChange={(event) => updateCharacterVoiceProfile(index, { reference_text: event.target.value, status: 'idle' })} rows={2} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>
-            <div className="mt-3 grid grid-cols-2 gap-2"><label className="text-[10px] text-gray-500">Language（跟随全局）<input disabled value={mvData?.director_plan?.audio_plan?.tts_language ?? character.voice_profile.language} className="mt-1 w-full cursor-not-allowed rounded border border-white/10 bg-black/20 px-2 py-1.5 text-xs text-gray-400" /></label><label className="text-[10px] text-gray-500">Seed<input type="number" value={character.voice_profile.seed} onChange={(event) => updateCharacterVoiceProfile(index, { seed: Number(event.target.value), status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2 py-1.5 text-xs text-gray-200" /></label></div>
+            <div className="mb-3 flex items-center justify-between gap-3"><div><div className="flex items-center gap-2 text-sm font-bold text-cyan-100"><Volume2 size={15} />千问 3 固定角色音色</div><p className="mt-1 font-mono text-[10px] text-gray-500">{character.voice_profile.voice_id} · {character.voice_profile.speaker_label}</p></div><button type="button" disabled={isVoiceGenerating} onClick={generateVoicePreview} className="rounded border border-cyan-300/30 px-3 py-1.5 text-xs text-cyan-200 disabled:opacity-50">{isVoiceGenerating ? <Loader2 size={13} className="animate-spin" /> : '创建并确认固定音色'}</button></div>
+            <CharacterVoiceCreationMethod profile={character.voice_profile} outputLanguage={mvData?.director_plan?.audio_plan?.tts_language ?? character.voice_profile.language} disabled={isVoiceGenerating} onChange={(patch) => updateCharacterVoiceProfile(index, patch)} />
+            {(character.voice_profile.generation_mode ?? 'voice-design') === 'voice-design' && <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">人物固定音色定义 instruct<textarea value={character.voice_profile.instruct} onChange={(event) => updateCharacterVoiceProfile(index, { instruct: event.target.value, status: 'idle' })} rows={3} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>}
+            <label className="mt-3 block text-[10px] font-bold tracking-wider text-gray-500">预览文本 / 后续配音测试文本<textarea value={character.voice_profile.reference_text} onChange={(event) => updateCharacterVoiceProfile(index, { reference_text: event.target.value, status: 'idle' })} rows={2} className="mt-1 w-full rounded-lg border border-white/10 bg-black/35 p-2 text-xs leading-5 text-gray-200 outline-none focus:border-cyan-300/40" /></label>
+            <p className="mt-3 rounded-lg border border-cyan-300/15 bg-cyan-500/5 p-3 text-[10px] leading-4 text-cyan-100/75">可以用文本定义或上传参考声音创建固定音色。确认后的生成结果会统一保存为声音制作阶段使用的 Voice Clone 参考音频。</p>
+            <label className="mt-3 block text-[10px] text-gray-500">Seed<input type="number" value={character.voice_profile.seed} onChange={(event) => updateCharacterVoiceProfile(index, { seed: Number(event.target.value), status: 'idle' })} className="mt-1 w-full rounded border border-white/10 bg-black/35 px-2 py-1.5 text-xs text-gray-200" /></label>
             {character.voice_profile.preview_audio && <audio controls src={character.voice_profile.preview_audio} className="mt-3 h-8 w-full" />}
-            {character.voice_profile.prompt_filename && <p className="mt-2 text-[10px] text-emerald-300">已锁定 Prompt：{character.voice_profile.prompt_filename}</p>}
+            {character.voice_profile.status === 'ready' && character.voice_profile.reference_audio && <p className="mt-2 text-[10px] text-emerald-300">固定音色已确认；声音制作选择该人物后将以此音频运行克隆工作流。</p>}
           </div>}
 
           <div className="mt-auto pt-5">
