@@ -8,6 +8,7 @@ import {
   PencilLine,
   Play,
   Sparkles,
+  Upload,
   UserRound,
   Volume2,
   WandSparkles,
@@ -16,6 +17,7 @@ import { CharacterProfile } from '../types/mv-data';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { generateComfyImage } from '../utils/comfyApi';
 import { generateQwen3Voice, makeGeneratedFixedVoiceReference } from '../utils/audioProduction';
+import { compressProjectImage, describeImageOptimization, isStorageQuotaError } from '../utils/projectImageCompression';
 import { VIDEO_DIMENSIONS } from '../utils/characterVideoWorkflow';
 import { VideoOrientationControl } from './VideoOrientationControl';
 import { ImageEditModal } from './ImageEditModal';
@@ -48,8 +50,11 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
   } = useGlobalSettings();
   const [stage, setStage] = useState<GenerationStage>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [uploadNotice, setUploadNotice] = useState<string | null>(null);
   const [isImageEditOpen, setIsImageEditOpen] = useState(false);
+  const [isImageUploading, setIsImageUploading] = useState(false);
   const [isVoiceGenerating, setIsVoiceGenerating] = useState(false);
+  const imageUploadRef = useRef<HTMLInputElement>(null);
   const dimensions = character.reference_sheet
     ? VIDEO_DIMENSIONS.landscape
     : VIDEO_DIMENSIONS[videoOrientation];
@@ -88,6 +93,25 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
   ]);
 
   useImperativeHandle(ref, () => ({ generate }), [generate]);
+
+  const uploadImage = async (file?: File) => {
+    if (!file || isGenerating || isImageUploading) return;
+    setError(null);
+    setUploadNotice(null);
+    setIsImageUploading(true);
+    try {
+      const compressed = await compressProjectImage(file);
+      replaceCharacterImage(index, compressed.dataUrl);
+      setStage('done');
+      setUploadNotice(describeImageOptimization(compressed));
+    } catch (uploadError) {
+      setError(isStorageQuotaError(uploadError)
+        ? '浏览器项目存储空间仍然不足。请先保存完整项目备份并关闭旧项目，再重新载入后上传。'
+        : uploadError instanceof Error ? uploadError.message : String(uploadError));
+    } finally {
+      setIsImageUploading(false);
+    }
+  };
 
   const generateVoicePreview = async () => {
     const profile = character.voice_profile;
@@ -159,16 +183,40 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
               </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={generate}
-            disabled={isGenerating}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-neon-cyan px-4 py-3 text-sm font-bold text-black shadow-[0_0_18px_rgba(6,182,212,0.22)] transition-all hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-60"
-          >
-            {stage === 'image' ? <><Loader2 size={17} className="animate-spin" /> 正在生成人物图片</> :
-              stage === 'done' ? <><CheckCircle2 size={17} /> 重新生成人物图片</> :
-              <><Play size={17} /> 生成人物图片</>}
-          </button>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={generate}
+              disabled={isGenerating || isImageUploading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-neon-cyan px-4 py-3 text-sm font-bold text-black shadow-[0_0_18px_rgba(6,182,212,0.22)] transition-all hover:bg-cyan-300 disabled:cursor-wait disabled:opacity-60"
+            >
+              {stage === 'image' ? <><Loader2 size={17} className="animate-spin" /> 正在生成人物图片</> :
+                character.generated_assets?.image ? <><CheckCircle2 size={17} /> 重新生成人物图片</> :
+                <><Play size={17} /> 生成人物图片</>}
+            </button>
+            <input
+              ref={imageUploadRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = '';
+                void uploadImage(file);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => imageUploadRef.current?.click()}
+              disabled={isGenerating || isImageUploading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-neon-cyan/35 bg-neon-cyan/5 px-4 py-3 text-sm font-bold text-cyan-100 transition-all hover:border-neon-cyan/65 hover:bg-neon-cyan/10 disabled:cursor-wait disabled:opacity-60"
+            >
+              {isImageUploading
+                ? <><Loader2 size={17} className="animate-spin" /> 正在读取图片</>
+                : <><Upload size={17} /> {character.generated_assets?.image ? '上传并替换图片' : '上传人物图片'}</>}
+            </button>
+          </div>
+          <p className="text-center text-[10px] text-gray-600">支持 PNG、JPG、WebP 等图片；自动压缩，原图最大 40 MB</p>
         </div>
 
         <div className="flex min-w-0 flex-col">
@@ -216,6 +264,11 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
           {error && (
             <div className="mt-5 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-950/25 px-3 py-2 text-xs text-red-300">
               <AlertCircle size={14} className="mt-0.5 flex-none" /> {error}
+            </div>
+          )}
+          {uploadNotice && !error && (
+            <div className="mt-5 flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-300">
+              <CheckCircle2 size={14} className="mt-0.5 flex-none" /> {uploadNotice}
             </div>
           )}
         </div>

@@ -11,6 +11,7 @@ import { configureH3AudioInputs, configureH3VisualInputs } from '../utils/h3Shot
 import { resolveReferenceImage } from '../utils/characterReferences';
 import { composeStoryboardImagePrompt } from '../utils/imagePrompt';
 import { muxOriginalDriveAudio } from '../utils/audioProduction';
+import { compressProjectImage, describeImageOptimization, isStorageQuotaError } from '../utils/projectImageCompression';
 
 export interface MVInfoCardHandle {
   triggerGenerateVideo: () => Promise<{ videoUrl: string; lastFrameUrl: string }>;
@@ -76,6 +77,12 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const [generatedLastFrame, setGeneratedLastFrame] = useState<string | null>(info.generated_assets?.last_frame || null);
   const [generatedTargetLastFrame, setGeneratedTargetLastFrame] = useState<string | null>(info.generated_assets?.target_last_frame || null);
   const [isImageEditOpen, setIsImageEditOpen] = useState(false);
+  const [isUploadingFrame, setIsUploadingFrame] = useState(false);
+  const [frameUploadStatus, setFrameUploadStatus] = useState<{
+    target: 'first-frame' | 'target-frame';
+    tone: 'success' | 'error';
+    message: string;
+  } | null>(null);
   
   const {
     selectedWorkflow,
@@ -114,16 +121,27 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const targetFrameInputRef = useRef<HTMLInputElement>(null);
   const sourceImageBlobCacheRef = useRef<Map<string, Blob>>(new Map());
   
-  const handleUploadImage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadImage = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const imageUrl = reader.result as string;
-        setGeneratedImage(imageUrl);
-        updateMVInfoAsset(segmentId, infoIndex, 'image', imageUrl);
-      };
-      reader.readAsDataURL(file);
+    event.target.value = '';
+    if (!file || isUploadingFrame) return;
+    setIsUploadingFrame(true);
+    setFrameUploadStatus(null);
+    try {
+      const compressed = await compressProjectImage(file);
+      updateMVInfoAsset(segmentId, infoIndex, 'image', compressed.dataUrl);
+      setGeneratedImage(compressed.dataUrl);
+      setFrameUploadStatus({ target: 'first-frame', tone: 'success', message: describeImageOptimization(compressed) });
+    } catch (error) {
+      setFrameUploadStatus({
+        target: 'first-frame',
+        tone: 'error',
+        message: isStorageQuotaError(error)
+          ? '浏览器项目存储空间仍然不足，请先保存项目备份并清理旧项目数据。'
+          : error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsUploadingFrame(false);
     }
   };
 
@@ -154,17 +172,28 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     }
   };
 
-  const handleTargetFrameUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTargetFrameUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const imageUrl = reader.result as string;
-      setGeneratedTargetLastFrame(imageUrl);
-      updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', imageUrl);
-    };
-    reader.readAsDataURL(file);
+    if (!file || isUploadingFrame) return;
+    setIsUploadingFrame(true);
+    setFrameUploadStatus(null);
+    try {
+      const compressed = await compressProjectImage(file);
+      updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', compressed.dataUrl);
+      setGeneratedTargetLastFrame(compressed.dataUrl);
+      setFrameUploadStatus({ target: 'target-frame', tone: 'success', message: describeImageOptimization(compressed) });
+    } catch (error) {
+      setFrameUploadStatus({
+        target: 'target-frame',
+        tone: 'error',
+        message: isStorageQuotaError(error)
+          ? '浏览器项目存储空间仍然不足，请先保存项目备份并清理旧项目数据。'
+          : error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsUploadingFrame(false);
+    }
   };
 
   const handleGenerateTargetFrame = async () => {
@@ -723,15 +752,15 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                         />
                         <button 
                             onClick={() => fileInputRef.current?.click()}
-                            disabled={isGenerating}
+                            disabled={isGenerating || isUploadingFrame}
                             className="bg-white/5 hover:bg-white/10 text-gray-300 text-[10px] px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                         >
-                            <UploadCloud size={10} />
-                            上传参考图
+                            {isUploadingFrame ? <Loader2 size={10} className="animate-spin" /> : <UploadCloud size={10} />}
+                            {isUploadingFrame ? '正在压缩' : '上传参考图'}
                         </button>
                         <button 
                             onClick={handleGenerate}
-                            disabled={isGenerating}
+                            disabled={isGenerating || isUploadingFrame}
                             className="bg-neon-cyan/10 hover:bg-neon-cyan/20 text-neon-cyan text-[10px] px-2 py-1 rounded border border-neon-cyan/30 hover:border-neon-cyan/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
                         >
                             {isGenerating ? <Loader2 size={10} className="animate-spin" /> : null}
@@ -740,6 +769,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                     </div>
                 </div>
                 <p className="mb-1.5 text-[9px] text-cyan-300/70">实际提交时自动合并“镜头画面要求 + 项目整体艺术风格 + 画幅与角色一致性约束”。</p>
+                {frameUploadStatus?.target === 'first-frame' && <p className={`mb-1.5 text-[9px] ${frameUploadStatus.tone === 'success' ? 'text-emerald-300' : 'text-red-300'}`}>{frameUploadStatus.message}</p>}
                 <textarea
                   ref={promptRef}
                   value={info.image_prompt || ''}
@@ -784,11 +814,12 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                   <label className="text-[10px] font-bold uppercase tracking-widest text-fuchsia-300">目标尾帧提示词 (FL2VA)</label>
                   <div className="flex gap-2">
                     <input ref={targetFrameInputRef} type="file" accept="image/*" className="hidden" onChange={handleTargetFrameUpload} />
-                    <button type="button" onClick={() => targetFrameInputRef.current?.click()} className="rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-gray-300">上传目标尾帧</button>
-                    <button type="button" onClick={handleGenerateTargetFrame} disabled={!info.last_frame_image_prompt?.trim() || isGenerating} className="rounded border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-1 text-[10px] text-fuchsia-200 disabled:opacity-40">AI 生目标尾帧</button>
+                    <button type="button" disabled={isUploadingFrame} onClick={() => targetFrameInputRef.current?.click()} className="inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-gray-300 disabled:opacity-50">{isUploadingFrame && <Loader2 size={10} className="animate-spin" />}{isUploadingFrame ? '正在压缩' : '上传目标尾帧'}</button>
+                    <button type="button" onClick={handleGenerateTargetFrame} disabled={!info.last_frame_image_prompt?.trim() || isGenerating || isUploadingFrame} className="rounded border border-fuchsia-400/30 bg-fuchsia-500/10 px-2 py-1 text-[10px] text-fuchsia-200 disabled:opacity-40">AI 生目标尾帧</button>
                   </div>
                 </div>
                 <p className="mb-1.5 text-[9px] text-fuchsia-300/70">目标尾帧同样自动附加项目整体艺术风格，避免首帧与尾帧画风漂移。</p>
+                {frameUploadStatus?.target === 'target-frame' && <p className={`mb-1.5 text-[9px] ${frameUploadStatus.tone === 'success' ? 'text-emerald-300' : 'text-red-300'}`}>{frameUploadStatus.message}</p>}
                 <textarea
                   value={info.last_frame_image_prompt || ''}
                   onChange={(event) => updateMVInfoLastFrameImagePrompt(segmentId, infoIndex, event.target.value)}

@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
-import { ChevronDown, ImagePlus, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ChevronDown, ImagePlus, Loader2, X } from 'lucide-react';
 import { useGlobalSettings, type H3AudioMode, type H3GenerationMode } from '../stores/useGlobalSettings';
+import { compressedImageFilename, compressProjectImage, describeImageOptimization, isStorageQuotaError } from '../utils/projectImageCompression';
 
 const LENGTH_OPTIONS = [
   { label: '5 秒', value: 141 },
@@ -22,21 +23,34 @@ export const H3VideoControls: React.FC = () => {
     setH3ReferencePrompt,
   } = useGlobalSettings();
   const inputRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const [uploadingReferenceIndex, setUploadingReferenceIndex] = useState<0 | 1 | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
 
-  const handleImageSelected = (index: 0 | 1, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelected = async (index: 0 | 1, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (!file) return;
+    if (!file || uploadingReferenceIndex !== null) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
+    setUploadingReferenceIndex(index);
+    setUploadStatus(null);
+    try {
+      const compressed = await compressProjectImage(file);
       setH3ReferenceImage(index, {
-        dataUrl: reader.result as string,
-        filename: file.name,
+        dataUrl: compressed.dataUrl,
+        filename: compressedImageFilename(file.name, compressed),
         prompt: h3ReferenceImages[index]?.prompt || `<Picture ${index + 1}>：`,
       });
-    };
-    reader.readAsDataURL(file);
+      setUploadStatus({ tone: 'success', message: `<Picture ${index + 1}> · ${describeImageOptimization(compressed)}` });
+    } catch (error) {
+      setUploadStatus({
+        tone: 'error',
+        message: isStorageQuotaError(error)
+          ? '浏览器项目存储空间仍然不足，请先保存项目备份并清理旧项目数据。'
+          : error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setUploadingReferenceIndex(null);
+    }
   };
 
   return (
@@ -103,15 +117,18 @@ export const H3VideoControls: React.FC = () => {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(event) => handleImageSelected(index, event)}
+                  onChange={(event) => { void handleImageSelected(index, event); }}
                 />
                 <button
                   type="button"
                   onClick={() => inputRefs[index].current?.click()}
+                  disabled={uploadingReferenceIndex !== null}
                   className="w-28 aspect-video shrink-0 rounded border border-dashed border-fuchsia-400/30 bg-black/40 overflow-hidden flex items-center justify-center hover:border-fuchsia-300/70 transition-colors"
                   title={`上传参考图 ${index + 1}`}
                 >
-                  {image ? (
+                  {uploadingReferenceIndex === index ? (
+                    <span className="flex flex-col items-center gap-1 text-[10px] text-fuchsia-200"><Loader2 size={18} className="animate-spin" />正在压缩</span>
+                  ) : image ? (
                     <img src={image.dataUrl} alt={`参考图 ${index + 1}`} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-[10px] text-gray-400 flex flex-col items-center gap-1"><ImagePlus size={18} />参考图 {index + 1}</span>
@@ -138,6 +155,7 @@ export const H3VideoControls: React.FC = () => {
               </div>
             );
           })}
+          {uploadStatus && <p className={`lg:col-span-2 text-[9px] ${uploadStatus.tone === 'success' ? 'text-emerald-300' : 'text-red-300'}`}>{uploadStatus.message}</p>}
         </div>
       )}
     </div>

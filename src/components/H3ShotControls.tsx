@@ -3,6 +3,7 @@ import { ImagePlus, UploadCloud, UserRound, X } from 'lucide-react';
 import { H3ShotGenerationPlan, H3ShotMode, MVInfo } from '../types/mv-data';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { resolveReferenceImage } from '../utils/characterReferences';
+import { compressedImageFilename, compressProjectImage, describeImageOptimization, isStorageQuotaError } from '../utils/projectImageCompression';
 
 const DURATION_OPTIONS = [
   { seconds: 5 as const, frames: 141 as const },
@@ -26,6 +27,8 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
   } = useGlobalSettings();
   const fileRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
   const [selectingReferenceIndex, setSelectingReferenceIndex] = useState<0 | 1 | null>(null);
+  const [isUploadingReference, setIsUploadingReference] = useState(false);
+  const [referenceUploadStatus, setReferenceUploadStatus] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const fallbackDuration = DURATION_OPTIONS.find((item) => item.frames === h3VideoLength) ?? DURATION_OPTIONS[0];
   const usesMusic3AudioFirst = ['music3-audio-first', 'qwen3-tts-audio-first'].includes(mvData?.director_plan?.audio_plan?.mode || '');
   const plan: H3ShotGenerationPlan = info.generation_plan ?? {
@@ -52,19 +55,30 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
       : [],
   });
 
-  const handleReferenceFile = (index: 0 | 1, file?: File) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
+  const handleReferenceFile = async (index: 0 | 1, file?: File) => {
+    if (!file || isUploadingReference) return;
+    setIsUploadingReference(true);
+    setReferenceUploadStatus(null);
+    try {
+      const compressed = await compressProjectImage(file);
       const refs = [...plan.reference_images];
       refs[index] = {
         ...refs[index],
-        asset: { dataUrl: reader.result as string, filename: file.name },
+        asset: { dataUrl: compressed.dataUrl, filename: compressedImageFilename(file.name, compressed) },
       };
       commit({ ...plan, reference_images: refs });
       setSelectingReferenceIndex(null);
-    };
-    reader.readAsDataURL(file);
+      setReferenceUploadStatus({ tone: 'success', message: `${plan.reference_images[index].label} · ${describeImageOptimization(compressed)}` });
+    } catch (error) {
+      setReferenceUploadStatus({
+        tone: 'error',
+        message: isStorageQuotaError(error)
+          ? '浏览器项目存储空间仍然不足，请先保存项目备份并清理旧项目数据。'
+          : error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setIsUploadingReference(false);
+    }
   };
 
   const selectCharacterReference = (index: 0 | 1, characterIndex: number) => {
@@ -128,7 +142,11 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
             const resolvedImage = resolveReferenceImage(mvData?.characters ?? [], reference);
             return (
               <div key={index} className="flex gap-2 rounded border border-white/10 bg-black/30 p-2">
-                <input ref={fileRefs[index]} type="file" accept="image/*" className="hidden" onChange={(event) => handleReferenceFile(index, event.target.files?.[0])} />
+                <input ref={fileRefs[index]} type="file" accept="image/*" className="hidden" onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = '';
+                  void handleReferenceFile(index, file);
+                }} />
                 <button type="button" onClick={() => setSelectingReferenceIndex(index)} title="从人物展示选择角色图片" className="relative flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded border border-dashed border-fuchsia-300/30 hover:border-cyan-300/60">
                   {resolvedImage ? <img src={resolvedImage.dataUrl} alt={reference.label} className="h-full w-full object-cover" /> : <ImagePlus size={18} className="text-gray-500" />}
                   <span className="absolute inset-x-0 bottom-0 bg-black/70 py-0.5 text-center text-[8px] text-cyan-200">选择人物</span>
@@ -168,6 +186,7 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
             );
           })}
           </div>
+          {referenceUploadStatus && <p className={`mt-2 text-[9px] ${referenceUploadStatus.tone === 'success' ? 'text-emerald-300' : 'text-red-300'}`}>{referenceUploadStatus.message}</p>}
           {plan.reference_images.length === 1 && (
             <button type="button" onClick={() => commit({
               ...plan,
@@ -219,10 +238,13 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
               })}
             </div>
 
-            <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-4">
-              <p className="text-[10px] text-gray-500">人物展示没有合适图片时，可以使用本地图片覆盖。</p>
-              <button type="button" onClick={() => fileRefs[selectingReferenceIndex].current?.click()} className="flex items-center gap-2 rounded border border-white/15 bg-white/5 px-3 py-2 text-xs text-gray-200 hover:border-cyan-300/40 hover:text-cyan-200">
-                <UploadCloud size={14} /> 本地上传
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+              <div>
+                <p className="text-[10px] text-gray-500">人物展示没有合适图片时，可以使用本地图片覆盖；上传时会自动压缩。</p>
+                {referenceUploadStatus?.tone === 'error' && <p className="mt-1 text-[10px] text-red-300">{referenceUploadStatus.message}</p>}
+              </div>
+              <button type="button" disabled={isUploadingReference} onClick={() => fileRefs[selectingReferenceIndex].current?.click()} className="flex items-center gap-2 rounded border border-white/15 bg-white/5 px-3 py-2 text-xs text-gray-200 hover:border-cyan-300/40 hover:text-cyan-200 disabled:opacity-50">
+                <UploadCloud size={14} /> {isUploadingReference ? '正在压缩' : '本地上传'}
               </button>
             </div>
           </div>

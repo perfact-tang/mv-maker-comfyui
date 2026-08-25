@@ -35,18 +35,61 @@ const replaceAudioMediaTagsWithPlainText = (prompt: string) => (
 
 const removeUnconnectedPictureTags = (prompt: string, availablePictureCount: number): string => (
   prompt
-    .replace(/<Picture\s+(\d+)>/gi, (tag, rawIndex: string) => (
-      Number(rawIndex) <= availablePictureCount ? tag : ''
-    ))
+    .replace(
+      /<\s*Picture\s*#?\s*(\d+)\s*>|\bPicture\s*#?\s*(\d+)\b/gi,
+      (tag, angledIndex: string | undefined, bareIndex: string | undefined) => (
+        Number(angledIndex ?? bareIndex) <= availablePictureCount ? tag : 'the removed reference image'
+      ),
+    )
     .replace(/[ \t]{2,}/g, ' ')
 );
+
+const availablePictureCountForMode = (mode: H3ShotMode, referenceImageCount: number) => {
+  if (mode === 'Ref2VA') return referenceImageCount;
+  if (mode === 'FL2VA') return 2;
+  return 1;
+};
+
+const durationSecondsForFrames = (frames: number) => {
+  if (frames === 141) return 5;
+  if (frames === 260) return 10;
+  if (frames === 379) return 15;
+  return Math.max(0, (frames - 22) / 23.8);
+};
+
+const stripExistingKeyframeAlignmentHeader = (prompt: string) => {
+  const coreFieldIndex = prompt.search(/\bintegrated_multimodal_description\s*:/i);
+  if (coreFieldIndex < 0) return prompt.trim();
+  const prefix = prompt.slice(0, coreFieldIndex);
+  if (!/How the reference pictures align with the target video|For the target video,/i.test(prefix)) {
+    return prompt.trim();
+  }
+  return prompt.slice(coreFieldIndex).trim();
+};
+
+const normalizeKeyframedPrompt = (prompt: string, mode: H3ShotMode, length: number) => {
+  const pictureCount = availablePictureCountForMode(mode, 0);
+  const sanitizedPrompt = removeUnconnectedPictureTags(prompt, pictureCount);
+  if (mode === 'Ref2VA') return sanitizedPrompt;
+
+  const body = stripExistingKeyframeAlignmentHeader(sanitizedPrompt);
+  if (mode === 'I2VA') {
+    return `For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\n${body}`.trim();
+  }
+
+  const duration = durationSecondsForFrames(length).toFixed(2);
+  return `How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the ${duration}-second mark of the target video.\n\n${body}`.trim();
+};
 
 export const configureH3VisualInputs = (
   workflow: H3Workflow,
   options: ConfigureH3VisualInputsOptions,
 ): void => {
   const conditioningInputs = workflow['6'].inputs;
-  conditioningInputs.prompt = options.prompt;
+  const referenceImages = options.referenceImages ?? [];
+  conditioningInputs.prompt = options.mode === 'Ref2VA'
+    ? removeUnconnectedPictureTags(options.prompt, referenceImages.length)
+    : normalizeKeyframedPrompt(options.prompt, options.mode, options.length);
   conditioningInputs.length = options.length;
   workflow['9'].inputs.noise_seed = options.seed;
 
@@ -59,11 +102,9 @@ export const configureH3VisualInputs = (
 
   conditioningInputs.task_type = options.mode;
   if (options.mode === 'Ref2VA') {
-    const referenceImages = options.referenceImages ?? [];
     if (referenceImages.length < 1 || referenceImages.length > 2) {
       throw new Error('Ref2VA requires one or two uploaded reference images');
     }
-    conditioningInputs.prompt = removeUnconnectedPictureTags(options.prompt, referenceImages.length);
     workflow['13'] = { inputs: { image: referenceImages[0] }, class_type: 'LoadImage', _meta: { title: '参考图 1' } };
     conditioningInputs['ref_images.ref_image_0'] = ['13', 0];
     if (referenceImages[1]) {
