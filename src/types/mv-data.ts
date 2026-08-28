@@ -87,6 +87,8 @@ export interface ShotSpeaker {
   character_name?: string;
   voice_description: string;
   voice_id?: string;
+  // Script bindings may remain without a voice_id until the named character exists.
+  binding_source?: 'script' | 'manual';
 }
 
 export interface ShotAudioPlan {
@@ -115,6 +117,7 @@ export interface DirectorPlan {
   source_coverage_note: string;
   visual_style_lock?: VisualStyleLock;
   audio_plan?: DirectorAudioPlan;
+  speaker_registry?: Array<{ id: string; name: string }>;
 }
 
 export interface VisualStyleLock {
@@ -142,6 +145,7 @@ export interface CharacterProfile {
   traits?: string[];
   reference_sheet?: CharacterReferenceSheet;
   voice_profile?: VoiceProfile;
+  voice_direction?: string;
   generated_assets?: {
     image?: string;
     video?: string;
@@ -212,6 +216,8 @@ export interface StoryboardSegment {
 
 export interface MVInfo {
   shot_id?: string;
+  speaker?: string;
+  speaker_id?: string;
   timestamp: string;
   type: "New_Scene" | "Last_Frame_Continuity";
   first_frame_source?: 't2i' | 'previous-tail';

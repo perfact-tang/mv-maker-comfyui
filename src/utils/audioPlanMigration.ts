@@ -8,6 +8,9 @@ import type {
   VoiceProfile,
   Qwen3TtsLanguage,
 } from '../types/mv-data';
+import { getScriptSpeaker, LEGACY_PROMO_VOICE_DESCRIPTION, reconcileShotVoiceBindings } from './shotVoiceBinding';
+import { normalizeNonDialogueAudio } from './videoAudio';
+import { hasSpokenText } from './projectPageRouting';
 
 const FRAMES_BY_DURATION = { 5: 141, 10: 260, 15: 379 } as const;
 const QWEN3_TTS_LANGUAGE_SET = new Set<Qwen3TtsLanguage>(['Auto', 'Chinese', 'English', 'Japanese', 'Korean', 'German', 'French', 'Russian', 'Portuguese', 'Spanish', 'Italian']);
@@ -75,10 +78,10 @@ const narratorVoice = (): VoiceProfile => ({
   status: 'idle',
 });
 
-const characterVoice = (name: string, role: string | undefined, index: number): VoiceProfile => ({
+const characterVoice = (name: string, role: string | undefined, index: number, voiceDirection?: string): VoiceProfile => ({
   voice_id: `VOICE-CHAR-${String(index + 1).padStart(3, '0')}`,
   speaker_label: `(S${index + 2})`,
-  instruct: `符合角色“${name}”视觉年龄、性别表达与气质的中文声音；角色功能是${role || '叙事人物'}；自然说话、吐字清楚、音色稳定，不要演唱。`,
+  instruct: voiceDirection?.trim() || `符合角色“${name}”视觉年龄、性别表达与气质的中文声音；角色功能是${role || '叙事人物'}；自然说话、吐字清楚、音色稳定，不要演唱。`,
   reference_text: `我是${name}。无论面对什么情况，我都会保持自己的判断，并把想说的话清楚地表达出来。`,
   language: 'Auto',
   seed: 729754692978413 + index,
@@ -92,6 +95,17 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
   const director = project.director_plan;
   const plan = director?.audio_plan;
   if (!director || !plan || plan.mode === 'disabled') return project;
+  // Recover voice directions ignored by older imports, without replacing edited or created voices.
+  const recoveredCharacters = project.characters.map((character, index) => {
+    const profile = character.voice_profile;
+    if (!profile || !character.voice_direction?.trim() || profile.preview_audio || profile.reference_audio
+      || (profile.status && profile.status !== 'idle')
+      || profile.instruct !== characterVoice(character.name, character.role, index).instruct) return character;
+    return { ...character, voice_profile: { ...profile, instruct: character.voice_direction.trim() } };
+  });
+  if (recoveredCharacters.some((character, index) => character !== project.characters[index])) {
+    project = { ...project, characters: recoveredCharacters };
+  }
   const alreadyQwenReady = plan.mode === 'qwen3-tts-audio-first'
     && plan.workflow === '千问 3 TTS'
     && ['MiniMax Music 3', 'Audio ACE Step 1.5'].includes(plan.music_workflow || 'MiniMax Music 3')
@@ -106,8 +120,8 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
       && Boolean(character.voice_profile!.reference_language)
       && (character.voice_profile!.generation_mode !== 'voice-clone' || character.voice_profile!.status !== 'ready' || Boolean(character.voice_profile!.creation_reference_audio))
       && (character.voice_profile!.status !== 'ready' || character.voice_profile!.reference_audio?.source === 'generated-fixed-voice'))
-    && project.storyboard.every((segment) => segment.mvinfo.every((shot) => !shot.audio_plan || ((!shot.audio_plan.tts_language || QWEN3_TTS_LANGUAGE_SET.has(shot.audio_plan.tts_language)) && shot.audio_plan.speakers.every((speaker) => Boolean(speaker.voice_id)))));
-  if (alreadyQwenReady) return project;
+    && project.storyboard.every((segment) => segment.mvinfo.every((shot) => !shot.audio_plan || ((!shot.audio_plan.tts_language || QWEN3_TTS_LANGUAGE_SET.has(shot.audio_plan.tts_language)) && shot.audio_plan.speakers.every((speaker) => Boolean(speaker.voice_id) || (speaker.binding_source === 'script' && Boolean(speaker.character_name))))));
+  if (alreadyQwenReady) return reconcileShotVoiceBindings(project);
   const characters = project.characters.map((character, index) => ({
     ...character,
     voice_profile: character.voice_profile
@@ -120,7 +134,7 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
           ? {}
           : { reference_audio: undefined, preview_audio: undefined, prompt_filename: undefined, status: 'idle' as const }),
       }
-      : characterVoice(character.name, character.role, index),
+      : characterVoice(character.name, character.role, index, character.voice_direction),
   }));
   const narrator = plan.narrator_voice
     ? {
@@ -135,7 +149,6 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
     : narratorVoice();
   const ttsLanguage = normalizeTtsLanguage(plan.tts_language ?? narrator.language);
   const migratingMusic3VoicePlan = plan.mode === 'music3-audio-first';
-  const voiceByCharacter = new Map(characters.map((character) => [character.name, character.voice_profile!]));
   const storyboard = project.storyboard.map((segment) => ({
     ...segment,
     mvinfo: segment.mvinfo.map((shot) => ({
@@ -154,14 +167,13 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
       audio_plan: shot.audio_plan ? {
         ...shot.audio_plan,
         ...(shot.audio_plan.tts_language ? { tts_language: normalizeTtsLanguage(shot.audio_plan.tts_language) } : {}),
-        speakers: (shot.audio_plan.speakers.length ? shot.audio_plan.speakers : [{ speaker_label: narrator.speaker_label, character_name: '旁白', voice_description: narrator.instruct }]).map((speaker) => {
-          const profile = speaker.character_name ? voiceByCharacter.get(speaker.character_name) : undefined;
-          return { ...speaker, voice_id: speaker.voice_id || profile?.voice_id || narrator.voice_id };
-        }),
+        speakers: shot.audio_plan.speakers.length ? shot.audio_plan.speakers : hasSpokenText(shot)
+          ? [getScriptSpeaker(shot, project) || { speaker_label: narrator.speaker_label, character_name: '旁白', voice_description: narrator.instruct }]
+          : [],
       } : shot.audio_plan,
     })),
   }));
-  return {
+  return reconcileShotVoiceBindings({
     ...project,
     characters,
     storyboard,
@@ -194,12 +206,16 @@ const applyQwenVoiceProfiles = (project: MVScriptData): MVScriptData => {
         })) : plan.chapters,
       },
     },
-  };
+  });
 };
 
-const speakersForShot = (shot: MVInfo, contentForm: 'promo' | 'short_drama'): ShotSpeaker[] => {
+const speakersForShot = (shot: MVInfo, contentForm: 'promo' | 'short_drama', project: MVScriptData): ShotSpeaker[] => {
+  if (!hasSpokenText(shot)) return [];
+  if (shot.audio_plan?.speakers.length) return shot.audio_plan.speakers;
+  const scriptSpeaker = getScriptSpeaker(shot, project);
+  if (scriptSpeaker) return [scriptSpeaker];
   if (contentForm === 'promo') {
-    return [{ speaker_label: '(S1)', character_name: '旁白', voice_description: '清晰沉稳的中文男声旁白，语速适中，旋律性弱，吐字明确。' }];
+    return [{ speaker_label: '(S1)', character_name: '旁白', voice_description: LEGACY_PROMO_VOICE_DESCRIPTION }];
   }
   const labels = Array.from(new Set(shot.video_prompt.match(/\(S\d+\)/g) || ['(S1)']));
   return labels.map((speakerLabel, index) => ({
@@ -213,10 +229,11 @@ const speakersForShot = (shot: MVInfo, contentForm: 'promo' | 'short_drama'): Sh
 
 /**
  * Best-effort migration for director projects created before the v4 Music 3 contract.
- * Existing v4 plans are returned untouched; legacy scripts without director metadata
+ * Existing v4 assets/manual bindings are preserved while script identities are reconciled;
+ * legacy scripts without director metadata
  * remain on the manual Drive/Reference Audio compatibility path.
  */
-export const migrateProjectToV4AudioPlan = (project: MVScriptData): MVScriptData => {
+const migrateProjectAudioPlan = (project: MVScriptData): MVScriptData => {
   const director = project.director_plan;
   if (!director) return project;
   if (director.audio_plan) return applyQwenVoiceProfiles(project);
@@ -292,7 +309,7 @@ export const migrateProjectToV4AudioPlan = (project: MVScriptData): MVScriptData
           source_start_seconds: sourceStart,
           duration_seconds: duration,
           audio_text: audioText,
-          speakers: speakersForShot(shot, contentForm),
+          speakers: speakersForShot(shot, contentForm, project),
           cut_status: 'tentative' as const,
         },
       };
@@ -327,3 +344,5 @@ export const migrateGenerationSettingsToV4AudioPlan = (
   if (!settings || !['music3-audio-first', 'qwen3-tts-audio-first'].includes(project.director_plan?.audio_plan?.mode || '')) return settings;
   return { ...settings, h3: { ...settings.h3, generation_mode: 'director-routed', audio_mode: 'drive-audio' } };
 };
+
+export const migrateProjectToV4AudioPlan = (project: MVScriptData): MVScriptData => normalizeNonDialogueAudio(migrateProjectAudioPlan(project));

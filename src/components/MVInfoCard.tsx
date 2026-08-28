@@ -10,6 +10,7 @@ import { H3ShotControls } from './H3ShotControls';
 import { configureH3AudioInputs, configureH3VisualInputs } from '../utils/h3ShotWorkflow';
 import { resolveReferenceImage } from '../utils/characterReferences';
 import { composeStoryboardImagePrompt } from '../utils/imagePrompt';
+import { bypassesLocalShotAudio, nonDialogueVideoPrompt, prepareVideoAudio, resolveShotAudioMode } from '../utils/videoAudio';
 import { muxOriginalDriveAudio } from '../utils/audioProduction';
 import { compressProjectImage, describeImageOptimization, isStorageQuotaError } from '../utils/projectImageCompression';
 
@@ -103,9 +104,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   const shotPlan = info.generation_plan;
   const firstFrameSource = info.first_frame_source ?? (info.type === 'Last_Frame_Continuity' ? 'previous-tail' : 't2i');
   const effectiveH3Mode = shotPlan?.mode ?? (h3GenerationMode === 'reference-images' ? 'Ref2VA' : 'I2VA');
-  const effectiveH3AudioMode = ['music3-audio-first', 'qwen3-tts-audio-first'].includes(mvData?.director_plan?.audio_plan?.mode || '')
-    ? 'drive-audio'
-    : shotPlan?.audio_mode ?? h3AudioMode;
+  const skipsLocalAudio = bypassesLocalShotAudio(info, mvData?.director_plan?.audio_plan);
   const effectiveH3Length = shotPlan?.duration_frames ?? h3VideoLength;
   const characterReferences = (mvData?.characters ?? [])
     .filter((character) => Boolean(character.generated_assets?.image))
@@ -226,91 +225,88 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
     const currentShotIndex = orderedShots.findIndex((entry) => entry.segmentId === segmentId && entry.index === infoIndex);
     const liveCurrentShot = currentShotIndex >= 0 ? orderedShots[currentShotIndex].shot : info;
     const audioFirstPlan = liveProject?.director_plan?.audio_plan;
-    const usesMusic3AudioFirst = ['music3-audio-first', 'qwen3-tts-audio-first'].includes(audioFirstPlan?.mode || '');
-    if (usesMusic3AudioFirst && audioFirstPlan.alignment_status !== 'locked') {
-      throw new Error('声音时间线尚未锁定，请先到“声音制作”完成校准和切分');
-    }
-    const driveAudioUrl = liveCurrentShot.generated_assets?.drive_audio || liveCurrentShot.generated_assets?.audio;
-    const livePreviousTail = currentShotIndex > 0
-      ? orderedShots[currentShotIndex - 1].shot.generated_assets?.last_frame
-      : undefined;
-    let sourceImage = firstFrameSource === 'previous-tail'
-      ? livePreviousTail || previousLastFrame || null
-      : liveCurrentShot.generated_assets?.image || generatedImage || null;
-
-    if (!usesH3References && !sourceImage && firstFrameSource === 't2i') {
-      const imagePrompt = promptRef.current?.value.trim() || liveCurrentShot.image_prompt?.trim();
-      if (!imagePrompt) throw new Error('选择了“新画面 T2I”，但没有画面提示词');
-      sourceImage = await generateComfyImage(
-        composeStoryboardImagePrompt(imagePrompt, basics?.art_style_description, videoOrientation),
-        undefined,
-        selectedWorkflow,
-        VIDEO_DIMENSIONS[videoOrientation],
-      );
-      setGeneratedImage(sourceImage);
-      updateMVInfoAsset(segmentId, infoIndex, 'image', sourceImage);
-    }
-    if (!usesH3References && !sourceImage) {
-      throw new Error('选择了“承接上一尾帧”，但上一镜头尚未生成可用尾帧');
-    }
-
-    let targetLastFrame = liveCurrentShot.generated_assets?.target_last_frame || generatedTargetLastFrame || null;
-    if (usesH3LastFrame && !targetLastFrame) {
-      const targetPrompt = liveCurrentShot.last_frame_image_prompt?.trim();
-      if (!targetPrompt) throw new Error('FL2VA 缺少目标尾帧和 last_frame_image_prompt');
-      targetLastFrame = await generateComfyImage(
-        composeStoryboardImagePrompt(targetPrompt, basics?.art_style_description, videoOrientation),
-        undefined,
-        selectedWorkflow,
-        VIDEO_DIMENSIONS[videoOrientation],
-      );
-      setGeneratedTargetLastFrame(targetLastFrame);
-      updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', targetLastFrame);
-    }
-    const requiresExternalH3Audio = effectiveH3AudioMode === 'drive-audio' || effectiveH3AudioMode === 'reference-audio';
-    if (isH3Workflow && requiresExternalH3Audio && !driveAudioUrl) {
-      throw new Error(`声明了 ${effectiveH3AudioMode}，但尚未分配音频`);
-    }
-
-    const shotReferenceImages = shotPlan?.mode === 'Ref2VA'
-      ? shotPlan.reference_images.map((reference) => {
-          const resolvedImage = resolveReferenceImage(mvData?.characters ?? [], reference);
-          return {
-            dataUrl: resolvedImage?.dataUrl || '',
-            filename: resolvedImage?.filename || `${reference.source_character || reference.label}.png`,
-            prompt: reference.prompt,
-          };
-        })
-      : h3ReferenceImages.filter((image) => Boolean(image?.dataUrl || image?.prompt?.trim())).map((image) => ({
-          dataUrl: image?.dataUrl || '',
-          filename: image?.filename || '',
-          prompt: image?.prompt || '',
-        }));
-    if (usesH3References) {
-      if (shotReferenceImages.length < 1 || shotReferenceImages.length > 2) {
-        throw new Error('Ref2VA 需要一至两张参考图');
-      }
-      const missingImage = shotReferenceImages.findIndex((image) => !image.dataUrl);
-      if (missingImage >= 0) {
-        throw new Error(`Ref2VA 缺少参考图 ${missingImage + 1}`);
-      }
-      const missingPrompt = shotReferenceImages.findIndex((image) => !image.prompt.trim());
-      if (missingPrompt >= 0) {
-        throw new Error(`Ref2VA 缺少参考图 ${missingPrompt + 1} 的声明`);
-      }
-    }
-
-    const currentVideoPrompt = videoPromptRef.current?.innerText || info.video_prompt;
-    const styleDescription = basics?.art_style_description || '';
-    const referencePrompt = usesH3References
-      ? shotReferenceImages.map((image) => image.prompt.trim()).filter(Boolean).join('\n')
-      : '';
-    const fullPrompt = shotPlan
-      ? [referencePrompt, currentVideoPrompt].filter(Boolean).join('\n').trim()
-      : [referencePrompt, currentVideoPrompt, styleDescription].filter(Boolean).join('\n').trim();
-
+    const usesMusic3AudioFirst = ['music3-audio-first', 'qwen3-tts-audio-first'].includes(audioFirstPlan?.mode || '') && !bypassesLocalShotAudio(liveCurrentShot, audioFirstPlan);
+    const generationAudioMode = resolveShotAudioMode(liveCurrentShot, audioFirstPlan, h3AudioMode);
+    const requiresExternalH3Audio = generationAudioMode === 'drive-audio' || generationAudioMode === 'reference-audio';
     setIsGeneratingVideo(true);
     try {
+      const preparedAudio = await prepareVideoAudio(liveCurrentShot, audioFirstPlan, isH3Workflow && requiresExternalH3Audio);
+      const driveAudioUrl = preparedAudio.url;
+      const livePreviousTail = currentShotIndex > 0
+        ? orderedShots[currentShotIndex - 1].shot.generated_assets?.last_frame
+        : undefined;
+      let sourceImage = firstFrameSource === 'previous-tail'
+        ? livePreviousTail || previousLastFrame || null
+        : liveCurrentShot.generated_assets?.image || generatedImage || null;
+
+      if (!usesH3References && !sourceImage && firstFrameSource === 't2i') {
+        const imagePrompt = promptRef.current?.value.trim() || liveCurrentShot.image_prompt?.trim();
+        if (!imagePrompt) throw new Error('选择了“新画面 T2I”，但没有画面提示词');
+        sourceImage = await generateComfyImage(
+          composeStoryboardImagePrompt(imagePrompt, basics?.art_style_description, videoOrientation),
+          undefined,
+          selectedWorkflow,
+          VIDEO_DIMENSIONS[videoOrientation],
+        );
+        setGeneratedImage(sourceImage);
+        updateMVInfoAsset(segmentId, infoIndex, 'image', sourceImage);
+      }
+      if (!usesH3References && !sourceImage) {
+        throw new Error('选择了“承接上一尾帧”，但上一镜头尚未生成可用尾帧');
+      }
+
+      let targetLastFrame = liveCurrentShot.generated_assets?.target_last_frame || generatedTargetLastFrame || null;
+      if (usesH3LastFrame && !targetLastFrame) {
+        const targetPrompt = liveCurrentShot.last_frame_image_prompt?.trim();
+        if (!targetPrompt) throw new Error('FL2VA 缺少目标尾帧和 last_frame_image_prompt');
+        targetLastFrame = await generateComfyImage(
+          composeStoryboardImagePrompt(targetPrompt, basics?.art_style_description, videoOrientation),
+          undefined,
+          selectedWorkflow,
+          VIDEO_DIMENSIONS[videoOrientation],
+        );
+        setGeneratedTargetLastFrame(targetLastFrame);
+        updateMVInfoAsset(segmentId, infoIndex, 'target_last_frame', targetLastFrame);
+      }
+
+      const shotReferenceImages = shotPlan?.mode === 'Ref2VA'
+        ? shotPlan.reference_images.map((reference) => {
+            const resolvedImage = resolveReferenceImage(mvData?.characters ?? [], reference);
+            return {
+              dataUrl: resolvedImage?.dataUrl || '',
+              filename: resolvedImage?.filename || `${reference.source_character || reference.label}.png`,
+              prompt: reference.prompt,
+            };
+          })
+        : h3ReferenceImages.filter((image) => Boolean(image?.dataUrl || image?.prompt?.trim())).map((image) => ({
+            dataUrl: image?.dataUrl || '',
+            filename: image?.filename || '',
+            prompt: image?.prompt || '',
+          }));
+      if (usesH3References) {
+        if (shotReferenceImages.length < 1 || shotReferenceImages.length > 2) {
+          throw new Error('Ref2VA 需要一至两张参考图');
+        }
+        const missingImage = shotReferenceImages.findIndex((image) => !image.dataUrl);
+        if (missingImage >= 0) {
+          throw new Error(`Ref2VA 缺少参考图 ${missingImage + 1}`);
+        }
+        const missingPrompt = shotReferenceImages.findIndex((image) => !image.prompt.trim());
+        if (missingPrompt >= 0) {
+          throw new Error(`Ref2VA 缺少参考图 ${missingPrompt + 1} 的声明`);
+        }
+      }
+
+      const rawVideoPrompt = videoPromptRef.current?.innerText || liveCurrentShot.video_prompt;
+      const currentVideoPrompt = bypassesLocalShotAudio(liveCurrentShot, audioFirstPlan) ? nonDialogueVideoPrompt(rawVideoPrompt) : rawVideoPrompt;
+      const styleDescription = basics?.art_style_description || '';
+      const referencePrompt = usesH3References
+        ? shotReferenceImages.map((image) => image.prompt.trim()).filter(Boolean).join('\n')
+        : '';
+      const fullPrompt = shotPlan
+        ? [referencePrompt, currentVideoPrompt].filter(Boolean).join('\n').trim()
+        : [referencePrompt, currentVideoPrompt, styleDescription].filter(Boolean).join('\n').trim();
+
       // 1. Upload the generated image to ComfyUI to be used as input
       let uploadedFilename: string | null = null;
       if (sourceImage && !usesH3References) {
@@ -343,9 +339,12 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
       const shouldUploadAudio = selectedVideoWorkflow === 'LTX2.3 V2I'
         || (isH3Workflow && requiresExternalH3Audio);
       if (shouldUploadAudio && driveAudioUrl) {
-        const audioRes = await fetch(driveAudioUrl);
-        if (!audioRes.ok) throw new Error(`Drive Audio 读取失败 (${audioRes.status})`);
-        const audioBlob = await audioRes.blob();
+        let audioBlob = preparedAudio.blob;
+        if (!audioBlob) {
+          const audioRes = await fetch(driveAudioUrl);
+          if (!audioRes.ok) throw new Error(`Drive Audio 读取失败 (${audioRes.status})`);
+          audioBlob = await audioRes.blob();
+        }
         const audioFilename = `scene_${segmentId}_${infoIndex + 1}_${Date.now()}.mp3`;
         uploadedAudioFilename = await uploadAudioToComfy(audioBlob, audioFilename);
       }
@@ -375,7 +374,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
         });
 
         configureH3AudioInputs(workflow, {
-          audioMode: effectiveH3AudioMode,
+          audioMode: generationAudioMode,
           uploadedAudioFilename,
         });
       } else if (effectiveVideoWorkflow === 'LTX2.3') {
@@ -481,7 +480,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
   }, [
     basics?.art_style_description,
     generatedImage,
-    effectiveH3AudioMode,
+    h3AudioMode,
     firstFrameSource,
     effectiveH3Length,
     effectiveH3Mode,
@@ -723,7 +722,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
               </div>
             </div>
           )}
-          {info.generated_assets?.drive_audio && (
+          {!skipsLocalAudio && info.generated_assets?.drive_audio && (
             <div className="flex items-center gap-2 rounded border border-cyan-400/20 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200">
               <AudioLines size={12} />
               <span className="max-w-[180px] truncate">{info.generated_assets.drive_audio_filename || 'music3_drive_audio.mp3'}</span>
@@ -856,7 +855,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
                 suppressContentEditableWarning
                 className="bg-black/50 p-3 rounded text-xs text-gray-300 border border-magenta-900/30 hover:border-magenta-500/50 transition cursor-text selection:bg-neon-magenta/30 h-full focus:outline-none focus:border-neon-magenta focus:ring-1 focus:ring-neon-magenta/50"
               >
-                {info.video_prompt}
+                {skipsLocalAudio ? nonDialogueVideoPrompt(info.video_prompt) : info.video_prompt}
               </div>
             </div>
             <div className="flex flex-col pt-[21px] gap-2">

@@ -3,7 +3,7 @@ import type { ProjectPage } from '../components/ProjectNavigation';
 import { hasConfirmedFixedVoiceReference } from './voiceCloneProfile';
 
 export const hasSpokenText = (shot: MVInfo) => {
-  const text = (shot.audio_plan?.audio_text || shot.lyrics || '').trim();
+  const text = (shot.audio_plan?.audio_text ?? shot.lyrics ?? '').trim();
   return Boolean(text) && !/^(\(No dialogue\)|（?无对白|（?本镜头无对白)/i.test(text);
 };
 

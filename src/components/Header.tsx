@@ -8,6 +8,7 @@ import { H3VideoControls } from './H3VideoControls';
 import { VideoOrientationControl } from './VideoOrientationControl';
 import { downloadProjectArchive } from '../utils/downloadProjectArchive';
 import { createProjectLrc, safeLrcFilename } from '../utils/lrcExport';
+import { addGeneratedVideosToZip, generatedVideoEntries } from '../utils/videoDownload';
 
 interface HeaderProps {
   title: string;
@@ -32,39 +33,14 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
   } = useGlobalSettings();
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Check if all videos are generated
-  const isAllGenerated = mvData?.storyboard.every(segment => 
-    segment.mvinfo.every(info => 
-      !info.video_prompt || (info.video_prompt && info.generated_assets?.video)
-    )
-  );
+  const generatedVideos = generatedVideoEntries(mvData?.storyboard ?? []);
 
   const handleDownloadAll = async () => {
-    if (!mvData) return;
+    if (!mvData || !generatedVideos.length || isDownloading) return;
     setIsDownloading(true);
     try {
       const zip = new JSZip();
-      const videoFolder = zip.folder("videos");
-      
-      const promises: Promise<void>[] = [];
-
-      mvData.storyboard.forEach(segment => {
-        segment.mvinfo.forEach((info, index) => {
-          // Add video
-          if (info.generated_assets?.video) {
-             const filename = `segment_${segment.segment_id}_scene_${index + 1}.mp4`;
-             const p = fetch(info.generated_assets.video)
-               .then(res => res.blob())
-               .then(blob => {
-                 videoFolder?.file(filename, blob);
-               })
-               .catch(err => console.error("Failed to fetch video", err));
-             promises.push(p);
-          }
-        });
-      });
-
-      await Promise.all(promises);
+      await addGeneratedVideosToZip(zip.folder('videos')!, generatedVideos);
 
       // Add LRC
       zip.file(safeLrcFilename(mvData), `\uFEFF${createProjectLrc(mvData)}`);
@@ -74,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
 
     } catch (error) {
       console.error("Error downloading all:", error);
-      alert("下载失败，请重试");
+      alert(`下载失败，请重试：${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setIsDownloading(false);
     }
@@ -198,15 +174,15 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
               保存完整项目
             </button>
 
-            {isAllGenerated && (
+            {generatedVideos.length > 0 && (
               <button
                 onClick={handleDownloadAll}
                 disabled={isDownloading}
                 className="flex min-h-11 items-center justify-center gap-2 rounded bg-green-600/80 px-4 py-2 text-center text-sm font-bold text-white shadow-[0_0_15px_rgba(0,255,0,0.3)] transition-all hover:-translate-y-0.5 hover:bg-green-600 hover:shadow-[0_0_25px_rgba(0,255,0,0.5)] disabled:cursor-not-allowed disabled:opacity-50"
-                title="下载所有视频和LRC字幕文件"
+                title={`打包当前已生成的 ${generatedVideos.length} 个动画和 LRC 字幕，跳过未完成镜头`}
               >
                 <FileArchive size={16} />
-                {isDownloading ? '打包下载中...' : '下载所有视频'}
+                {isDownloading ? '打包下载中...' : `下载所有动画（${generatedVideos.length}）`}
               </button>
             )}
           </div>

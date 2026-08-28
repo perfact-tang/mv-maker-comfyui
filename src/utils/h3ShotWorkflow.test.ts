@@ -1,5 +1,7 @@
 import { configureH3AudioInputs, configureH3VisualInputs } from './h3ShotWorkflow.ts';
 import type { H3Workflow } from './h3ShotWorkflow.ts';
+import { resolveShotAudioMode } from './videoAudio';
+import type { DirectorAudioPlan, MVInfo } from '../types/mv-data';
 
 const createWorkflow = (): H3Workflow => ({
   '6': { inputs: { task_type: 'I2VA', prompt: '', length: 141 } },
@@ -113,3 +115,11 @@ assert(ref2vaAudio['6'].inputs.audio_mode === 'reference_only', 'Ref2VA referenc
 assert(ref2vaAudio['6'].inputs.add_source_as_reference === true, 'Ref2VA reference source is exposed as Audio 1');
 
 console.log('PASS H3 visual and audio workflow configuration');
+
+const silentWorkflow = createWorkflow();
+configureH3AudioInputs(silentWorkflow, { audioMode: 'drive-audio', uploadedAudioFilename: 'obsolete-music.mp3' });
+configureH3AudioInputs(silentWorkflow, {
+  audioMode: resolveShotAudioMode({ lyrics: '(No dialogue)' } as MVInfo, { mode: 'qwen3-tts-audio-first' } as DirectorAudioPlan),
+});
+assert(silentWorkflow['17'] === undefined && silentWorkflow['6'].inputs.drive_audio === undefined, 'non-dialogue workflow has no local audio loader or driver');
+assert(silentWorkflow['6'].inputs.audio_mode === 'native' && silentWorkflow['6'].inputs.add_source_as_reference === false, 'non-dialogue workflow uses native audio without audio references');

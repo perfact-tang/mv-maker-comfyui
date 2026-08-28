@@ -8,16 +8,17 @@ interface ShotVoiceCharacterSelectorProps {
   narrator?: VoiceProfile;
   narratorVoiceId?: string;
   selectedVoiceId?: string;
+  speakerName?: string;
   disabled?: boolean;
   onSelect: (voiceId: string) => void;
 }
 
-export const ShotVoiceCharacterSelector = ({ characters, narrator, narratorVoiceId, selectedVoiceId, disabled = false, onSelect }: ShotVoiceCharacterSelectorProps) => {
+export const ShotVoiceCharacterSelector = ({ characters, narrator, narratorVoiceId, selectedVoiceId, speakerName, disabled = false, onSelect }: ShotVoiceCharacterSelectorProps) => {
   const [open, setOpen] = useState(false);
   const narratorBindingVoiceId = narratorVoiceId ?? narrator?.voice_id;
-  const selectedCharacter = characters.find((character) => character.voice_profile?.voice_id === selectedVoiceId);
-  const selectedProfile = selectedCharacter?.voice_profile || (narratorBindingVoiceId === selectedVoiceId ? narrator : undefined);
-  const selectedName = selectedCharacter?.name || (selectedProfile ? '旁白' : '尚未选择人物');
+  const selectedCharacter = selectedVoiceId ? characters.find((character) => character.voice_profile?.voice_id === selectedVoiceId) : undefined;
+  const selectedProfile = selectedCharacter?.voice_profile || (selectedVoiceId && narratorBindingVoiceId === selectedVoiceId ? narrator : undefined);
+  const selectedName = selectedCharacter?.name || (selectedProfile ? '旁白' : speakerName || '尚未选择人物');
   const imageUrl = selectedCharacter?.generated_assets?.image;
   const selectedReady = hasConfirmedFixedVoiceReference(selectedProfile);
 
@@ -39,7 +40,8 @@ export const ShotVoiceCharacterSelector = ({ characters, narrator, narratorVoice
             {selectedReady ? <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] text-emerald-300"><CheckCircle2 size={10} />固定音色已创建</span> : <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] text-amber-300">固定音色未创建</span>}
           </div>
           <p className="mt-1 truncate font-mono text-[9px] text-cyan-300">{selectedProfile?.voice_id || '没有绑定 voice_id'}</p>
-          <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-gray-400">{selectedProfile?.instruct || '请选择人物展示中已经建立专属音色的人物，或选择项目旁白。'}</p>
+          <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-gray-400">{selectedProfile?.instruct || (speakerName ? `脚本说话人“${speakerName}”尚未匹配到人物音色，请补充对应人物或手动选择已有音色。` : '请选择人物展示中已经建立专属音色的人物，或选择项目旁白。')}</p>
+          {selectedProfile && !selectedReady && <p className="mt-1 text-[10px] text-amber-200">已绑定人物；固定音色创建完成后自动生效，无需重新选择。</p>}
           {selectedProfile?.preview_audio && <audio controls src={selectedProfile.preview_audio} className="mt-2 h-7 w-full" />}
         </div>
       </div>

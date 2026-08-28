@@ -1,3 +1,6 @@
+import { hasSpokenText } from './projectPageRouting';
+import type { MVInfo } from '../types/mv-data';
+
 export interface ValidationResult {
   isValid: boolean;
   error?: string;
@@ -240,7 +243,13 @@ export const validateMVData = (data: unknown): ValidationResult => {
         if (!Number.isFinite(Number(shotAudio.source_start_seconds)) || Number(shotAudio.source_start_seconds) < 0) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音起点无效` };
         if (![5, 10, 15].includes(Number(shotAudio.duration_seconds))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音时长无效` };
         if (typeof shotAudio.audio_text !== 'string' || !Array.isArray(shotAudio.speakers)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音文本或说话人无效` };
-        if (audioPlan?.mode === 'qwen3-tts-audio-first' && shotAudio.speakers.some((speaker) => !isObject(speaker) || typeof speaker.voice_id !== 'string' || !speaker.voice_id.trim())) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的说话人缺少 voice_id` };
+        if (audioPlan?.mode === 'qwen3-tts-audio-first' && shotAudio.speakers.some((speaker) => {
+          if (!isObject(speaker)) return true;
+          // A named script speaker can be imported before its character voice exists.
+          if (speaker.voice_id === undefined && speaker.binding_source === 'script'
+            && typeof speaker.character_name === 'string' && speaker.character_name.trim()) return false;
+          return typeof speaker.voice_id !== 'string' || !speaker.voice_id.trim();
+        })) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的说话人缺少 voice_id` };
         if (audioPlan?.mode === 'qwen3-tts-audio-first' && shotAudio.speakers.some((speaker) => isObject(speaker) && typeof speaker.voice_id === 'string' && !knownVoiceIds.has(speaker.voice_id))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头引用了不存在的人物/旁白 voice_id` };
         if (!['tentative', 'confirmed'].includes(String(shotAudio.cut_status))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的切点状态无效` };
       }
@@ -253,7 +262,8 @@ export const validateMVData = (data: unknown): ValidationResult => {
       if (!['native-audio', 'drive-audio', 'reference-audio', 'no-audio'].includes(String(plan.audio_mode))) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 audio_mode 无效` };
       if (audioPlan && audioPlan.mode !== 'disabled') {
         if (typeof shot.shot_id !== 'string' || !shot.shot_id.trim()) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头缺少 shot_id` };
-        if (plan.audio_mode !== 'drive-audio') return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头必须使用 drive-audio` };
+        const expectedAudioMode = hasSpokenText(shot as unknown as MVInfo) ? 'drive-audio' : 'native-audio';
+        if (plan.audio_mode !== expectedAudioMode) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头必须使用 ${expectedAudioMode}` };
         if (!isObject(shot.audio_plan) || Number(shot.audio_plan.duration_seconds) !== seconds) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的声音时长必须与 H3 时长一致` };
       }
       if (!Array.isArray(plan.reference_images)) return { isValid: false, error: `第 ${index + 1} 段第 ${shotIndex + 1} 个镜头的 reference_images 必须是数组` };

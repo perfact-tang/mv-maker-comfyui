@@ -135,7 +135,7 @@ const CharacterGenerationCard = forwardRef<CharacterCardHandle, CharacterCardPro
       const referenceAudio = await makeGeneratedFixedVoiceReference(result.audioUrl, profile.voice_id);
       updateCharacterVoiceProfile(index, {
         generation_mode: method,
-        preview_audio: result.audioUrl,
+        preview_audio: referenceAudio.data_url,
         reference_audio: referenceAudio,
         seed: result.seed,
         prompt_filename: result.promptFilename,

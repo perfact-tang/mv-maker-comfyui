@@ -7,14 +7,16 @@ import { analyzeAudioUrl } from './audioAlignment';
 import { fitTtsDuration } from './audioTempo';
 import { createQwen3VoiceCloneWorkflow, safeRefAudioMaxSeconds } from './qwen3VoiceCloneWorkflow';
 import { shouldUseQwen3VoiceClone } from './voiceCloneProfile';
+import { fixedVoiceReadError, persistFixedVoiceAudio } from './fixedVoiceStorage';
 
 export { fitTtsDuration } from './audioTempo';
 
 export const makeGeneratedFixedVoiceReference = async (audioUrl: string, voiceId: string): Promise<VoiceReferenceAudio> => {
-  const analysis = await analyzeAudioUrl(audioUrl);
+  const persistentUrl = await persistFixedVoiceAudio(audioUrl, voiceId);
+  const analysis = await analyzeAudioUrl(persistentUrl);
   const durationSeconds = Number(analysis.durationSeconds.toFixed(3));
   return {
-    data_url: audioUrl,
+    data_url: persistentUrl,
     filename: `${voiceId.replace(/[^a-zA-Z0-9_-]/g, '_')}-fixed-voice.wav`,
     mime_type: 'audio/wav',
     duration_seconds: durationSeconds,
@@ -47,6 +49,29 @@ export const generateMusic3Chapter = async (chapter: AudioChapter, replaceSeed =
   if (!audioUrl) throw new Error('Music 3 配乐已完成，但 SaveAudioAdvanced 没有返回音频文件');
   const analysis = await analyzeAudioUrl(audioUrl);
   return { audioUrl, seed, actualDurationSeconds: analysis.durationSeconds };
+};
+
+/** Recover the exact named upload left by older Voice Clone runs, without inventing a new voice. */
+export const recoverFixedVoiceReference = async (profile: VoiceProfile): Promise<VoiceReferenceAudio> => {
+  const reference = profile.reference_audio;
+  if (!reference || reference.source !== 'generated-fixed-voice') throw new Error(`${profile.voice_id} 没有已创建的固定音色。`);
+  if (reference.data_url.startsWith('/uploads/audio/fixed-voices/') || reference.data_url.startsWith('data:')) return reference;
+  let sourceUrl = reference.data_url;
+  const response = await fetch(sourceUrl);
+  if (!response.ok) {
+    const legacyUrl = new URL(sourceUrl, window.location.origin);
+    if (response.status !== 404 || legacyUrl.searchParams.get('type') !== 'temp') {
+      throw new Error(fixedVoiceReadError(profile.voice_id, response.status));
+    }
+    legacyUrl.search = new URLSearchParams({ filename: reference.filename, subfolder: '', type: 'input' }).toString();
+    sourceUrl = legacyUrl.toString();
+  }
+  const analysis = await analyzeAudioUrl(sourceUrl);
+  if (Math.abs(analysis.durationSeconds - reference.duration_seconds) > 0.05) {
+    throw new Error(`${profile.voice_id} 的缓存音色时长与原记录不符，已停止恢复以免误用其他音色。请重新创建固定音色。`);
+  }
+  const dataUrl = await persistFixedVoiceAudio(sourceUrl, profile.voice_id);
+  return { ...reference, data_url: dataUrl };
 };
 
 export const generateAudioAceChapter = async (chapter: AudioChapter, replaceSeed = false) => {
@@ -89,7 +114,7 @@ export const generateQwen3Voice = async (
       throw new Error(`${profile.voice_id} 已选择参考音频克隆，但尚未上传有效的参考音色文件`);
     }
     const referenceResponse = await fetch(reference.data_url);
-    if (!referenceResponse.ok) throw new Error(`无法读取 ${profile.voice_id} 的参考音色文件：HTTP ${referenceResponse.status}`);
+    if (!referenceResponse.ok) throw new Error(fixedVoiceReadError(profile.voice_id, referenceResponse.status));
     const uploadedFilename = await uploadAudioToComfy(await referenceResponse.blob(), reference.filename);
     const { workflow, seed, refAudioMaxSeconds } = createQwen3VoiceCloneWorkflow({
       text,

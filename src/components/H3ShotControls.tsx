@@ -3,6 +3,7 @@ import { ImagePlus, UploadCloud, UserRound, X } from 'lucide-react';
 import { H3ShotGenerationPlan, H3ShotMode, MVInfo } from '../types/mv-data';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { resolveReferenceImage } from '../utils/characterReferences';
+import { bypassesLocalShotAudio, resolveShotAudioMode } from '../utils/videoAudio';
 import { compressedImageFilename, compressProjectImage, describeImageOptimization, isStorageQuotaError } from '../utils/projectImageCompression';
 
 const DURATION_OPTIONS = [
@@ -31,12 +32,13 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
   const [referenceUploadStatus, setReferenceUploadStatus] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const fallbackDuration = DURATION_OPTIONS.find((item) => item.frames === h3VideoLength) ?? DURATION_OPTIONS[0];
   const usesMusic3AudioFirst = ['music3-audio-first', 'qwen3-tts-audio-first'].includes(mvData?.director_plan?.audio_plan?.mode || '');
+  const skipsLocalAudio = bypassesLocalShotAudio(info, mvData?.director_plan?.audio_plan);
   const plan: H3ShotGenerationPlan = info.generation_plan ?? {
     model: 'minimax-h3',
     mode: h3GenerationMode === 'reference-images' ? 'Ref2VA' : 'I2VA',
     duration_seconds: fallbackDuration.seconds,
     duration_frames: fallbackDuration.frames,
-    audio_mode: usesMusic3AudioFirst ? 'drive-audio' : h3AudioMode,
+    audio_mode: resolveShotAudioMode(info, mvData?.director_plan?.audio_plan, h3AudioMode),
     reference_images: h3GenerationMode === 'reference-images'
       ? [
           { label: '<Picture 1>', purpose: '第一张人物、场景或风格参考图', prompt: '<Picture 1> 定义第一项必须保持的视觉参考。' },
@@ -124,13 +126,13 @@ export const H3ShotControls: React.FC<H3ShotControlsProps> = ({ info, segmentId,
         </div>
         <label className="flex min-w-[150px] flex-1 flex-col gap-1 text-[10px] font-bold uppercase tracking-wider text-fuchsia-200">
           本镜头音频
-          <select disabled={usesMusic3AudioFirst} value={usesMusic3AudioFirst ? 'drive-audio' : plan.audio_mode} onChange={(event) => commit({ ...plan, audio_mode: event.target.value as H3ShotGenerationPlan['audio_mode'] })} className="rounded border border-white/10 bg-black/50 px-2 py-1.5 text-xs normal-case text-gray-200 disabled:opacity-60">
+          <select disabled={usesMusic3AudioFirst} value={resolveShotAudioMode(info, mvData?.director_plan?.audio_plan, plan.audio_mode)} onChange={(event) => commit({ ...plan, audio_mode: event.target.value as H3ShotGenerationPlan['audio_mode'] })} className="rounded border border-white/10 bg-black/50 px-2 py-1.5 text-xs normal-case text-gray-200 disabled:opacity-60">
             <option value="native-audio">H3 原生声画</option>
             <option value="drive-audio">Drive Audio</option>
             <option value="reference-audio">参考音乐</option>
             <option value="no-audio">静音导出</option>
           </select>
-          {usesMusic3AudioFirst && <span className="text-[9px] font-normal normal-case text-emerald-300">由千问配音 / Music 3 配乐时间线锁定</span>}
+          {usesMusic3AudioFirst && <span className="text-[9px] font-normal normal-case text-emerald-300">{skipsLocalAudio ? '无对白：使用 H3 原生环境声，不使用本地音频驱动' : '由千问配音 / Music 3 配乐时间线锁定'}</span>}
         </label>
       </div>
 

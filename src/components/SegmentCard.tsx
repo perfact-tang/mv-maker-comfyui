@@ -6,7 +6,8 @@ import { GenerationConfirmModal } from './GenerationConfirmModal';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
-import { missingVideoIndexes, pendingVideoIndexes } from '../utils/batchGeneration';
+import { missingVideoIndexes, pendingVideoIndexes, runVideoGenerationQueue } from '../utils/batchGeneration';
+import { addGeneratedVideosToZip, generatedVideoEntries } from '../utils/videoDownload';
 
 export interface SegmentBatchResult {
   segmentId: number;
@@ -44,21 +45,16 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
   const [isConfirmModalOpen, setIsConfirmModalOpen] = React.useState(false);
   const [isDownloading, setIsDownloading] = React.useState(false);
 
-  // Check if all videos for this segment are generated
-  const isAllGenerated = segment.mvinfo.every(info => 
-    !info.video_prompt || (info.video_prompt && info.generated_assets?.video)
-  );
+  const generatedVideos = generatedVideoEntries([segment]);
 
   const handleDownloadSegment = async () => {
+      if (!generatedVideos.length || isDownloading) return;
       setIsDownloading(true);
       try {
         const zip = new JSZip();
-        const videoFolder = zip.folder(`segment_${segment.segment_id}_videos`);
         let lrcContent = `[ti:Segment ${segment.segment_id}]\n[ar:MV Maker]\n`;
         
-        const promises: Promise<void>[] = [];
-
-        segment.mvinfo.forEach((info, index) => {
+        segment.mvinfo.forEach((info) => {
           // Add to LRC
           if (info.video_prompt) {
              const startTime = info.timestamp.split(' - ')[0]; // "00:00"
@@ -69,20 +65,9 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
              lrcContent += `${formattedTime}${cleanPrompt}\n`;
           }
 
-          // Add video
-          if (info.generated_assets?.video) {
-             const filename = `segment_${segment.segment_id}_scene_${index + 1}.mp4`;
-             const p = fetch(info.generated_assets.video)
-               .then(res => res.blob())
-               .then(blob => {
-                 videoFolder?.file(filename, blob);
-               })
-               .catch(err => console.error("Failed to fetch video", err));
-             promises.push(p);
-          }
         });
 
-        await Promise.all(promises);
+        await addGeneratedVideosToZip(zip.folder(`segment_${segment.segment_id}_videos`)!, generatedVideos);
 
         // Add LRC
         zip.file(`segment_${segment.segment_id}_prompts.lrc`, lrcContent);
@@ -92,7 +77,7 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
 
       } catch (error) {
         console.error("Error downloading segment:", error);
-        alert("下载失败，请重试");
+        alert(`下载失败，请重试：${error instanceof Error ? error.message : String(error)}`);
       } finally {
         setIsDownloading(false);
       }
@@ -121,7 +106,7 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
     try {
       const generationIndexes = pendingVideoIndexes(segment.mvinfo, mode);
 
-      for (const i of generationIndexes) {
+      await runVideoGenerationQueue(generationIndexes, async (i) => {
         const cardRef = cardRefs.current[i];
         if (!cardRef) throw new Error(`分段 ${segment.segment_id} · 小段 ${i + 1} 的生成控件尚未就绪`);
         try {
@@ -130,7 +115,7 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
           const reason = error instanceof Error ? error.message : String(error);
           throw new Error(`分段 ${segment.segment_id} · 小段 ${i + 1} 生成失败：${reason}`);
         }
-      }
+      });
 
       const liveSegment = useGlobalSettings.getState().mvData?.storyboard
         .find((item) => item.segment_id === segment.segment_id);
@@ -295,10 +280,11 @@ export const SegmentCard = forwardRef<SegmentCardHandle, SegmentCardProps>(({ se
           </button>
         )}
 
-        {isAllGenerated && (
+        {generatedVideos.length > 0 && (
             <button 
               onClick={handleDownloadSegment}
               disabled={isDownloading}
+              title={`打包本段已生成的 ${generatedVideos.length} 个视频，跳过未完成镜头`}
               className="flex items-center gap-2 px-4 py-2 bg-green-600/10 text-green-500 border border-green-600/20 rounded-lg hover:bg-green-600/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <FileArchive size={16} />

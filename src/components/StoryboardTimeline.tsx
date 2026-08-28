@@ -64,7 +64,7 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
     generateAllSegments: async () => {
       if (isGeneratingGlobally || orderedStoryboard.length === 0) return;
       if (audioPlan && audioPlan.mode !== 'disabled' && audioPlan.alignment_status !== 'locked') {
-        alert('请先到“声音制作”页面生成、校准并锁定全部 Drive Audio。');
+        alert('请先到“声音制作”页面锁定当前声音时间线；音频未全部生成也可以锁定。');
         return;
       }
       setStartSegmentInput(String(suggestedStartSegmentId ?? ''));
@@ -164,6 +164,7 @@ export const StoryboardTimeline = forwardRef<StoryboardTimelineHandle, Storyboar
             <p className="text-[11px] text-gray-500 mt-2">
               可用编号：{orderedStoryboard.map(segment => segment.segment_id).join('、')}
             </p>
+            <p className="mt-3 text-xs text-amber-200/80">可以先制作已有音频的镜头；遇到缺少音频或音频文件失效的镜头，将弹出“没有声音了”并停止，已完成的动画保留。</p>
 
             <label className="mt-5 flex items-center gap-3 text-sm text-gray-300 cursor-pointer">
               <input

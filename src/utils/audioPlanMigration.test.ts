@@ -68,3 +68,77 @@ const importedArchive = parseProjectFile(JSON.stringify({ ...archive, project: p
 assert(importedArchive.project.director_plan?.audio_plan?.workflow === '千问 3 TTS', 'archive import must normalize workflow labels before validation');
 
 console.log('PASS v3 director project audio-plan migration');
+
+const dialogueProject = structuredClone(project);
+dialogueProject.characters = [
+  { name: 'コードにゃ', description: '猫讲师', voice_direction: '明亮温和的年轻女性声线。' },
+  { name: '小林', description: '学习者', voice_direction: '沉稳清楚的成年女性声线。' },
+];
+dialogueProject.director_plan!.speaker_registry = [{ id: 'S1', name: '小林' }, { id: 'S3', name: 'コードにゃ' }];
+const dialogueShot = { ...dialogueProject.storyboard[0].mvinfo[0], speaker: '小林', speaker_id: 'S1' };
+dialogueProject.storyboard[0].mvinfo = [
+  dialogueShot,
+  { ...dialogueShot, speaker: undefined, speaker_id: 'S3' },
+  { ...dialogueShot, speaker: '咨询助手朗读', speaker_id: 'S4' },
+  { ...dialogueShot, speaker: undefined, speaker_id: undefined, lyrics: '(No dialogue)' },
+];
+const bound = migrateProjectToV4AudioPlan(dialogueProject);
+const boundShots = bound.storyboard[0].mvinfo;
+assert(boundShots[0].audio_plan?.speakers[0].voice_id === bound.characters[1].voice_profile?.voice_id, 'promo dialogue must bind by explicit name, not narrator or character array order');
+assert(boundShots[0].audio_plan?.speakers[0].speaker_label === '(S1)', 'original speaker label must survive migration');
+assert(boundShots[1].audio_plan?.speakers[0].voice_id === bound.characters[0].voice_profile?.voice_id, 'registry-only speaker ID must resolve');
+assert(bound.characters[0].voice_profile?.instruct === dialogueProject.characters[0].voice_direction, 'voice direction must initialize the voice profile');
+assert(boundShots[2].audio_plan?.speakers[0].voice_id === undefined && boundShots[2].audio_plan?.speakers[0].character_name === '咨询助手朗读', 'unknown named speakers must remain visible and unresolved');
+assert(boundShots[3].audio_plan?.speakers.length === 0, 'silent shots must not acquire a narrator');
+assert(boundShots[3].generation_plan?.audio_mode === 'native-audio', 'silent shots must not be routed to local Drive Audio');
+assert(!boundShots[3].video_prompt.includes('<Audio 1>'), 'silent shot scripts must not reference an unprovided audio input');
+assert(validateMVData(bound).isValid, 'explicit unresolved script speakers must remain importable');
+assert(migrateProjectToV4AudioPlan(bound) === bound, 'pending bindings must remain idempotent');
+assert(parseProjectFile(JSON.stringify(createProjectArchive(bound, settings))).project.storyboard[0].mvinfo[2].audio_plan?.speakers[0].character_name === '咨询助手朗读', 'unresolved identity must survive archive roundtrip');
+
+const previouslyImported = structuredClone(bound);
+previouslyImported.storyboard[0].mvinfo[0].audio_plan!.speakers = [{
+  speaker_label: '(S1)', character_name: '旁白', voice_id: 'VOICE-NARRATOR',
+  voice_description: '清晰沉稳的中文男声旁白，语速适中，旋律性弱，吐字明确。',
+}];
+previouslyImported.storyboard[0].mvinfo[0].generated_assets = { image: 'keep-image', music_audio: 'keep-music', voice_audio: 'old-voice', drive_audio: 'old-drive' };
+const repaired = migrateProjectToV4AudioPlan(previouslyImported);
+assert(repaired.storyboard[0].mvinfo[0].audio_plan?.speakers[0].voice_id === bound.characters[1].voice_profile?.voice_id, 'previous imports must recover the original speaker');
+assert(repaired.storyboard[0].mvinfo[0].generated_assets?.voice_audio === 'old-voice' && repaired.storyboard[0].mvinfo[0].generated_assets?.drive_audio === 'old-drive', 'identity reconciliation preserves completed speech and mix');
+assert(repaired.storyboard[0].mvinfo[0].generated_assets?.image === 'keep-image' && repaired.storyboard[0].mvinfo[0].generated_assets?.music_audio === 'keep-music', 'repair preserves image and music assets');
+assert(migrateProjectToV4AudioPlan(repaired) === repaired, 'repair runs only once');
+
+const manual = structuredClone(previouslyImported);
+manual.storyboard[0].mvinfo[0].audio_plan!.speakers[0].binding_source = 'manual';
+assert(migrateProjectToV4AudioPlan(manual) === manual, 'explicit manual bindings must never be overwritten');
+delete manual.storyboard[0].mvinfo[0].audio_plan!.speakers[0].binding_source;
+manual.storyboard[0].mvinfo[0].audio_plan!.speakers[0].voice_description = manual.director_plan!.audio_plan!.narrator_voice!.instruct;
+assert(migrateProjectToV4AudioPlan(manual) === manual, 'manual narrator selections made by previous versions must survive');
+
+const stale = structuredClone(bound);
+stale.storyboard[0].mvinfo[0].audio_plan!.speakers[0].voice_id = 'OLD-VOICE-ID';
+assert(migrateProjectToV4AudioPlan(stale).storyboard[0].mvinfo[0].audio_plan?.speakers[0].voice_id === bound.characters[1].voice_profile?.voice_id, 'stale imported IDs should resolve by the named character');
+
+const addedCharacter = structuredClone(bound);
+addedCharacter.characters.push({ name: '咨询助手朗读', description: '仅声音角色', voice_direction: '平稳朗读。' });
+const resolved = migrateProjectToV4AudioPlan(addedCharacter);
+assert(resolved.storyboard[0].mvinfo[2].audio_plan?.speakers[0].voice_id === resolved.characters[2].voice_profile?.voice_id, 'adding a missing character resolves its pending shots');
+const invalid = structuredClone(bound);
+delete invalid.storyboard[0].mvinfo[2].audio_plan!.speakers[0].binding_source;
+assert(!validateMVData(invalid).isValid, 'missing voice IDs without explicit pending script identity must still fail validation');
+console.log('PASS script speaker binding, unresolved identity, archive roundtrip and existing project recovery');
+
+const legacySilent = structuredClone(bound);
+legacySilent.director_plan!.audio_plan!.alignment_status = 'locked';
+const legacySilentShot = legacySilent.storyboard[0].mvinfo[3];
+legacySilentShot.generation_plan!.audio_mode = 'drive-audio';
+legacySilentShot.video_prompt = 'Keep <Picture 1>\noverall_soundscape:\n严格复用 <Audio 1> 作为唯一声音来源。\n\nnon_diegetic_music:\nN/A';
+legacySilentShot.generated_assets = { voice_audio: '/keep-voice', drive_audio: '/keep-drive', music_audio: '/keep-music', video: '/keep-video' };
+const repairedSilent = migrateProjectToV4AudioPlan(legacySilent);
+assert(repairedSilent.storyboard[0].mvinfo[3].generation_plan!.audio_mode === 'native-audio', 'existing silent scripts upgrade automatically');
+assert(repairedSilent.storyboard[0].mvinfo[3].generated_assets === legacySilentShot.generated_assets, 'silent routing never deletes generated media');
+assert(repairedSilent.director_plan!.audio_plan!.alignment_status === 'locked', 'silent routing retains partial timeline lock');
+assert(migrateProjectToV4AudioPlan(repairedSilent) === repairedSilent, 'silent routing upgrade is idempotent');
+const silentRoundTrip = parseProjectFile(JSON.stringify(createProjectArchive(repairedSilent, settings))).project.storyboard[0].mvinfo[3];
+assert(silentRoundTrip.generation_plan!.audio_mode === 'native-audio' && !silentRoundTrip.video_prompt.includes('<Audio 1>'), 'saved scripts keep silent shots independent of local audio');
+assert(silentRoundTrip.generated_assets!.drive_audio === '/keep-drive', 'archive retains unused audio records for editing');

@@ -41,6 +41,38 @@ const runFfmpeg = (args: string[]) => new Promise<void>((resolve, reject) => {
 const audioUploadPlugin = () => ({
   name: 'mv-maker-audio-upload',
   configureServer(server: import('vite').ViteDevServer) {
+    server.middlewares.use('/api/audio/fixed-voice', async (req, res) => {
+      if (req.method !== 'POST') {
+        res.statusCode = 405;
+        res.end('Method Not Allowed');
+        return;
+      }
+      try {
+        const chunks: Buffer[] = [];
+        let bytes = 0;
+        for await (const chunk of req) {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          bytes += buffer.length;
+          if (bytes > 32 * 1024 * 1024) throw new Error('Fixed voice audio exceeds 32 MB.');
+          chunks.push(buffer);
+        }
+        const body = Buffer.concat(chunks);
+        if (!body.length) throw new Error('Fixed voice audio is empty.');
+        const voiceId = String(req.headers['x-voice-id'] || 'voice').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const hash = createHash('sha256').update(body).digest('hex');
+        const outputDir = path.resolve(process.cwd(), 'public', 'uploads', 'audio', 'fixed-voices', hash);
+        const contentType = String(req.headers['content-type'] || '');
+        const extension = contentType.includes('flac') ? '.flac' : contentType.includes('mpeg') ? '.mp3' : '.wav';
+        const filename = `${voiceId}${extension}`;
+        await mkdir(outputDir, { recursive: true });
+        await writeFile(path.join(outputDir, filename), body);
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ url: `/uploads/audio/fixed-voices/${hash}/${filename}` }));
+      } catch (error) {
+        res.statusCode = 500;
+        res.end(error instanceof Error ? error.message : String(error));
+      }
+    });
     server.middlewares.use('/api/audio/split', async (req, res) => {
       if (req.method !== 'POST') {
         res.statusCode = 405;
