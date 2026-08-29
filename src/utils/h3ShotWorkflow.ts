@@ -85,6 +85,10 @@ export const configureH3VisualInputs = (
   workflow: H3Workflow,
   options: ConfigureH3VisualInputsOptions,
 ): void => {
+  if (workflow['136']) {
+    configureOfficialH3VisualInputs(workflow, options);
+    return;
+  }
   const conditioningInputs = workflow['6'].inputs;
   const referenceImages = options.referenceImages ?? [];
   conditioningInputs.prompt = options.mode === 'Ref2VA'
@@ -129,6 +133,10 @@ export const configureH3AudioInputs = (
   workflow: H3Workflow,
   options: ConfigureH3AudioInputsOptions,
 ): void => {
+  if (workflow['136']) {
+    configureOfficialH3AudioInputs(workflow, options);
+    return;
+  }
   const conditioningInputs = workflow['6'].inputs;
   delete conditioningInputs.drive_audio;
   delete conditioningInputs.final_audio;
@@ -182,4 +190,87 @@ export const configureH3AudioInputs = (
   conditioningInputs.audio_mode = 'reference_only';
   conditioningInputs.add_source_as_reference = true;
   conditioningInputs.prompt_primary_audio_ordinal = 1;
+};
+
+const configureOfficialH3VisualInputs = (
+  workflow: H3Workflow,
+  options: ConfigureH3VisualInputsOptions,
+) => {
+  // Reuse the existing prompt normalization and media validation without changing
+  // the saved shot plan or skills. Keep the project's exact frame count for audio sync.
+  const visual: H3Workflow = { '6': { inputs: {} }, '9': { inputs: {} } };
+  configureH3VisualInputs(visual, options);
+  const inputs = visual['6'].inputs;
+  const previous = workflow['136'].inputs;
+  const isReference = options.mode === 'Ref2VA';
+  workflow['136'] = {
+    class_type: isReference ? 'MiniMaxH3ReferenceToVideo' : 'MiniMaxH3ImageToVideo',
+    inputs: {
+      clip: ['128', 0], vae: ['119', 0], prompt: ['138', 0],
+      width: previous.width, height: previous.height, length: ['131', 1],
+      ...(isReference ? { audio_vae: ['120', 0], ref_image_size: 'match' } : {}),
+    },
+  };
+  workflow['138'].inputs.value = inputs.prompt;
+  workflow['132'].inputs.value = options.length / 24;
+  workflow['129'].inputs.noise_seed = options.seed;
+  workflow['127'].inputs.unet_name = isReference
+    ? 'minimax_h3_ref2va_pruned_int8_convrot.safetensors'
+    : 'minimax_h3_fl2va_int8_convrot.safetensors';
+  // The supplied LoRA is ref2v-only; the supplied default is full 20-step sampling.
+  if (!isReference) workflow['146'].inputs.value = false;
+  delete workflow['137'];
+  delete workflow['139'];
+  for (const [sourceId, targetId] of [['13', '137'], ['16', '139']]) {
+    if (visual[sourceId]) workflow[targetId] = visual[sourceId];
+  }
+  for (const key of ['first_frame', 'last_frame', 'ref_images.ref_image_0', 'ref_images.ref_image_1']) {
+    const link = inputs[key];
+    if (Array.isArray(link)) workflow['136'].inputs[key] = [link[0] === '13' ? '137' : '139', 0];
+  }
+  configureOfficialH3AudioInputs(workflow, { audioMode: 'native-audio' });
+};
+
+const configureOfficialH3AudioInputs = (
+  workflow: H3Workflow,
+  options: ConfigureH3AudioInputsOptions,
+) => {
+  const conditioning = workflow['136'];
+  const isReference = conditioning.class_type === 'MiniMaxH3ReferenceToVideo';
+  delete conditioning.inputs['ref_audios.ref_audio_0'];
+  delete workflow['149'];
+  delete workflow['150'];
+  workflow['125'].inputs.latent_image = ['136', 1];
+  workflow['130'].inputs.audio = ['121', 0];
+  if (options.audioMode === 'native-audio' || options.audioMode === 'no-audio') {
+    if (options.audioMode === 'no-audio') delete workflow['130'].inputs.audio;
+    return;
+  }
+  if (!options.uploadedAudioFilename) throw new Error(`声明了 ${options.audioMode}，但尚未上传音频`);
+  if (options.audioMode === 'reference-audio' && !isReference) {
+    throw new Error('关键帧 + 参考音频的 Hybrid 路径不受支持；请将本镜头音频改为 Drive Audio，或将 H3 模式改为 Ref2VA。');
+  }
+  workflow['149'] = {
+    class_type: 'LoadAudio', inputs: { audio: options.uploadedAudioFilename },
+    _meta: { title: '镜头音频' },
+  };
+  if (options.audioMode === 'reference-audio') {
+    conditioning.inputs['ref_audios.ref_audio_0'] = ['149', 0];
+    return;
+  }
+  // Official conditioning has no drive_audio socket. Use the installed T8 latent
+  // control with the new stock sampler, retaining a locked source audio stream.
+  workflow['150'] = {
+    class_type: 'MiniMaxH3AudioLatentControlT8',
+    inputs: { av_latent: ['136', 1], source_audio: ['149', 0], audio_vae: ['120', 0], mode: 'lock', strength: 0 },
+    _meta: { title: '锁定 Drive Audio' },
+  };
+  workflow['125'].inputs.latent_image = ['150', 0];
+  workflow['130'].inputs.audio = ['149', 0];
+  const prompt = String(workflow['138'].inputs.value ?? '');
+  if (isReference && /<Audio\s+\d+>/i.test(prompt)) {
+    conditioning.inputs['ref_audios.ref_audio_0'] = ['149', 0];
+  } else if (!isReference) {
+    workflow['138'].inputs.value = replaceAudioMediaTagsWithPlainText(prompt);
+  }
 };

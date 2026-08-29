@@ -55,6 +55,9 @@ export const H3VideoControls: React.FC = () => {
 
   return (
     <div className="glass-card bg-black/40 border border-fuchsia-400/20 rounded-lg p-3 flex flex-col gap-3 basis-full">
+      <p className="text-xs text-fuchsia-200/80">
+        可先用 H3 Turbo Stable 4V4A 完成生成，再手动切换「H3 官方加速优化版」重新生成视频；两者共用分镜、提示词、参考图与音频设置。全片重做时取消勾选「跳过已经生成的视频」。重新生成会更新当前视频，请先导出需要保留的版本。
+      </p>
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5 min-w-[190px]">
           <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">H3 默认生成方式（旧项目 fallback）</label>

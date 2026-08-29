@@ -4,6 +4,7 @@ import { MVInfo, MVScriptData } from '../types/mv-data';
 import { generateComfyImage, executeComfyWorkflow, uploadAudioToComfy, uploadImageToComfy } from '../utils/comfyApi';
 import { useGlobalSettings } from '../stores/useGlobalSettings';
 import { VIDEO_WORKFLOWS } from '../utils/workflows';
+import { isH3VideoWorkflow } from '../utils/h3WorkflowNames';
 import { applyVideoDimensions, VIDEO_DIMENSIONS } from '../utils/characterVideoWorkflow';
 import { ImageEditModal } from './ImageEditModal';
 import { H3ShotControls } from './H3ShotControls';
@@ -216,7 +217,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
 
   const handleGenerateVideo = useCallback(async (): Promise<{ videoUrl: string; lastFrameUrl: string }> => {
     if (isGeneratingVideo) throw new Error('当前镜头已经在生成中');
-    const isH3Workflow = selectedVideoWorkflow === 'H3 Turbo Stable 4V4A';
+    const isH3Workflow = isH3VideoWorkflow(selectedVideoWorkflow);
     const usesH3References = isH3Workflow && effectiveH3Mode === 'Ref2VA';
     const usesH3LastFrame = isH3Workflow && effectiveH3Mode === 'FL2VA';
     const liveProject = useGlobalSettings.getState().mvData;
@@ -670,7 +671,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
           </div>
         )}
 
-        {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && (
+        {isH3VideoWorkflow(selectedVideoWorkflow) && (
           <H3ShotControls info={info} segmentId={segmentId} infoIndex={infoIndex} />
         )}
         
@@ -806,7 +807,7 @@ export const MVInfoCard = forwardRef<MVInfoCardHandle, MVInfoCardProps>(({ info,
             </div>
           )}
 
-          {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && effectiveH3Mode === 'FL2VA' && (
+          {isH3VideoWorkflow(selectedVideoWorkflow) && effectiveH3Mode === 'FL2VA' && (
             <div className="flex flex-col gap-4 rounded border border-fuchsia-400/20 bg-black/20 p-3 md:flex-row">
               <div className="flex-1">
                 <div className="mb-1.5 flex items-center justify-between">

@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { AudioUploader } from './AudioUploader';
 import { H3VideoControls } from './H3VideoControls';
+import { isH3VideoWorkflow } from '../utils/h3WorkflowNames';
 import { VideoOrientationControl } from './VideoOrientationControl';
 import { downloadProjectArchive } from '../utils/downloadProjectArchive';
 import { createProjectLrc, safeLrcFilename } from '../utils/lrcExport';
@@ -131,6 +132,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
                       <option value="LTX2.3">LTX2.3</option>
                       <option value="LTX2.3 V2I">LTX2.3 V2I</option>
                       <option value="H3 Turbo Stable 4V4A">H3 Turbo Stable 4V4A</option>
+                      <option value="H3 官方加速优化版">H3 官方加速优化版</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
@@ -138,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({ title, proposalId, onGenerateAll
             </div>
 
             {!['music3-audio-first', 'qwen3-tts-audio-first'].includes(mvData?.director_plan?.audio_plan?.mode || '') && <AudioUploader proposalId={proposalId} />}
-            {selectedVideoWorkflow === 'H3 Turbo Stable 4V4A' && <H3VideoControls />}
+            {isH3VideoWorkflow(selectedVideoWorkflow) && <H3VideoControls />}
             <div className="glass-card min-w-[310px] rounded-lg border border-white/10 bg-black/40 p-3">
               <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-gray-500">整体视频方向</label>
               <VideoOrientationControl value={videoOrientation} onChange={setVideoOrientation} />

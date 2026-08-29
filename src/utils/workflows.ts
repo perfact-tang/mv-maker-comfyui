@@ -1,5 +1,6 @@
 
 import LTX23_V2I_WORKFLOW_JSON from './video_ltx2_3_ia2v.json';
+import h3OfficialTemplate from './workflowTemplates/h3OfficialOptimized.json';
 
 export const SMOOTH_V2_WORKFLOW = {
   "7": {
@@ -2258,6 +2259,24 @@ export const H3_TURBO_STABLE_4V4A_WORKFLOW = {
   }
 };
 
+// Preserve the supplied official sampler/model defaults; attach project media at runtime.
+export const H3_OFFICIAL_OPTIMIZED_WORKFLOW = {
+  ...h3OfficialTemplate,
+  '138': { ...h3OfficialTemplate['138'], inputs: { value: '' } },
+  '137': { ...h3OfficialTemplate['137'], inputs: { image: '' } },
+  '139': { ...h3OfficialTemplate['139'], inputs: { image: '' } },
+  '147': {
+    inputs: { from_direction: 'end', count: 1, image: ['122', 0] },
+    class_type: 'Pick From Batch (mtb)',
+    _meta: { title: 'Pick Last Frame' },
+  },
+  '148': {
+    inputs: { filename_prefix: 'MiniMaxH3/official_optimized_LASTFRAME', images: ['147', 0] },
+    class_type: 'SaveImage',
+    _meta: { title: '保存最后一帧' },
+  },
+};
+
 export const VIDEO_WORKFLOWS = {
   'SmoothV2': SMOOTH_V2_WORKFLOW,
   'SmoothV1': SMOOTH_V1_WORKFLOW,
@@ -2265,6 +2284,7 @@ export const VIDEO_WORKFLOWS = {
   'LTX2.3': LTX23_WORKFLOW,
   'LTX2.3 V2I': LTX23_V2I_WORKFLOW_JSON,
   'H3 Turbo Stable 4V4A': H3_TURBO_STABLE_4V4A_WORKFLOW,
+  'H3 官方加速优化版': H3_OFFICIAL_OPTIMIZED_WORKFLOW,
 };
 
 // Backwards compatibility or default export if needed, but we should switch to using VIDEO_WORKFLOWS

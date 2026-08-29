@@ -2,6 +2,9 @@ import { configureH3AudioInputs, configureH3VisualInputs } from './h3ShotWorkflo
 import type { H3Workflow } from './h3ShotWorkflow.ts';
 import { resolveShotAudioMode } from './videoAudio';
 import type { DirectorAudioPlan, MVInfo } from '../types/mv-data';
+import { H3_OFFICIAL_OPTIMIZED_WORKFLOW, H3_TURBO_STABLE_4V4A_WORKFLOW, VIDEO_WORKFLOWS } from './workflows';
+import { applyVideoDimensions, createCharacterVideoWorkflow, VIDEO_DIMENSIONS } from './characterVideoWorkflow';
+import { H3_OFFICIAL_WORKFLOW_NAME, H3_STABLE_WORKFLOW_NAME, isH3VideoWorkflow } from './h3WorkflowNames';
 
 const createWorkflow = (): H3Workflow => ({
   '6': { inputs: { task_type: 'I2VA', prompt: '', length: 141 } },
@@ -123,3 +126,79 @@ configureH3AudioInputs(silentWorkflow, {
 });
 assert(silentWorkflow['17'] === undefined && silentWorkflow['6'].inputs.drive_audio === undefined, 'non-dialogue workflow has no local audio loader or driver');
 assert(silentWorkflow['6'].inputs.audio_mode === 'native' && silentWorkflow['6'].inputs.add_source_as_reference === false, 'non-dialogue workflow uses native audio without audio references');
+
+const official = (): H3Workflow => JSON.parse(JSON.stringify(H3_OFFICIAL_OPTIMIZED_WORKFLOW));
+const templateBefore = JSON.stringify(H3_OFFICIAL_OPTIMIZED_WORKFLOW);
+const stableBefore = JSON.stringify(H3_TURBO_STABLE_4V4A_WORKFLOW);
+assert(VIDEO_WORKFLOWS[H3_OFFICIAL_WORKFLOW_NAME] === H3_OFFICIAL_OPTIMIZED_WORKFLOW, 'official workflow registered');
+assert(isH3VideoWorkflow(H3_OFFICIAL_WORKFLOW_NAME) && isH3VideoWorkflow(H3_STABLE_WORKFLOW_NAME) && !isH3VideoWorkflow('SmoothV2'), 'both H3 workflows share routing');
+
+const assertGraphLinks = (workflow: H3Workflow) => {
+  for (const [id, node] of Object.entries(workflow)) {
+    for (const [input, value] of Object.entries(node.inputs)) {
+      if (Array.isArray(value)) assert(workflow[String(value[0])], `${id}.${input} references existing node ${value[0]}`);
+    }
+  }
+};
+
+for (const length of [141, 260, 379]) {
+  for (const mode of ['I2VA', 'FL2VA', 'Ref2VA'] as const) {
+    for (const orientation of ['landscape', 'portrait'] as const) {
+      const graph = official();
+      applyVideoDimensions(graph, VIDEO_DIMENSIONS[orientation]);
+      configureH3VisualInputs(graph, {
+        prompt: '<Picture 1> moves toward <Picture 2>. Follow <Audio 1>.', length, mode,
+        seed: 42, firstFrame: 'first.png', lastFrame: 'last.png', referenceImages: ['one.png', 'two.png'],
+      });
+      assert(graph['136'].inputs.width === VIDEO_DIMENSIONS[orientation].width && graph['136'].inputs.height === VIDEO_DIMENSIONS[orientation].height, 'official orientation reaches conditioning');
+      assert(Math.round(Number(graph['132'].inputs.value) * 24) === length, 'official duration preserves legacy project frame count');
+      assert(graph['129'].inputs.noise_seed === 42, 'official seed');
+      assert(graph['123'].inputs.sampler_name === 'res_multistep' && graph['143'].inputs.value === 20 && graph['146'].inputs.value === false, 'preserves supplied full-quality sampler defaults');
+      assert(graph['136'].class_type === (mode === 'Ref2VA' ? 'MiniMaxH3ReferenceToVideo' : 'MiniMaxH3ImageToVideo'), 'official visual node matches shot mode');
+      assert(String(graph['127'].inputs.unet_name).includes(mode === 'Ref2VA' ? 'ref2va' : 'fl2va'), 'checkpoint matches visual task');
+      assert(graph['136'].inputs.task_type === undefined, 'no unsupported T8 inputs on official node');
+      assert(graph['147'].inputs.image?.[0] === '122' && graph['148'].inputs.images?.[0] === '147', 'tail saved from same decoded video');
+      configureH3AudioInputs(graph, { audioMode: 'drive-audio', uploadedAudioFilename: 'voice.mp3' });
+      assert(graph['150'].class_type === 'MiniMaxH3AudioLatentControlT8' && graph['150'].inputs.mode === 'lock', 'drive audio is locked with installed T8 adapter');
+      assert(graph['125'].inputs.latent_image?.[0] === '150' && graph['130'].inputs.audio?.[0] === '149', 'sampler receives locked latent and output uses source audio');
+      assert((graph['136'].inputs['ref_audios.ref_audio_0'] !== undefined) === (mode === 'Ref2VA'), 'only reference mode presents drive audio as tagged media');
+      assertGraphLinks(graph);
+      configureH3AudioInputs(graph, { audioMode: 'no-audio' });
+      assert(!graph['149'] && !graph['150'] && !graph['130'].inputs.audio && !graph['136'].inputs['ref_audios.ref_audio_0'], 'no-audio removes prior audio connections');
+      assert(graph['125'].inputs.latent_image?.[0] === '136', 'native latent restored after drive audio');
+      configureH3AudioInputs(graph, { audioMode: 'native-audio' });
+      assert(graph['130'].inputs.audio?.[0] === '121', 'native audio restored after mute');
+      assertGraphLinks(graph);
+    }
+  }
+}
+
+const officialSingle = official();
+configureH3VisualInputs(officialSingle, { prompt: '<Picture 1> and <Picture 2>', mode: 'Ref2VA', length: 141, seed: 1, referenceImages: ['single.png'] });
+assert(!officialSingle['139'] && !officialSingle['136'].inputs['ref_images.ref_image_1'], 'official single reference removes sample second image');
+assert(!String(officialSingle['138'].inputs.value).includes('<Picture 2>'), 'official removes disconnected reference tags');
+configureH3AudioInputs(officialSingle, { audioMode: 'reference-audio', uploadedAudioFilename: 'reference.mp3' });
+assert(officialSingle['136'].inputs['ref_audios.ref_audio_0']?.[0] === '149' && !officialSingle['150'], 'reference audio conditions without locking');
+configureH3VisualInputs(officialSingle, { prompt: 'new shot', mode: 'FL2VA', length: 260, seed: 2, firstFrame: 'new-first.png', lastFrame: 'new-last.png' });
+assert(!officialSingle['149'] && !officialSingle['136'].inputs['ref_images.ref_image_0'], 'changing modes clears stale reference/audio inputs');
+assert(officialSingle['136'].inputs.last_frame?.[0] === '139' && officialSingle['139'].inputs.image === 'new-last.png', 'official preserves exact target last frame');
+for (const audioMode of ['drive-audio', 'reference-audio'] as const) {
+  let missingAudioError = false;
+  try { configureH3AudioInputs(officialSingle, { audioMode }); } catch { missingAudioError = true; }
+  assert(missingAudioError, 'official requires declared audio file');
+}
+let hybridError = false;
+try { configureH3AudioInputs(officialSingle, { audioMode: 'reference-audio', uploadedAudioFilename: 'reference.mp3' }); } catch { hybridError = true; }
+assert(hybridError, 'official does not silently discard unsupported keyframe reference audio');
+assertGraphLinks(officialSingle);
+
+const character = createCharacterVideoWorkflow({ workflowName: H3_OFFICIAL_WORKFLOW_NAME, prompt: 'character walks', uploadedImage: 'character.png', orientation: 'portrait', h3VideoLength: 141 });
+assert(character['136'].class_type === 'MiniMaxH3ImageToVideo' && character['137'].inputs.image === 'character.png', 'character generation uses official workflow');
+assert(character['136'].inputs.width === 416 && character['136'].inputs.height === 736, 'character orientation');
+assertGraphLinks(character);
+const smooth = JSON.parse(JSON.stringify(VIDEO_WORKFLOWS.SmoothV2)) as H3Workflow;
+const unrelatedNodeBefore = JSON.stringify(smooth['136']);
+applyVideoDimensions(smooth, VIDEO_DIMENSIONS.portrait);
+assert(JSON.stringify(smooth['136']) === unrelatedNodeBefore, 'official dimension adapter does not modify unrelated node 136');
+assert(templateBefore === JSON.stringify(H3_OFFICIAL_OPTIMIZED_WORKFLOW) && stableBefore === JSON.stringify(H3_TURBO_STABLE_4V4A_WORKFLOW), 'configuration leaves shared templates unchanged');
+console.log('PASS official H3 switching, visual/audio modes, duration, dimensions, tails and character workflow');

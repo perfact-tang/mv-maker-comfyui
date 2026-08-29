@@ -1,5 +1,7 @@
 import { VideoOrientation } from '../types/mv-data';
 import { VIDEO_WORKFLOWS } from './workflows';
+import { isH3VideoWorkflow } from './h3WorkflowNames';
+import { configureH3VisualInputs } from './h3ShotWorkflow';
 
 export interface VideoDimensions {
   width: number;
@@ -28,6 +30,10 @@ interface CharacterWorkflowOptions {
 }
 
 export const applyVideoDimensions = (workflow: Workflow, dimensions: VideoDimensions) => {
+  if (['MiniMaxH3ReferenceToVideo', 'MiniMaxH3ImageToVideo'].includes(workflow['136']?.class_type ?? '')) {
+    workflow['136'].inputs.width = dimensions.width;
+    workflow['136'].inputs.height = dimensions.height;
+  }
   const h3Conditioning = workflow['6'];
   if (h3Conditioning?.class_type === 'MiniMaxH3AudioConditioningT8') {
     h3Conditioning.inputs.width = dimensions.width;
@@ -72,20 +78,10 @@ export const createCharacterVideoWorkflow = ({
 
   applyVideoDimensions(workflow, VIDEO_DIMENSIONS[orientation]);
 
-  if (effectiveWorkflowName === 'H3 Turbo Stable 4V4A') {
-    const conditioning = workflow['6'].inputs;
-    conditioning.prompt = prompt;
-    conditioning.length = h3VideoLength;
-    conditioning.task_type = 'I2VA';
-    conditioning.first_frame = ['13', 0];
-    delete conditioning.last_frame;
-    delete conditioning['ref_images.ref_image_0'];
-    delete conditioning['ref_images.ref_image_1'];
-    workflow['13'] = {
-      inputs: { image: uploadedImage },
-      class_type: 'LoadImage',
-    };
-    workflow['9'].inputs.noise_seed = seed;
+  if (isH3VideoWorkflow(effectiveWorkflowName)) {
+    configureH3VisualInputs(workflow, {
+      prompt, length: h3VideoLength, mode: 'I2VA', seed, firstFrame: uploadedImage,
+    });
   } else if (effectiveWorkflowName === 'LTX2.3') {
     if (workflow['269']) workflow['269'].inputs.image = uploadedImage;
     if (workflow['320:319']) workflow['320:319'].inputs.value = prompt;
