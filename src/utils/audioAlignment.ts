@@ -10,7 +10,55 @@ export interface AudioAnalysis {
   bucketSeconds: number;
   energy: number[];
   quietCandidates: number[];
+  mimeType?: string;
+  fileExtension?: string;
 }
+
+interface AudioContainer {
+  name: string;
+  mimeType?: string;
+  fileExtension?: string;
+  durationSeconds?: number;
+}
+
+const startsWith = (bytes: Uint8Array, signature: number[], offset = 0) => (
+  signature.every((value, index) => bytes[offset + index] === value)
+);
+
+/** FLAC stores an exact sample count in its STREAMINFO block; this avoids Web Audio's inconsistent FLAC support. */
+const flacDurationSeconds = (bytes: Uint8Array): number | undefined => {
+  let offset = 4;
+  while (offset + 4 <= bytes.length) {
+    const type = bytes[offset] & 0x7f;
+    const isLast = Boolean(bytes[offset] & 0x80);
+    const length = (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+    const payload = offset + 4;
+    if (payload + length > bytes.length) return undefined;
+    if (type === 0 && length >= 34) {
+      const sampleRate = (bytes[payload + 10] << 12) | (bytes[payload + 11] << 4) | (bytes[payload + 12] >> 4);
+      const totalSamples = (bytes[payload + 13] & 0x0f) * 0x100000000
+        + bytes[payload + 14] * 0x1000000
+        + bytes[payload + 15] * 0x10000
+        + bytes[payload + 16] * 0x100
+        + bytes[payload + 17];
+      return sampleRate > 0 && totalSamples > 0 ? totalSamples / sampleRate : undefined;
+    }
+    offset = payload + length;
+    if (isLast) break;
+  }
+  return undefined;
+};
+
+export const inspectAudioContainer = (data: ArrayBuffer): AudioContainer => {
+  const bytes = new Uint8Array(data);
+  if (startsWith(bytes, [0x66, 0x4c, 0x61, 0x43])) return { name: 'FLAC', mimeType: 'audio/flac', fileExtension: '.flac', durationSeconds: flacDurationSeconds(bytes) };
+  if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x41, 0x56, 0x45], 8)) return { name: 'WAV', mimeType: 'audio/wav', fileExtension: '.wav' };
+  if (startsWith(bytes, [0x4f, 0x67, 0x67, 0x53])) return { name: 'Ogg', mimeType: 'audio/ogg', fileExtension: '.ogg' };
+  if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return { name: 'WebM', mimeType: 'audio/webm', fileExtension: '.webm' };
+  if (startsWith(bytes, [0x49, 0x44, 0x33]) || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)) return { name: 'MP3/AAC', mimeType: 'audio/mpeg', fileExtension: '.mp3' };
+  if (startsWith(bytes, [0x66, 0x74, 0x79, 0x70], 4)) return { name: 'M4A', mimeType: 'audio/mp4', fileExtension: '.m4a' };
+  return { name: '未知格式' };
+};
 
 const rms = (samples: Float32Array, start: number, end: number) => {
   let sum = 0;
@@ -40,20 +88,40 @@ export const analyzeAudioBuffer = (buffer: AudioBuffer, bucketSeconds = 0.1): Au
   return { durationSeconds: buffer.duration, bucketSeconds, energy: normalized, quietCandidates };
 };
 
-export const analyzeAudioUrl = async (url: string): Promise<AudioAnalysis> => {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`无法读取声音章节：HTTP ${response.status}`);
-  const data = await response.arrayBuffer();
+export const analyzeAudioData = async (data: ArrayBuffer, contentType = ''): Promise<AudioAnalysis> => {
+  if (!data.byteLength) throw new Error('声音文件为空，无法读取时长。');
+  if (/text\/html|application\/json/i.test(contentType)) throw new Error(`声音链接返回了 ${contentType}，没有返回音频文件。`);
+  const container = inspectAudioContainer(data);
+  if (container.name === 'FLAC') {
+    if (!container.durationSeconds) throw new Error('FLAC 文件缺少有效的 STREAMINFO 时长信息。');
+    return {
+      durationSeconds: container.durationSeconds,
+      bucketSeconds: 0.1,
+      energy: [],
+      quietCandidates: [],
+      mimeType: container.mimeType,
+      fileExtension: container.fileExtension,
+    };
+  }
   const context = new AudioContext();
   try {
-    return analyzeAudioBuffer(await context.decodeAudioData(data.slice(0)));
+    const analysis = analyzeAudioBuffer(await context.decodeAudioData(data.slice(0)));
+    return { ...analysis, mimeType: container.mimeType, fileExtension: container.fileExtension };
+  } catch (error) {
+    throw new Error(`浏览器无法读取该声音（检测到：${container.name}）。请换用 WAV、MP3 或 FLAC 文件；原有声音记录未被替换。${error instanceof Error ? ` ${error.message}` : ''}`);
   } finally {
     await context.close();
   }
 };
 
+export const analyzeAudioUrl = async (url: string): Promise<AudioAnalysis> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`无法读取声音章节：HTTP ${response.status}`);
+  return analyzeAudioData(await response.arrayBuffer(), response.headers.get('content-type') || '');
+};
+
 const boundaryEnergy = (analysis: AudioAnalysis | undefined, seconds: number) => {
-  if (!analysis) return 0;
+  if (!analysis?.energy.length) return 0;
   const index = Math.min(analysis.energy.length - 1, Math.max(0, Math.round(seconds / analysis.bucketSeconds)));
   const radius = Math.max(1, Math.round(0.3 / analysis.bucketSeconds));
   const values = analysis.energy.slice(Math.max(0, index - radius), index + radius + 1);

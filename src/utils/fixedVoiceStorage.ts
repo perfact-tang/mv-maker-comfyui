@@ -1,8 +1,4 @@
-/** Copy ComfyUI temporary output into this project's durable, content-addressed media store. */
-export const persistFixedVoiceAudio = async (audioUrl: string, voiceId: string): Promise<string> => {
-  const source = await fetch(audioUrl);
-  if (!source.ok) throw new Error(`无法保存 ${voiceId} 的固定音色：HTTP ${source.status}`);
-  const blob = await source.blob();
+export const persistFixedVoiceBlob = async (blob: Blob, voiceId: string): Promise<string> => {
   if (!blob.size) throw new Error(`${voiceId} 的固定音色为空，未替换已有音色。`);
   const response = await fetch('/api/audio/fixed-voice', {
     method: 'POST',
@@ -13,6 +9,13 @@ export const persistFixedVoiceAudio = async (audioUrl: string, voiceId: string):
   const result = await response.json() as { url?: string };
   if (!result.url?.startsWith('/uploads/audio/fixed-voices/')) throw new Error('固定音色保存结果无效。');
   return result.url;
+};
+
+/** Copy ComfyUI temporary output into this project's durable, content-addressed media store. */
+export const persistFixedVoiceAudio = async (audioUrl: string, voiceId: string): Promise<string> => {
+  const source = await fetch(audioUrl);
+  if (!source.ok) throw new Error(`无法保存 ${voiceId} 的固定音色：HTTP ${source.status}`);
+  return persistFixedVoiceBlob(await source.blob(), voiceId);
 };
 
 export const fixedVoiceReadError = (voiceId: string, status: number) => (

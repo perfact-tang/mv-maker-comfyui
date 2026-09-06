@@ -3,22 +3,28 @@ import { executeComfyWorkflow, uploadAudioToComfy } from './comfyApi';
 import { createMusic3Workflow } from './music3Workflow';
 import { createAudioAceWorkflow } from './audioAceWorkflow';
 import { createQwen3TtsWorkflow } from './qwen3TtsWorkflow';
-import { analyzeAudioUrl } from './audioAlignment';
+import { analyzeAudioData, analyzeAudioUrl } from './audioAlignment';
 import { fitTtsDuration } from './audioTempo';
 import { createQwen3VoiceCloneWorkflow, safeRefAudioMaxSeconds } from './qwen3VoiceCloneWorkflow';
 import { shouldUseQwen3VoiceClone } from './voiceCloneProfile';
-import { fixedVoiceReadError, persistFixedVoiceAudio } from './fixedVoiceStorage';
+import { fixedVoiceReadError, persistFixedVoiceAudio, persistFixedVoiceBlob } from './fixedVoiceStorage';
 
 export { fitTtsDuration } from './audioTempo';
 
 export const makeGeneratedFixedVoiceReference = async (audioUrl: string, voiceId: string): Promise<VoiceReferenceAudio> => {
-  const persistentUrl = await persistFixedVoiceAudio(audioUrl, voiceId);
-  const analysis = await analyzeAudioUrl(persistentUrl);
+  // Read ComfyUI's response once. Re-fetching the newly written public URL can race Vite's SPA fallback and return index.html.
+  const source = await fetch(audioUrl);
+  if (!source.ok) throw new Error(`无法读取 ${voiceId} 的新音色：HTTP ${source.status}`);
+  const blob = await source.blob();
+  if (!blob.size) throw new Error(`${voiceId} 的新音色为空，未替换已有音色。`);
+  const analysis = await analyzeAudioData(await blob.arrayBuffer(), blob.type || source.headers.get('content-type') || '');
+  const persistentUrl = await persistFixedVoiceBlob(blob, voiceId);
   const durationSeconds = Number(analysis.durationSeconds.toFixed(3));
+  const extension = analysis.fileExtension || '.wav';
   return {
     data_url: persistentUrl,
-    filename: `${voiceId.replace(/[^a-zA-Z0-9_-]/g, '_')}-fixed-voice.wav`,
-    mime_type: 'audio/wav',
+    filename: `${voiceId.replace(/[^a-zA-Z0-9_-]/g, '_')}-fixed-voice${extension}`,
+    mime_type: analysis.mimeType || 'audio/wav',
     duration_seconds: durationSeconds,
     ref_audio_max_seconds: safeRefAudioMaxSeconds(durationSeconds),
     source: 'generated-fixed-voice',

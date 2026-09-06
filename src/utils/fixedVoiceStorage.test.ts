@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { persistFixedVoiceAudio, fixedVoiceReadError } from './fixedVoiceStorage';
-import { recoverFixedVoiceReference } from './audioProduction';
+import { persistFixedVoiceAudio, persistFixedVoiceBlob, fixedVoiceReadError } from './fixedVoiceStorage';
+import { makeGeneratedFixedVoiceReference, recoverFixedVoiceReference } from './audioProduction';
 import type { VoiceProfile } from '../types/mv-data';
 
 const run = async () => {
@@ -45,6 +45,30 @@ const run = async () => {
     await assert.rejects(() => persistFixedVoiceAudio('/missing', 'voice'), /404/);
     globalThis.fetch = async () => new Response(new Uint8Array());
     await assert.rejects(() => persistFixedVoiceAudio('/empty', 'voice'), /为空/);
+    calls.length = 0;
+    globalThis.fetch = (async (url, options) => {
+      calls.push(String(url));
+      assert.equal(url, '/api/audio/fixed-voice');
+      assert.equal((options?.body as Blob).size, 3);
+      return Response.json({ url: persistent });
+    }) as typeof fetch;
+    assert.equal(await persistFixedVoiceBlob(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/flac' }), 'voice'), persistent);
+    assert.deepEqual(calls, ['/api/audio/fixed-voice'], 'persisting an existing Blob does not re-fetch a newly written public URL');
+    const flac = new Uint8Array(42);
+    flac.set([0x66, 0x4c, 0x61, 0x43, 0x80, 0, 0, 34]);
+    flac.set([0x05, 0xdc, 0x00, 0xf0, 0x00, 0x01, 0x5f, 0x90], 18); // 24 kHz, 90,000 samples = 3.75 s
+    calls.length = 0;
+    globalThis.fetch = (async (url) => {
+      calls.push(String(url));
+      return url === '/comfy-output.flac'
+        ? new Response(flac, { headers: { 'content-type': 'audio/flac' } })
+        : Response.json({ url: persistent });
+    }) as typeof fetch;
+    const created = await makeGeneratedFixedVoiceReference('/comfy-output.flac', 'VOICE-NEW');
+    assert.equal(created.duration_seconds, 3.75);
+    assert.equal(created.mime_type, 'audio/flac');
+    assert(created.filename.endsWith('.flac'));
+    assert.deepEqual(calls, ['/comfy-output.flac', '/api/audio/fixed-voice'], 'fixed voice creation performs no public-URL re-fetch after saving');
     assert(fixedVoiceReadError('VOICE-CHAR-001', 404).includes('已有镜头配音不会删除'));
     console.log('PASS durable fixed voice storage, reboot recovery, mismatch and failure safety');
   } finally {
