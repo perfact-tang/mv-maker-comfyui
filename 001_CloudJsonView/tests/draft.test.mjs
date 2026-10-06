@@ -1,0 +1,54 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { parseProject, characters, audio, storyboard } from '../website/viewer.js';
+import { editProject, serializeDraft, restoreDraft, exportProject, draftKey } from '../website/draft.js';
+import { speechEntries } from '../website/speech.js';
+const sample = JSON.parse(await readFile(new URL('../website/sample-project.json', import.meta.url), 'utf8'));
+
+test('editing survives draft restoration and preserves archive metadata and unknown fields', () => {
+  const root = structuredClone(sample);
+  root.extra_metadata = { untouched: 'keep me' };
+  const document = parseProject(root);
+  const shot = document.project.storyboard[2].mvinfo[1];
+  assert.equal(editProject(document.project, 'characters.0.description', '新的设定\n第二行'), true);
+  assert.equal(editProject(document.project, 'storyboard.2.mvinfo.1.dialogue', 'New dialogue'), true);
+  assert.equal(editProject(document.project, 'storyboard.2.mvinfo.1.video_prompt', 'detailed_description: New prompt'), true);
+  assert.equal(shot.audio_plan.audio_text, 'New dialogue');
+  assert.equal(shot.lyrics, 'New dialogue');
+  const restored = restoreDraft(serializeDraft(document, 'example.json', { activeTab: 'storyboard', segment: '2' }));
+  assert.equal(restored.view.segment, '2');
+  const exported = JSON.parse(exportProject(restored.document));
+  assert.equal(exported.project.characters[0].description, '新的设定\n第二行');
+  assert.equal(exported.project.storyboard[2].mvinfo[1].video_prompt, 'detailed_description: New prompt');
+  assert.deepEqual(exported.extra_metadata, root.extra_metadata);
+  assert.deepEqual(exported.generation_settings, sample.generation_settings);
+  assert.equal(exported.schema_version, sample.schema_version);
+  assert.equal(speechEntries(restored.document.project, 'audio')[7].text, 'New dialogue');
+});
+test('legacy root exports without an archive wrapper; empty fields persist; invalid paths cannot edit other data', () => {
+  const document = parseProject(structuredClone(sample.project));
+  assert.equal(editProject(document.project, 'characters.0.description', ''), true);
+  assert.equal(editProject(document.project, 'storyboard.0.mvinfo.0.dialogue', ''), true);
+  assert.equal(editProject(document.project, 'characters.99.description', 'oops'), false);
+  assert.equal(editProject(document.project, '__proto__.description', 'oops'), false);
+  const exported = JSON.parse(exportProject(restoreDraft(serializeDraft(document, 'legacy.json', {})).document));
+  assert.equal(exported.project, undefined);
+  assert.equal(exported.characters[0].description, '');
+  assert.equal(exported.storyboard[0].mvinfo[0].audio_plan.audio_text, '');
+  assert.notEqual(draftKey('user-a'), draftKey('user-b'));
+});
+test('primary fields are visible, escaped editors; dialogue is one column and secondary sound comes last', () => {
+  const project = structuredClone(sample.project);
+  project.characters[0].description = '</textarea><img src=x onerror=alert(1)>';
+  const people = characters(project), sounds = audio(project), shots = storyboard(project, { segment: '2' });
+  assert.ok(people.includes('&lt;/textarea&gt;'));
+  assert.ok(!people.includes('<img src=x'));
+  assert.match(people, /data-edit="characters.0.description"/);
+  assert.ok(!people.includes('人物参考板 · 暂无素材'));
+  assert.ok(sounds.indexOf('逐镜头声音') < sounds.indexOf('固定音色'));
+  assert.ok(!sounds.slice(0, sounds.indexOf('固定音色与音乐章节')).includes('grid-cols-2'));
+  assert.match(shots, /data-edit="storyboard.2.mvinfo.0.video_prompt"/);
+  assert.ok(!shots.includes('首帧 · 暂无素材'));
+  assert.match(shots, /data-copy=/);
+});

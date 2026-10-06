@@ -1,10 +1,12 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 import { parseProject, shotsOf, overview, characters, audio, storyboard } from './viewer.js';
+import { draftKey, serializeDraft, restoreDraft, exportProject, editProject } from './draft.js';
 import { SpeechReader, speechEntries, SPEECH_LANGUAGES, selectVoice } from './speech.js';
 
 const $ = (id) => document.getElementById(id);
-let auth, currentUser = null, documentProject = null, activeTab = 'overview', importId = 0;
+let auth, currentUser = null, documentProject = null, activeTab = 'overview', importId = 0, projectFilename = '';
+const validTabs = ['overview', 'characters', 'audio', 'storyboard'];
 const reader = new SpeechReader({ synth: window.speechSynthesis, Utterance: window.SpeechSynthesisUtterance, onState: updateSpeechControls });
 try { const saved = localStorage.getItem('aimovieview-speech-language'); if (saved in SPEECH_LANGUAGES) $('speech-language').value = saved; } catch { /* Storage may be unavailable in private browsing. */ }
 function currentSpeechEntries() {
@@ -36,6 +38,72 @@ $('speech-language').addEventListener('change', () => { reader.stop(); try { loc
 $('read-all').addEventListener('click', () => { $('content').querySelectorAll('audio,video').forEach((element) => element.pause()); reader.play(currentSpeechEntries(), $('speech-language').value); });
 $('pause-speech').addEventListener('click', () => reader.togglePause());
 $('stop-speech').addEventListener('click', () => reader.stop());
+function viewState() {
+  return { activeTab, search: $('search').value, segment: $('segment-filter').value, mode: $('mode-filter').value };
+}
+function saveDraft() {
+  if (!currentUser || !documentProject) return;
+  try {
+    localStorage.setItem(draftKey(currentUser.uid), serializeDraft(documentProject, projectFilename, viewState()));
+    $('save-status').textContent = '已自动保存到本地';
+  } catch {
+    $('save-status').textContent = '本地保存失败（存储已满或不可用），请导出 JSON 保存修改。';
+  }
+}
+function restoreSavedProject() {
+  try {
+    const saved = localStorage.getItem(draftKey(currentUser.uid));
+    if (!saved) return;
+    const draft = restoreDraft(saved);
+    setProject(draft.document, draft.filename);
+    activeTab = validTabs.includes(draft.view.activeTab) ? draft.view.activeTab : 'overview';
+    $('search').value = typeof draft.view.search === 'string' ? draft.view.search : '';
+    $('segment-filter').value = String(draft.view.segment ?? '');
+    $('mode-filter').value = draft.view.mode ?? '';
+    $('notice').textContent = `已恢复 ${draft.filename}`;
+    $('save-status').textContent = '已恢复本地草稿';
+    render();
+  } catch {
+    $('file-error').textContent = '本地草稿无法恢复，请重新导入项目 JSON。';
+  }
+}
+function openImportedProject(parsed, filename) {
+  setProject(parsed, filename);
+  // A successful import replaces this user's complete draft, including filters.
+  try { localStorage.removeItem(draftKey(currentUser.uid)); } catch { /* saveDraft reports storage failures. */ }
+  saveDraft();
+}
+$('content').addEventListener('input', (event) => {
+  const field = event.target.closest('textarea[data-edit]');
+  if (!field || !documentProject || !currentUser) return;
+  if (!editProject(documentProject.project, field.dataset.edit, field.value)) return;
+  reader.stop();
+  saveDraft();
+  updateSpeechControls();
+});
+$('content').addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-copy]');
+  if (!button) return;
+  const field = $(button.dataset.copy);
+  if (!field) return;
+  try {
+    await navigator.clipboard.writeText(field.value);
+    button.textContent = '已拷贝';
+    setTimeout(() => { if (button.isConnected) button.textContent = '拷贝'; }, 1500);
+  } catch {
+    field.focus(); field.select();
+    $('file-error').textContent = '拷贝失败，文字已选中，请手动复制。';
+  }
+});
+$('export-button').addEventListener('click', () => {
+  if (!documentProject || !currentUser) return;
+  const url = URL.createObjectURL(new Blob([exportProject(documentProject)], { type: 'application/json;charset=utf-8' }));
+  const link = document.createElement('a');
+  const name = (projectFilename.replace(/\.json$/i, '') || documentProject.project.direction_name || 'project').replace(/[\\/:*?"<>|]/g, '_');
+  link.href = url; link.download = `${name}-edited.json`;
+  document.body.append(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 $('content').addEventListener('click', (event) => {
   const button = event.target.closest('[data-read]');
   if (!button || button.disabled) return;
@@ -64,13 +132,15 @@ async function connectAuth() {
     if (config.projectId !== 'vibecodingjapan') throw new Error('Firebase 项目配置不正确。');
     auth = getAuth(initializeApp(config));
     onAuthStateChanged(auth, (user) => {
+      const previousUid = currentUser?.uid;
       currentUser = user;
       $('loading').hidden = true;
       $('login').hidden = Boolean(user);
       $('workspace').hidden = !user;
       $('password').value = '';
       $('user-label').textContent = user?.displayName || user?.email || '';
-      if (!user) { reader.stop(); importId++; documentProject = null; $('content').replaceChildren(); $('project').hidden = true; $('empty').hidden = false; }
+      if (!user) { reader.stop(); importId++; documentProject = null; $('content').replaceChildren(); $('project').hidden = true; $('empty').hidden = false; $('export-button').disabled = true; $('save-status').textContent = ''; }
+      else if (previousUid !== user.uid) restoreSavedProject();
     }, showConnectionError);
   } catch (error) { showConnectionError(error); }
 }
@@ -92,7 +162,8 @@ $('logout').addEventListener('click', async () => { try { await signOut(auth); $
 
 function setProject(parsed, filename) {
   reader.stop();
-  documentProject = parsed; activeTab = 'overview';
+  documentProject = parsed; projectFilename = filename; activeTab = 'overview';
+  $('export-button').disabled = false;
   const project = parsed.project, director = project.director_plan ?? {};
   $('project-title').textContent = project.direction_name;
   $('project-meta').textContent = `PROJECT ${String(project.proposal_id ?? '').padStart(3, '0')} / ${director.content_form ?? '创作项目'}`;
@@ -121,10 +192,10 @@ function render() {
   $('content').querySelectorAll('[data-media]').forEach((element) => element.addEventListener('error', () => { const message = document.createElement('p'); message.className = 'rounded-lg bg-gray-100 p-4 text-xs text-gray-500'; message.textContent = '素材无法加载：原地址可能已失效或不可公开访问。'; element.replaceWith(message); }, { once: true }));
 }
 document.querySelectorAll('[data-tab]').forEach((element, index, tabs) => {
-  element.addEventListener('click', () => { activeTab = element.dataset.tab; render(); });
+  element.addEventListener('click', () => { activeTab = element.dataset.tab; render(); saveDraft(); });
   element.addEventListener('keydown', (event) => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) { event.preventDefault(); const target = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[target].focus(); tabs[target].click(); } });
 });
-['search', 'segment-filter', 'mode-filter'].forEach((id) => $(id).addEventListener('input', render));
+['search', 'segment-filter', 'mode-filter'].forEach((id) => $(id).addEventListener('input', () => { render(); saveDraft(); }));
 $('import-button').addEventListener('click', () => $('file-input').click());
 async function importFile(file) {
   if (!currentUser || !file) return;
@@ -133,7 +204,7 @@ async function importFile(file) {
     if (!file.name.toLowerCase().endsWith('.json')) throw new Error('请选择 JSON 文件。');
     if (file.size > 100 * 1024 * 1024) throw new Error('文件超过 100 MB，请使用较小的项目存档。');
     const parsed = parseProject(await file.text());
-    if (id === importId && currentUser) setProject(parsed, file.name);
+    if (id === importId && currentUser) openImportedProject(parsed, file.name);
   } catch (error) { if (id === importId) $('file-error').textContent = error instanceof SyntaxError ? 'JSON 无法解析，请检查文件格式。' : error.message; }
   $('file-input').value = '';
 }
@@ -142,7 +213,7 @@ document.addEventListener('dragover', (event) => { if (currentUser) event.preven
 document.addEventListener('drop', (event) => { if (currentUser) { event.preventDefault(); void importFile(event.dataTransfer.files[0]); } });
 $('load-sample').addEventListener('click', async () => {
   const id = ++importId; $('load-sample').disabled = true;
-  try { const response = await fetch('/sample-project.json'); if (!response.ok) throw new Error('示例加载失败。'); const parsed = parseProject(await response.text()); if (id === importId && currentUser) setProject(parsed, 'Pet Together · 示例项目'); }
+  try { const response = await fetch('/sample-project.json'); if (!response.ok) throw new Error('示例加载失败。'); const parsed = parseProject(await response.text()); if (id === importId && currentUser) openImportedProject(parsed, 'Pet Together · 示例项目'); }
   catch (error) { if (id === importId) $('file-error').textContent = error.message; }
   finally { $('load-sample').disabled = false; }
 });

@@ -23,10 +23,10 @@ export function speechEntries(project, tab, filters = {}) {
   if (tab === 'audio') {
     const plan = project.director_plan?.audio_plan ?? {};
     return [
+      ...shots.map(({ shot, key }) => ({ key: `dialogue-${key}`, label: `${shot.shot_id || '镜头'} 台词`, text: dialogue(shot.audio_plan?.audio_text ?? shot.lyrics) })),
       ...(plan.narrator_voice ? [{ key: 'voice-narrator', label: '旁白台词', text: dialogue(plan.narrator_voice.reference_text) }] : []),
       ...project.characters.flatMap((character, index) => character.voice_profile ? [{ key: `voice-character-${index}`, label: `${character.name} 台词`, text: dialogue(character.voice_profile.reference_text) }] : []),
       ...(plan.chapters ?? []).map((chapter, index) => ({ key: `chapter-${index}`, label: chapter.title || chapter.chapter_id, text: chapter.generation_mode === 'vocal' ? dialogue(chapter.lyrics) : '' })),
-      ...shots.map(({ shot, key }) => ({ key: `dialogue-${key}`, label: `${shot.shot_id || '镜头'} 台词`, text: dialogue(shot.audio_plan?.audio_text ?? shot.lyrics) })),
     ];
   }
   if (tab === 'storyboard') return shots.filter(({ shot, segmentIndex }) =>

@@ -4,7 +4,7 @@
 
 @layer base {
   body { @apply bg-paper text-ink antialiased; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif; }
-  button, input, select { @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent; }
+  button, input, select, textarea { @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent; }
   button:disabled { @apply cursor-not-allowed opacity-40; }
   summary { @apply cursor-pointer; }
   audio { max-width: 100%; }
@@ -12,6 +12,12 @@
 @layer components {
   .primary { @apply rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-800; }
   .secondary { @apply rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:bg-gray-50; }
+  .export-button { @apply rounded-lg bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700; }
+  .editor-block { @apply mt-5; }
+  .editor-heading { @apply mb-3 flex items-center justify-between gap-3; }
+  .copy-button { @apply shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:border-accent hover:text-accent; }
+  .prompt-editor { @apply block w-full resize-y rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm leading-7 text-ink transition focus:border-accent; min-height: 7rem; max-height: 36rem; overflow-y: auto; }
+  .dialogue-list { @apply block; }
   .field { @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm; }
   .eyebrow { @apply text-xs font-semibold uppercase tracking-widest text-accent; }
   .muted { @apply text-sm leading-7 text-gray-500; }
