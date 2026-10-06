@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { detailedDescription, dialogue, speechEntries, speechChunks, selectVoice, SpeechReader } from '../website/speech.js';
+import { detailedDescription, dialogue, speechEntries, selectVoice, SpeechReader } from '../website/speech.js';
 import { characters, audio, storyboard } from '../website/viewer.js';
 
 const { project } = JSON.parse(await readFile(new URL('../website/sample-project.json', import.meta.url), 'utf8'));
@@ -30,11 +30,12 @@ test('each eligible section has a matching speech entry and music instructions a
   assert.equal(dialogue('(No dialogue)'), '');
   assert.equal(dialogue('Hello.'), 'Hello.');
 });
-test('long Unicode text is chunked without losing non-whitespace characters', () => {
+test('long Unicode sections retain their full text and intonation context', () => {
   const source = '人物设定🐈：每一个视角应保持一致。 English sentence! 한국어。\n'.repeat(100);
-  const chunks = speechChunks(source);
-  assert.ok(chunks.every((chunk) => Array.from(chunk).length <= 180));
-  assert.equal(chunks.join('').replace(/\s/g, ''), source.replace(/\s/g, ''));
+  const { reader, spoken } = fixture();
+  reader.play([{ key: 'long', label: '长设定', text: source }], 'zh-CN');
+  assert.equal(spoken.length, 1);
+  assert.equal(spoken[0].text, source.trim());
 });
 function fixture(voices = [{ lang: 'zh-CN', localService: true }]) {
   const spoken = [], events = [];
@@ -69,4 +70,21 @@ test('voice selection prefers matching language; unsupported/missing voices and 
   assert.equal(reader.state.active, false); assert.match(reader.state.message, /未能完成/);
   const unavailable = new SpeechReader({});
   unavailable.play([{ text: '你好' }], 'zh-CN'); assert.match(unavailable.state.message, /不支持/);
+});
+test('preferred voices match VibeIdeaHelper even when other local voices appear first', () => {
+  for (const [language, name] of [['zh-CN', 'Ting-Ting'], ['ja-JP', 'Kyoko'], ['ko-KR', 'Yuna'], ['en-US', 'Samantha']]) {
+    const voices = [{ name: 'Other local voice', lang: language, localService: true }, { name, lang: language }];
+    assert.equal(selectVoice(voices, language).name, name);
+  }
+  assert.equal(selectVoice([{ name: 'Ting Ting', lang: 'zh-CN' }], 'zh-CN').name, 'Ting Ting');
+  assert.equal(selectVoice([{ name: 'Japanese', lang: '' }], 'ja-JP').name, 'Japanese');
+  const { reader, spoken } = fixture([{ name: 'Samantha', lang: 'en-GB' }]);
+  reader.play([{ text: 'Hello.' }], 'en-US');
+  assert.equal(spoken[0].lang, 'en-GB');
+});
+test('late voice loading never silently falls back to the default language', () => {
+  const { reader, spoken } = fixture([]);
+  reader.play([{ text: '你好。' }], 'zh-CN');
+  assert.equal(spoken.length, 0);
+  assert.match(reader.state.message, /尚未加载/);
 });

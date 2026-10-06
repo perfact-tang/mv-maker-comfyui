@@ -35,4 +35,6 @@ npx -y firebase-tools@latest deploy --only hosting --project vibecodingjapan
 
 Firebase 配置从 Hosting 的 `/__/firebase/init.json` 自动读取；使用项目已有 Auth 用户和登录提供方，不建立新的 Firebase 项目。Auth 授权域名需要包含 `aimovieview.web.app` 与 `aimovieview.firebaseapp.com`。Firebase SDK 通过 Google 官方 CDN 加载。
 
-语音使用浏览器 Web Speech API 和设备可用语音；语言选择切换朗读语音，不翻译 JSON 原文。声音页朗读旁白和人物的参考台词、带人声章节的歌词及逐镜头台词，不朗读纯音乐制作说明。分镜优先提取 `detailed_description`，兼容旧镜头的 `integrated_multimodal_description`，不朗读其余协议字段。缺少文字的条目会跳过；设备缺少所选语言语音时会提示。长文本分段连续播放，换页、换语言、加载新项目或退出登录会停止旧队列。
+语音使用浏览器 Web Speech API 和设备可用语音；语言选择切换朗读语音，不翻译 JSON 原文。声音页朗读旁白和人物的参考台词、带人声章节的歌词及逐镜头台词，不朗读纯音乐制作说明。分镜优先提取 `detailed_description`，兼容旧镜头的 `integrated_multimodal_description`，不朗读其余协议字段。缺少文字的条目会跳过；设备缺少所选语言语音时会提示。每节使用完整文本朗读，整页在各节之间顺序连续播放，换页、换语言、加载新项目或退出登录会停止旧队列。
+
+语音选择沿用 `04_VibeIdeaHelper`：优先 Kyoko（日文）、Ting-Ting／Ting Ting（中文）、Yuna（韩文）、Samantha（英文）；缺少指定语音时依次按精确语言、语言族和语音名称匹配。页面显示实际语音名称。

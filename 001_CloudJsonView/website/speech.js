@@ -37,28 +37,23 @@ export function speechEntries(project, tab, filters = {}) {
   return [];
 }
 
-export function speechChunks(text, limit = 180) {
-  let remaining = Array.from(String(text ?? '').trim());
-  const chunks = [];
-  while (remaining.length) {
-    let end = Math.min(limit, remaining.length);
-    if (end < remaining.length) {
-      for (let index = end - 1; index >= Math.floor(limit / 3); index--) {
-        if (/[。！？.!?；;，,\n\s]/u.test(remaining[index])) { end = index + 1; break; }
-      }
-    }
-    const chunk = remaining.splice(0, end).join('').trim();
-    if (chunk) chunks.push(chunk);
-  }
-  return chunks;
-}
-
 export function selectVoice(voices, language) {
-  const normalize = (value) => value.toLowerCase().replaceAll('_', '-');
-  const exact = voices.filter((voice) => normalize(voice.lang) === normalize(language));
-  const sameLanguage = voices.filter((voice) => normalize(voice.lang).split('-')[0] === language.split('-')[0]);
-  const choices = exact.length ? exact : sameLanguage;
-  return choices.find((voice) => voice.localService) ?? choices[0];
+  // Match 04_VibeIdeaHelper's chooseVoice: named macOS voice, exact locale,
+  // language family, then a language/name hint. Never prefer an arbitrary
+  // localService voice over the familiar voice used by the reference app.
+  const names = { 'ja-JP': ['Kyoko'], 'zh-CN': ['Ting-Ting', 'Ting Ting'], 'ko-KR': ['Yuna'], 'en-US': ['Samantha'] };
+  const hints = {
+    'ja-JP': ['japanese', '日本', 'kyoko'],
+    'zh-CN': ['chinese', '中文', '普通话', 'mandarin', 'ting'],
+    'ko-KR': ['korean', '한국', 'yuna'],
+    'en-US': ['english', 'samantha'],
+  };
+  const normalize = (value) => String(value ?? '').toLowerCase().replaceAll('_', '-');
+  const preferred = voices.find((voice) => (names[language] ?? []).some((name) => normalize(voice.name).includes(normalize(name))));
+  return preferred
+    ?? voices.find((voice) => normalize(voice.lang) === normalize(language))
+    ?? voices.find((voice) => normalize(voice.lang).split('-')[0] === normalize(language).split('-')[0])
+    ?? voices.find((voice) => (hints[language] ?? []).some((hint) => normalize(voice.name).includes(hint)));
 }
 
 export class SpeechReader {
@@ -83,9 +78,12 @@ export class SpeechReader {
     const items = entries.filter((entry) => entry.text?.trim());
     if (!items.length) { this.update({ message: '当前没有可朗读的文字。' }); return; }
     const voices = this.synth.getVoices();
+    if (!voices.length) { this.update({ message: '设备语音尚未加载，请稍后再次点击朗读。' }); return; }
     const voice = selectVoice(voices, language);
-    if (voices.length && !voice) { this.update({ message: `设备未提供${SPEECH_LANGUAGES[language]}语音，请安装该语言语音或选择其他语言。` }); return; }
-    const queue = items.flatMap((entry, index) => speechChunks(entry.text).map((text) => ({ ...entry, text, index })));
+    if (!voice) { this.update({ message: `设备未提供${SPEECH_LANGUAGES[language]}语音，请安装该语言语音或选择其他语言。` }); return; }
+    // Speak a whole section, as in VibeIdeaHelper, to retain sentence context
+    // and natural intonation. Read-all advances only when that section ends.
+    const queue = items.map((entry, index) => ({ ...entry, text: entry.text.trim(), index }));
     const run = this.run;
     const next = () => {
       if (run !== this.run) return;
@@ -93,8 +91,8 @@ export class SpeechReader {
       if (!chunk) { this.utterance = null; this.update({ active: false, paused: false, key: '', message: '朗读完成。' }); return; }
       this.update({ active: true, paused: false, key: chunk.key, message: `正在朗读 ${chunk.index + 1}/${items.length} · ${chunk.label}` });
       const utterance = new this.Utterance(chunk.text);
-      utterance.lang = language;
-      utterance.voice = voice ?? selectVoice(this.synth.getVoices(), language) ?? null;
+      utterance.voice = voice;
+      utterance.lang = voice.lang || language;
       utterance.rate = 1;
       utterance.onend = next;
       utterance.onerror = (event) => {

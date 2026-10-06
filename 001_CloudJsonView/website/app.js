@@ -26,9 +26,11 @@ function updateSpeechControls(state = reader.state) {
 function updateVoiceHint() {
   const language = $('speech-language').value;
   const voices = reader.supported ? window.speechSynthesis.getVoices() : [];
-  $('speech-hint').textContent = !reader.supported ? '当前浏览器不支持语音朗读。' : voices.length && !selectVoice(voices, language)
-    ? `设备未提供${SPEECH_LANGUAGES[language]}语音，请安装该语言语音或选择其他语言。`
-    : '使用所选语言的语音朗读原文，不自动翻译。';
+  const voice = selectVoice(voices, language);
+  $('speech-hint').textContent = !reader.supported ? '当前浏览器不支持语音朗读。'
+    : !voices.length ? '正在加载设备语音…'
+    : !voice ? `设备未提供${SPEECH_LANGUAGES[language]}语音，请安装该语言语音或选择其他语言。`
+    : `朗读语音：${voice.name || SPEECH_LANGUAGES[language]} · 原文朗读，不自动翻译。`;
 }
 $('speech-language').addEventListener('change', () => { reader.stop(); try { localStorage.setItem('aimovieview-speech-language', $('speech-language').value); } catch { /* Optional preference. */ } updateVoiceHint(); });
 $('read-all').addEventListener('click', () => { $('content').querySelectorAll('audio,video').forEach((element) => element.pause()); reader.play(currentSpeechEntries(), $('speech-language').value); });
