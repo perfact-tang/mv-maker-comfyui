@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-paper text-ink antialiased; font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif; }
+  button, input, select { @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent; }
+  button:disabled { @apply cursor-not-allowed opacity-40; }
+  summary { @apply cursor-pointer; }
+  audio { max-width: 100%; }
+}
+@layer components {
+  .primary { @apply rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-white transition hover:bg-green-800; }
+  .secondary { @apply rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium transition hover:bg-gray-50; }
+  .field { @apply w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-widest text-accent; }
+  .muted { @apply text-sm leading-7 text-gray-500; }
+  .tab { @apply whitespace-nowrap border-b-2 border-transparent px-1 py-4 text-sm text-gray-500 transition hover:text-ink; }
+  .tab[aria-selected='true'] { @apply border-accent font-semibold text-accent; }
+  .detail { @apply border-t border-gray-200 py-4 text-sm; }
+  .detail pre { @apply mt-3 whitespace-pre-wrap break-words font-sans text-sm leading-7 text-gray-600; }
+  .media-empty { @apply flex aspect-video items-center justify-center rounded-lg bg-gray-100 text-sm text-gray-400; }
+  .fade-in { animation: enter .25s ease-out; }
+}
+[hidden] { display: none !important; }
+@keyframes enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

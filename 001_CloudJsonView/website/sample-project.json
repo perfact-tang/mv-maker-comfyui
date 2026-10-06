@@ -1,0 +1,1010 @@
+{
+  "schema": "mv-maker-project",
+  "schema_version": 4,
+  "exported_at": "2026-10-06T04:54:23.536Z",
+  "project": {
+    "proposal_id": 1,
+    "direction_name": "Pet Together — Every Little Thing, Together",
+    "director_plan": {
+      "source_type": "product_copy",
+      "content_form": "promo",
+      "model": "minimax-h3",
+      "aspect_ratio": "16:9",
+      "total_duration_seconds": 180,
+      "allowed_clip_durations_seconds": [
+        5,
+        10,
+        15
+      ],
+      "style_name": "温暖童话感可爱3D动画",
+      "style_rationale": "猫的第一视角把照顾焦虑化为可见的小误会；中段用真实应用界面展示共享状态、分工与用药记录。",
+      "narrative_strategy": "前60秒建立四种照顾焦虑；中间90秒以真实手机界面逐步解决；最后30秒回到两只猫的安稳日常。",
+      "source_coverage_note": "用户提供的两只三花猫、男女主人、喂饭、驱虫、吃药、错药、重复给药、共享状态、分工和温馨结尾均映射至镜头；所有广告旁白和屏幕文案为英语。",
+      "visual_style_lock": {
+        "style_id": "PT-3D-STORYBOOK-01",
+        "style_name": "温暖童话感可爱3D动画",
+        "shared_style_prefix": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。",
+        "shared_negative_prompt": "禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+        "character_sheet_layout": "横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。",
+        "preferred_image_workflow": "Z-Image-Turbo"
+      },
+      "audio_plan": {
+        "mode": "qwen3-tts-audio-first",
+        "workflow": "千问 3 TTS",
+        "music_workflow": "Audio ACE Step 1.5",
+        "music_enabled": true,
+        "production_style": "spoken-word",
+        "alignment_status": "planned",
+        "narrator_voice": {
+          "voice_id": "VOICE-NARRATOR",
+          "speaker_label": "(S1)",
+          "instruct": "英语旁白；用Mochi第一人称的内心声音，年轻、轻柔、温暖，先有一点担心，随后舒展；吐字清晰、自然、不唱歌。",
+          "reference_text": "Sometimes I wonder if they remember all the little things. Then we learned to care together.",
+          "language": "English",
+          "seed": 729754692978412,
+          "generation_mode": "voice-design",
+          "reference_language": "auto",
+          "status": "idle"
+        },
+        "chapters": [
+          {
+            "chapter_id": "AUDIO-001",
+            "title": "Little worries",
+            "target_duration_seconds": 60,
+            "music_workflow": "Audio ACE Step 1.5",
+            "generation_mode": "instrumental",
+            "caption": "温柔带一点疑问的室内电影配乐；轻敲木琴、拨弦大提琴、毛毡钢琴为主，钟琴和刷奏打击为辅；稀疏四分音符脉冲，近距离干净空间；从好奇到略紧张，但不惊吓；避开英语旁白中频，末尾留半拍悬念。",
+            "tags": "cinematic chamber, curious, gentle tension, felt piano, pizzicato cello, glockenspiel, intimate mix,warm indie cinematic, reassuring, felt piano, acoustic guitar, soft synth pulse, light strings, clean mix",
+            "lyrics": "[Instrumental]\n[Intro] (0-15秒：单音毛毡钢琴和极轻室内气息，疏而稳)\n[Build] (15-35秒：拨弦大提琴进入，细刷打击制造时钟感，能量缓升)\n[Climax] (35-50秒：木琴与钟琴短句交错，略紧张但不恐怖，留出旁白空间)\n[Outro] (50-60秒：乐器逐层退出，保留一个待解和弦接下一章)",
+            "bpm": 88,
+            "time_signature": "4",
+            "language": "en",
+            "key_scale": "A minor",
+            "shot_refs": [
+              "SHOT-001",
+              "SHOT-002",
+              "SHOT-003",
+              "SHOT-004",
+              "SHOT-005",
+              "SHOT-006"
+            ],
+            "status": "idle"
+          },
+          {
+            "chapter_id": "AUDIO-002",
+            "title": "A shared plan",
+            "target_duration_seconds": 90,
+            "music_workflow": "Audio ACE Step 1.5",
+            "generation_mode": "instrumental",
+            "caption": "清晰而温暖的轻巧电子室内乐；毛毡钢琴和柔和木吉他主导，轻拍手、细合成器脉冲与弦乐铺底；中等节奏密度，干净开阔的室内空间；随着每次手机操作逐步明亮，始终让英语旁白与界面提示清楚可听；在150秒处平顺转向抒情。",
+            "tags": "warm indie cinematic, reassuring, felt piano, acoustic guitar, soft synth pulse, light strings, clean mix",
+            "lyrics": "[Instrumental]\n[Intro] (0-20秒：钢琴给出清楚的四音动机，吉他轻点，低能量)\n[Build] (20-50秒：温和节拍与合成器脉冲进入，配合界面逐项出现，保持语音频段空白)\n[Climax] (50-75秒：弦乐和声扩大，轻拍手突出共享完成瞬间，不压旁白)\n[Outro] (75-90秒：脉冲退出，钢琴与吉他柔和收束并接续下一章)",
+            "bpm": 102,
+            "time_signature": "4",
+            "language": "en",
+            "key_scale": "C major",
+            "shot_refs": [
+              "SHOT-007",
+              "SHOT-008",
+              "SHOT-009",
+              "SHOT-010",
+              "SHOT-011",
+              "SHOT-012",
+              "SHOT-013",
+              "SHOT-014",
+              "SHOT-015"
+            ],
+            "status": "idle"
+          },
+          {
+            "chapter_id": "AUDIO-003",
+            "title": "Home, together",
+            "target_duration_seconds": 30,
+            "music_workflow": "MiniMax Music 3",
+            "generation_mode": "instrumental",
+            "caption": "温暖舒展的童话室内乐；原声钢琴主旋律、轻柔弦乐与低音木吉他支撑、极淡铃音点缀；慢速宽呼吸节奏、柔软客厅空间；从安稳午后到拥抱般高潮，再淡入品牌尾声；英语旁白中频留白，完全无演唱。",
+            "tags": "warm cinematic, tender, acoustic piano, soft strings, gentle guitar, spacious mix",
+            "lyrics": "[Instrumental]\n[Intro] (0-7秒：钢琴缓慢重现前章动机，柔和空间混响)\n[Build] (7-16秒：弦乐和木吉他轻轻进入，保持宽松呼吸)\n[Climax] (16-24秒：最饱满但不过度宏大的和弦，突出猫咪安稳睡姿)\n[Outro] (24-30秒：乐器逐渐退去，一颗柔和铃音与干净尾韵)",
+            "bpm": 80,
+            "time_signature": "4",
+            "language": "en",
+            "key_scale": "C major",
+            "shot_refs": [
+              "SHOT-016",
+              "SHOT-017",
+              "SHOT-018"
+            ],
+            "status": "idle"
+          }
+        ],
+        "tts_language": "English"
+      }
+    },
+    "characters": [
+      {
+        "name": "Mochi",
+        "role": "浅色三花猫；故事主角",
+        "description": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Mochi”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：一岁左右的浅色三花母猫，娇小但结实，圆脸、乳白底毛、淡杏与浅灰斑块；左眼上方一枚杏色斑，右耳灰色耳尖，鼻梁有小白线；琥珀色大眼，粉鼻，短毛蓬松，尾巴末端杏色；固定浅鼠尾草绿细项圈与小圆铜色名牌；四爪白袜，坐姿谨慎而好奇，情绪从担忧转为安心；不可改变左眼斑、右耳灰尖、白袜、项圈。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+        "traits": [
+          "左眼杏色斑",
+          "右耳灰色耳尖",
+          "鼠尾草绿项圈"
+        ],
+        "reference_sheet": {
+          "style_id": "PT-3D-STORYBOOK-01",
+          "layout": "横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。",
+          "z_image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Mochi”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：一岁左右的浅色三花母猫，娇小但结实，圆脸、乳白底毛、淡杏与浅灰斑块；左眼上方一枚杏色斑，右耳灰色耳尖，鼻梁有小白线；琥珀色大眼，粉鼻，短毛蓬松，尾巴末端杏色；固定浅鼠尾草绿细项圈与小圆铜色名牌；四爪白袜，坐姿谨慎而好奇，情绪从担忧转为安心；不可改变左眼斑、右耳灰尖、白袜、项圈。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+          "krea_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 在统一暖灰棚拍背景中呈现同一个Mochi的横向16:9角色设定板。制作“Mochi”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：一岁左右的浅色三花母猫，娇小但结实，圆脸、乳白底毛、淡杏与浅灰斑块；左眼上方一枚杏色斑，右耳灰色耳尖，鼻梁有小白线；琥珀色大眼，粉鼻，短毛蓬松，尾巴末端杏色；固定浅鼠尾草绿细项圈与小圆铜色名牌；四爪白袜，坐姿谨慎而好奇，情绪从担忧转为安心；不可改变左眼斑、右耳灰尖、白袜、项圈。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 材质细节自然可读，视图之间留白。禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。"
+        },
+        "voice_profile": {
+          "voice_id": "VOICE-CHAR-MOCHI",
+          "speaker_label": "(S2)",
+          "instruct": "轻柔偏高的年轻英语内心独白，清晰细腻，略带谨慎和好奇，语速舒缓，标准英语口音，不要演唱。",
+          "reference_text": "I can finally relax. My people know what I need today.（英语音色预览）",
+          "language": "English",
+          "seed": 729754692978413,
+          "generation_mode": "voice-design",
+          "reference_language": "auto",
+          "status": "idle"
+        }
+      },
+      {
+        "name": "Pip",
+        "role": "深色三花猫；主角的同伴",
+        "description": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Pip”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：三岁左右的深色三花母猫，中等体型，圆润但敏捷，深炭黑底毛、浓橘与奶白不对称斑块；右脸颊橘色火焰状斑，左前爪白色，翠绿色眼睛、黑粉双色鼻；尾巴黑色并有一圈橘色环纹；固定薰衣草紫细项圈与银色月牙名牌；眼神沉稳，动作略顽皮；不可改变右颊橘斑、左前爪白、尾环与项圈。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+        "traits": [
+          "右颊橘色斑",
+          "翠绿眼睛",
+          "紫色项圈"
+        ],
+        "reference_sheet": {
+          "style_id": "PT-3D-STORYBOOK-01",
+          "layout": "横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。",
+          "z_image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Pip”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：三岁左右的深色三花母猫，中等体型，圆润但敏捷，深炭黑底毛、浓橘与奶白不对称斑块；右脸颊橘色火焰状斑，左前爪白色，翠绿色眼睛、黑粉双色鼻；尾巴黑色并有一圈橘色环纹；固定薰衣草紫细项圈与银色月牙名牌；眼神沉稳，动作略顽皮；不可改变右颊橘斑、左前爪白、尾环与项圈。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+          "krea_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 在统一暖灰棚拍背景中呈现同一个Pip的横向16:9角色设定板。制作“Pip”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：三岁左右的深色三花母猫，中等体型，圆润但敏捷，深炭黑底毛、浓橘与奶白不对称斑块；右脸颊橘色火焰状斑，左前爪白色，翠绿色眼睛、黑粉双色鼻；尾巴黑色并有一圈橘色环纹；固定薰衣草紫细项圈与银色月牙名牌；眼神沉稳，动作略顽皮；不可改变右颊橘斑、左前爪白、尾环与项圈。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 材质细节自然可读，视图之间留白。禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。"
+        },
+        "voice_profile": {
+          "voice_id": "VOICE-CHAR-PIP",
+          "speaker_label": "(S3)",
+          "instruct": "中低音、轻快又稳重的英语女性声音，吐字清楚，语速中等，温和幽默，不要演唱。",
+          "reference_text": "There is room for both of us in this sunny spot.（英语音色预览）",
+          "language": "English",
+          "seed": 729754692978414,
+          "generation_mode": "voice-design",
+          "reference_language": "auto",
+          "status": "idle"
+        }
+      },
+      {
+        "name": "Noah",
+        "role": "男孩主人；负责早饭与用药",
+        "description": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Noah”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：二十多岁的年轻男性，身形修长，暖棕肤色，椭圆脸、柔和眉线与深棕眼睛；短而微卷的深棕发，左侧额前固定一缕卷发；固定奶油白圆领针织衫、鼠尾草绿长裤、白色室内鞋；右手常拿深绿色手机，站姿温柔但初期略匆忙；不可改变发卷、服装和手机颜色。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+        "traits": [
+          "短卷发",
+          "奶油白针织衫",
+          "深绿色手机"
+        ],
+        "reference_sheet": {
+          "style_id": "PT-3D-STORYBOOK-01",
+          "layout": "横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。",
+          "z_image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Noah”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：二十多岁的年轻男性，身形修长，暖棕肤色，椭圆脸、柔和眉线与深棕眼睛；短而微卷的深棕发，左侧额前固定一缕卷发；固定奶油白圆领针织衫、鼠尾草绿长裤、白色室内鞋；右手常拿深绿色手机，站姿温柔但初期略匆忙；不可改变发卷、服装和手机颜色。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+          "krea_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 在统一暖灰棚拍背景中呈现同一个Noah的横向16:9角色设定板。制作“Noah”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：二十多岁的年轻男性，身形修长，暖棕肤色，椭圆脸、柔和眉线与深棕眼睛；短而微卷的深棕发，左侧额前固定一缕卷发；固定奶油白圆领针织衫、鼠尾草绿长裤、白色室内鞋；右手常拿深绿色手机，站姿温柔但初期略匆忙；不可改变发卷、服装和手机颜色。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 材质细节自然可读，视图之间留白。禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。"
+        },
+        "voice_profile": {
+          "voice_id": "VOICE-CHAR-NOAH",
+          "speaker_label": "(S4)",
+          "instruct": "年轻英语男性声音，中音，柔和可靠，语速自然，清晰无夸张表演，不要演唱。",
+          "reference_text": "I have breakfast and the morning dose covered.（英语音色预览）",
+          "language": "English",
+          "seed": 729754692978415,
+          "generation_mode": "voice-design",
+          "reference_language": "auto",
+          "status": "idle"
+        }
+      },
+      {
+        "name": "Emma",
+        "role": "女孩主人；负责健康记录与驱虫",
+        "description": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Emma”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：二十多岁的年轻女性，身形中等、姿态轻盈，浅棕肤色，心形脸、深棕眼睛与明显酒窝；黑色长发扎低马尾，左侧一缕固定的面颊发；固定杏桃橙棉质开衫、米白T恤、深灰蓝裤、浅棕室内鞋；左手常拿浅紫色手机，动作细致且亲切；不可改变酒窝、低马尾、开衫和手机颜色。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+        "traits": [
+          "低马尾",
+          "杏桃橙开衫",
+          "浅紫色手机"
+        ],
+        "reference_sheet": {
+          "style_id": "PT-3D-STORYBOOK-01",
+          "layout": "横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。",
+          "z_image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 制作“Emma”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：二十多岁的年轻女性，身形中等、姿态轻盈，浅棕肤色，心形脸、深棕眼睛与明显酒窝；黑色长发扎低马尾，左侧一缕固定的面颊发；固定杏桃橙棉质开衫、米白T恤、深灰蓝裤、浅棕室内鞋；左手常拿浅紫色手机，动作细致且亲切；不可改变酒窝、低马尾、开衫和手机颜色。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+          "krea_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 在统一暖灰棚拍背景中呈现同一个Emma的横向16:9角色设定板。制作“Emma”的专业单角色生产参考设定板，一张图内仅有同一个角色的多个视角。横向16:9；左侧42%放3/4全身主视图，中间33%放正面、侧面、背面等比例全身图，右侧25%放中性、微笑、紧张、惊讶四格表情特写；底部放眼睛、发型或头部毛纹、服装或项圈材质、标志道具细节和五色色板。 角色身份：二十多岁的年轻女性，身形中等、姿态轻盈，浅棕肤色，心形脸、深棕眼睛与明显酒窝；黑色长发扎低马尾，左侧一缕固定的面颊发；固定杏桃橙棉质开衫、米白T恤、深灰蓝裤、浅棕室内鞋；左手常拿浅紫色手机，动作细致且亲切；不可改变酒窝、低马尾、开衫和手机颜色。 板内全部视图是同一个角色，不是不同人物；所有角度共享完全一致的脸型、五官间距、年龄、体型、毛纹或发际线、服装或项圈结构、配色和道具。侧面必须呈现真实侧面结构；所有视角脚、耳和尾完整。画面栏目只用简短英文标签 Front, Side, Back, Expressions, Details, Palette。 材质细节自然可读，视图之间留白。禁止：禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。"
+        },
+        "voice_profile": {
+          "voice_id": "VOICE-CHAR-EMMA",
+          "speaker_label": "(S5)",
+          "instruct": "年轻英语女性声音，中高音，温暖有条理，咬字清晰，语速中等，不要演唱。",
+          "reference_text": "I can see what is due and what has already been done.（英语音色预览）",
+          "language": "English",
+          "seed": 729754692978416,
+          "generation_mode": "voice-design",
+          "reference_language": "auto",
+          "status": "idle"
+        }
+      }
+    ],
+    "basics": {
+      "outline": "浅色三花猫Mochi担心早餐、驱虫、用药和重复给药；深色三花猫Pip陪伴。Noah与Emma在Pet Together中共享家庭、查看Today、分工、记录并确认照顾状态，Mochi终于安心。所有公开旁白和画面字为英语。",
+      "shooting_method": "固定客厅、厨房、走廊与窗边四个空间锚点；Mochi始终为视觉主角；应用展示镜头使用实际Flutter应用英文界面录屏或截图作屏幕合成，绝不让生成模型凭空绘制文字或未实现的功能。",
+      "art_style_description": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+      "environment_anchors": [
+        {
+          "id": "ENV-LIVING",
+          "description": "无人物客厅：左侧圆形窗边猫窝、中央低沙发、右侧厨房入口；暖木地板、奶油白墙、鼠尾草绿软垫，晨光自画面左上入射。"
+        },
+        {
+          "id": "ENV-KITCHEN",
+          "description": "无人物厨房：左侧双猫食碗、中央木台面与宠物用品收纳、右侧冰箱；清洁温暖，没有药物散放。"
+        },
+        {
+          "id": "ENV-PHONE",
+          "description": "无人物手机展示空间：暖灰桌面、真实Pet Together Flutter英文界面录屏或截图、固定屏幕比例与可读UI安全区；UI在后期合成。"
+        },
+        {
+          "id": "ENV-WINDOW",
+          "description": "无人物午后窗边：圆形猫窝、柔和窗帘和阳光斑，背景延续同一客厅。"
+        }
+      ]
+    },
+    "storyboard": [
+      {
+        "segment_id": 1,
+        "movielength": "00:00-00:30",
+        "content_narrative": "浅色三花猫的日常疑问：早餐是否记得，照顾是否准时。",
+        "prompts": {
+          "first_frame": "清晨客厅，浅色三花Mochi前景坐在空碗旁，深色三花Pip后景卧在猫窝；留右侧空白给英文片头。",
+          "last_frame": "Mochi眼睛特写，眼中空碗倒影与微小闹钟形状清楚；不要文字。"
+        },
+        "mvinfo": [
+          {
+            "shot_id": "SHOT-001",
+            "timestamp": "00:00 - 00:10",
+            "type": "New_Scene",
+            "source_text": "2只猫(1只深色的三花，1只浅色的三花，主角)",
+            "lyrics": "Our days are made of little things.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 清晨客厅，浅色三花Mochi前景坐在空碗旁，深色三花Pip后景卧在猫窝；留右侧空白给英文片头。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "subject_definitions:\n<Subject 1> = Mochi, 来自 <Picture 1>。\n<Subject 2> = Pip, 来自 <Picture 2>。\n\nsummary:\n[reference generation] Mochi在客厅猫窝边望向空食碗，Pip在后景陪伴。\n\nretention_analysis:\n<Picture 1>: fully_preserved，保留Mochi的固定身份、毛纹或服装、色彩和比例。\n<Picture 2>: fully_preserved，保留Pip的固定身份、毛纹或服装、色彩和比例。\n\ndetailed_description:\n[Shot 1] Mochi在客厅猫窝边望向空食碗，Pip在后景陪伴。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。画面文字“Every little thing matters.”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Our days are made of little things.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-001",
+              "source_start_seconds": 0,
+              "duration_seconds": 10,
+              "audio_text": "Our days are made of little things.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "Ref2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": [
+                {
+                  "label": "<Picture 1>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 1> 只定义Mochi的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Mochi"
+                },
+                {
+                  "label": "<Picture 2>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 2> 只定义Pip的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Pip"
+                }
+              ]
+            },
+            "on_screen_text": "Every little thing matters."
+          },
+          {
+            "shot_id": "SHOT-002",
+            "timestamp": "00:10 - 00:20",
+            "type": "New_Scene",
+            "source_text": "有时候害怕主人忘了喂饭",
+            "lyrics": "Like breakfast. Will they remember?",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Mochi与空碗中景，厨房在右后方，温和晨光；空碗保持清楚但无夸张饥饿。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Mochi伸爪轻碰空碗，听见墙上时钟，耳朵稍向后。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Like breakfast. Will they remember?</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-001",
+              "source_start_seconds": 10,
+              "duration_seconds": 10,
+              "audio_text": "Like breakfast. Will they remember?",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            }
+          },
+          {
+            "shot_id": "SHOT-003",
+            "timestamp": "00:20 - 00:30",
+            "type": "Last_Frame_Continuity",
+            "source_text": "有时候害怕主人忘了喂饭",
+            "lyrics": "I know they love me. Mornings can be busy.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Mochi脸部近景，琥珀眼看向厨房；碗在画面下沿。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 10.00-second mark of the target video.\n\nintegrated_multimodal_description: [Shot 1] 镜头贴近Mochi的眼睛，碗的倒影变成暖色闹钟形状。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] I know they love me. Mornings can be busy.</d> 镜头精确落在目标末帧构图。\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-001",
+              "source_start_seconds": 20,
+              "duration_seconds": 10,
+              "audio_text": "I know they love me. Mornings can be busy.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "FL2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "last_frame_image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Mochi眼睛特写，眼中空碗倒影与微小闹钟形状清楚；不要文字。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。"
+          }
+        ]
+      },
+      {
+        "segment_id": 2,
+        "movielength": "00:30-01:00",
+        "content_narrative": "驱虫、药名和两位主人可能重复给药的担忧。",
+        "prompts": {
+          "first_frame": "同一客厅窗边，Mochi坐在日历和封闭记录册旁；日历无可读日期，后期添加到期提示。",
+          "last_frame": "Mochi居中，左右两侧分别是Noah与Emma，手刚接近同一封闭药盒；真实动作尚未发生。"
+        },
+        "mvinfo": [
+          {
+            "shot_id": "SHOT-004",
+            "timestamp": "00:30 - 00:40",
+            "type": "New_Scene",
+            "source_text": "忘了驱虫",
+            "lyrics": "And what about the next health date?",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 同一客厅窗边，Mochi坐在日历和封闭记录册旁；日历无可读日期，后期添加到期提示。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Mochi看到窗边日历翻页，疑惑地看向Emma留下的健康记录册。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。画面文字“Deworming due soon”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] And what about the next health date?</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-001",
+              "source_start_seconds": 30,
+              "duration_seconds": 10,
+              "audio_text": "And what about the next health date?",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Deworming due soon"
+          },
+          {
+            "shot_id": "SHOT-005",
+            "timestamp": "00:40 - 00:50",
+            "type": "New_Scene",
+            "source_text": "忘了给我吃药，或者给我喂错药",
+            "lyrics": "Sometimes medicine has to be exactly right.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 干净木台面，两只封闭药盒远离猫爪；Mochi前景仰望，后期标注药名与剂量。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Mochi看着两个相似但标签清晰分开的药盒，抬头等主人核对；药盒封闭。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。画面文字“Check the medicine and dose”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Sometimes medicine has to be exactly right.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-001",
+              "source_start_seconds": 40,
+              "duration_seconds": 10,
+              "audio_text": "Sometimes medicine has to be exactly right.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Check the medicine and dose"
+          },
+          {
+            "shot_id": "SHOT-006",
+            "timestamp": "00:50 - 01:00",
+            "type": "New_Scene",
+            "source_text": "或者有时候害怕同样的药两个主人在一天给我吃2回",
+            "lyrics": "What if they both think it is their turn?",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Mochi居中，左右两侧分别是Noah与Emma，手刚接近同一封闭药盒；真实动作尚未发生。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Mochi的想象中Noah与Emma同时伸向同一封闭药盒；画面停住，不出现给药动作。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。画面文字“One dose. Two caregivers.”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] What if they both think it is their turn?</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-001",
+              "source_start_seconds": 50,
+              "duration_seconds": 10,
+              "audio_text": "What if they both think it is their turn?",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "One dose. Two caregivers."
+          }
+        ]
+      },
+      {
+        "segment_id": 3,
+        "movielength": "01:00-01:30",
+        "content_narrative": "两位主人进入Pet Together，建立共享照顾视图。",
+        "prompts": {
+          "first_frame": "Noah手持深绿色手机，屏幕区域留给Pet Together真实英文界面合成；Mochi在下缘仰望。",
+          "last_frame": "桌上手机全屏清晰，真实Pet Together英文Today页预留；Mochi脸从左侧轻入画，右侧保留界面安全区。"
+        },
+        "mvinfo": [
+          {
+            "shot_id": "SHOT-007",
+            "timestamp": "01:00 - 01:10",
+            "type": "New_Scene",
+            "source_text": "两个主人通过使用Pet Together,可以再手机上共享照顾的状态。",
+            "lyrics": "Then they opened Pet Together.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Noah手持深绿色手机，屏幕区域留给Pet Together真实英文界面合成；Mochi在下缘仰望。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Noah拿起真实Pet Together应用手机，镜头从猫视线抬至清楚的品牌首页。 画面主角是Noah。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Pet Together”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Then they opened Pet Together.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 0,
+              "duration_seconds": 10,
+              "audio_text": "Then they opened Pet Together.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Pet Together",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          },
+          {
+            "shot_id": "SHOT-008",
+            "timestamp": "01:10 - 01:20",
+            "type": "New_Scene",
+            "source_text": "两个主人通过使用Pet Together,可以再手机上共享照顾的状态。",
+            "lyrics": "One shared home for everyone who cares for us.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Emma浅紫色手机屏幕正对镜头，真实应用英文已批准家庭画面后期合成；背景暖灰桌面。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Noah批准邀请请求后，Emma在应用中看到共享家庭；镜头聚焦真实家庭界面。 画面主角是Emma。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Share your household”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] One shared home for everyone who cares for us.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 10,
+              "duration_seconds": 10,
+              "audio_text": "One shared home for everyone who cares for us.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Share your household",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          },
+          {
+            "shot_id": "SHOT-009",
+            "timestamp": "01:20 - 01:30",
+            "type": "New_Scene",
+            "source_text": "两个主人通过使用Pet Together,可以再手机上共享照顾的状态。",
+            "lyrics": "Now they can see what we need today.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 桌上手机全屏清晰，真实Pet Together英文Today页预留；Mochi脸从左侧轻入画，右侧保留界面安全区。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] 手机Today页面展示Mochi和Pip的照顾事项，Mochi用鼻尖靠近屏幕；只合成真实UI。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Today · Mochi & Pip”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Now they can see what we need today.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 20,
+              "duration_seconds": 10,
+              "audio_text": "Now they can see what we need today.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Today · Mochi & Pip",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          }
+        ]
+      },
+      {
+        "segment_id": 4,
+        "movielength": "01:30-02:00",
+        "content_narrative": "认领早餐、看健康日期、核对用药计划。",
+        "prompts": {
+          "first_frame": "深绿色手机特写，真实任务卡和认领操作录屏后期嵌入；Noah指尖停在交互前一瞬。",
+          "last_frame": "真实用药课程界面屏幕合成位，清楚展示药名、剂量文字、时间；Noah指尖沿信息逐项核对。"
+        },
+        "mvinfo": [
+          {
+            "shot_id": "SHOT-010",
+            "timestamp": "01:30 - 01:40",
+            "type": "New_Scene",
+            "source_text": "分工。",
+            "lyrics": "Noah takes breakfast.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 深绿色手机特写，真实任务卡和认领操作录屏后期嵌入；Noah指尖停在交互前一瞬。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Noah在真实任务详情中认领早餐任务；状态变成自己的责任。 画面主角是Noah。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Breakfast · Noah”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Noah takes breakfast.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 30,
+              "duration_seconds": 10,
+              "audio_text": "Noah takes breakfast.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Breakfast · Noah",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          },
+          {
+            "shot_id": "SHOT-011",
+            "timestamp": "01:40 - 01:50",
+            "type": "New_Scene",
+            "source_text": "分工。",
+            "lyrics": "Emma keeps an eye on the health dates.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 浅紫色手机特写，真实家庭任务/Today健康提醒界面后期合成；Emma手持稳固。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Emma在自己的手机查看分配与即将到来的健康事项。 画面主角是Emma。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Deworming · Due soon”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Emma keeps an eye on the health dates.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 40,
+              "duration_seconds": 10,
+              "audio_text": "Emma keeps an eye on the health dates.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Deworming · Due soon",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          },
+          {
+            "shot_id": "SHOT-012",
+            "timestamp": "01:50 - 02:00",
+            "type": "New_Scene",
+            "source_text": "忘了给我吃药，或者给我喂错药",
+            "lyrics": "The medicine name, amount, and time are right there.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 真实用药课程界面屏幕合成位，清楚展示药名、剂量文字、时间；Noah指尖沿信息逐项核对。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Noah打开Mochi的用药计划，仔细核对药名、剂量和时间；无实际给药。 画面主角是Noah。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Medicine · Dose · Time”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] The medicine name, amount, and time are right there.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 50,
+              "duration_seconds": 10,
+              "audio_text": "The medicine name, amount, and time are right there.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Medicine · Dose · Time",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          }
+        ]
+      },
+      {
+        "segment_id": 5,
+        "movielength": "02:00-02:30",
+        "content_narrative": "完成用药后另一位主人看到记录，驱虫日期也在视野内。",
+        "prompts": {
+          "first_frame": "Mochi坐在Noah身边，药物始终由Noah安全掌握；手机显示真实记录剂量操作，先完成后记录。",
+          "last_frame": "真实Pet Together英文Today健康到期提示与Health记录截图后期合成；Emma手指指向日期而非药品。"
+        },
+        "mvinfo": [
+          {
+            "shot_id": "SHOT-013",
+            "timestamp": "02:00 - 02:10",
+            "type": "New_Scene",
+            "source_text": "两个主人通过使用Pet Together,可以再手机上共享照顾的状态。",
+            "lyrics": "When a dose is given, Noah records it.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Mochi坐在Noah身边，药物始终由Noah安全掌握；手机显示真实记录剂量操作，先完成后记录。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Noah按已核对的计划完成一次给药，随后在应用中记录该次用药。 画面主角是Noah。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Dose recorded”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] When a dose is given, Noah records it.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 60,
+              "duration_seconds": 10,
+              "audio_text": "When a dose is given, Noah records it.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Dose recorded",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          },
+          {
+            "shot_id": "SHOT-014",
+            "timestamp": "02:10 - 02:20",
+            "type": "New_Scene",
+            "source_text": "或者有时候害怕同样的药两个主人在一天给我吃2回",
+            "lyrics": "Emma sees it is already done. One dose stays one dose.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Emma手与封闭药盒在前景，浅紫色手机真实Today已完成状态清楚可见；镜头不出现第二次给药。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Emma正要拿起药盒，先看手机上已确认的给药记录，手立刻停下并把药盒放回；绝无第二次给药。 画面主角是Emma。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Done by Noah · 12:00 PM”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Emma sees it is already done. One dose stays one dose.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 70,
+              "duration_seconds": 10,
+              "audio_text": "Emma sees it is already done. One dose stays one dose.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Done by Noah · 12:00 PM",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          },
+          {
+            "shot_id": "SHOT-015",
+            "timestamp": "02:20 - 02:30",
+            "type": "New_Scene",
+            "source_text": "忘了驱虫",
+            "lyrics": "The next deworming date stays in view, too.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 真实Pet Together英文Today健康到期提示与Health记录截图后期合成；Emma手指指向日期而非药品。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.\n\nintegrated_multimodal_description: [Shot 1] Emma在真实Today健康到期提醒和健康记录中确认下次驱虫日期。 画面主角是Emma。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。真实Flutter应用英文界面仅由后期录屏或截图合成，模型不得绘制或改写UI文字。画面文字“Deworming · Next due”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] The next deworming date stays in view, too.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-002",
+              "source_start_seconds": 80,
+              "duration_seconds": 10,
+              "audio_text": "The next deworming date stays in view, too.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "I2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": []
+            },
+            "on_screen_text": "Deworming · Next due",
+            "ui_asset_policy": "Use captured English UI from the actual Pet Together Flutter app; composite into the phone in post. Verify exact labels against the build before export."
+          }
+        ]
+      },
+      {
+        "segment_id": 6,
+        "movielength": "02:30-03:00",
+        "content_narrative": "两只猫在稳定、温柔的日常中安心休息。",
+        "prompts": {
+          "first_frame": "厨房双猫食碗，Mochi前景安稳进食，Pip在另一只碗旁；暖光与既定材质。",
+          "last_frame": "Mochi和Pip在前景猫窝安睡，Noah与Emma只以模糊背影坐在后景；右侧干净留白。"
+        },
+        "mvinfo": [
+          {
+            "shot_id": "SHOT-016",
+            "timestamp": "02:30 - 02:40",
+            "type": "New_Scene",
+            "source_text": "我过上了定时照顾的好生活。",
+            "lyrics": "Breakfast on time. Care everyone can follow.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 厨房双猫食碗，Mochi前景安稳进食，Pip在另一只碗旁；暖光与既定材质。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "subject_definitions:\n<Subject 1> = Mochi, 来自 <Picture 1>。\n<Subject 2> = Pip, 来自 <Picture 2>。\n\nsummary:\n[reference generation] Mochi按固定早餐时间吃饭，Pip在邻近自己的碗前安静进食；两位主人只在远景微笑。\n\nretention_analysis:\n<Picture 1>: fully_preserved，保留Mochi的固定身份、毛纹或服装、色彩和比例。\n<Picture 2>: fully_preserved，保留Pip的固定身份、毛纹或服装、色彩和比例。\n\ndetailed_description:\n[Shot 1] Mochi按固定早餐时间吃饭，Pip在邻近自己的碗前安静进食；两位主人只在远景微笑。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。画面文字“A gentler routine”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Breakfast on time. Care everyone can follow.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-003",
+              "source_start_seconds": 0,
+              "duration_seconds": 10,
+              "audio_text": "Breakfast on time. Care everyone can follow.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "Ref2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": [
+                {
+                  "label": "<Picture 1>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 1> 只定义Mochi的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Mochi"
+                },
+                {
+                  "label": "<Picture 2>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 2> 只定义Pip的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Pip"
+                }
+              ]
+            },
+            "on_screen_text": "A gentler routine"
+          },
+          {
+            "shot_id": "SHOT-017",
+            "timestamp": "02:40 - 02:50",
+            "type": "Last_Frame_Continuity",
+            "source_text": "惬意。",
+            "lyrics": "I can just be a cat again.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 同一客厅窗边，两只猫完整而不互相遮挡地睡在圆形猫窝；金色午后光。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "subject_definitions:\n<Subject 1> = Mochi, 来自 <Picture 1>。\n<Subject 2> = Pip, 来自 <Picture 2>。\n\nsummary:\n[reference generation] 午后Mochi与Pip并排蜷在窗边猫窝，缓慢呼吸，轻微尾巴动作。\n\nretention_analysis:\n<Picture 1>: fully_preserved，保留Mochi的固定身份、毛纹或服装、色彩和比例。\n<Picture 2>: fully_preserved，保留Pip的固定身份、毛纹或服装、色彩和比例。\n\ndetailed_description:\n[Shot 1] 午后Mochi与Pip并排蜷在窗边猫窝，缓慢呼吸，轻微尾巴动作。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] I can just be a cat again.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-003",
+              "source_start_seconds": 10,
+              "duration_seconds": 10,
+              "audio_text": "I can just be a cat again.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "Ref2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": [
+                {
+                  "label": "<Picture 1>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 1> 只定义Mochi的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Mochi"
+                },
+                {
+                  "label": "<Picture 2>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 2> 只定义Pip的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Pip"
+                }
+              ]
+            }
+          },
+          {
+            "shot_id": "SHOT-018",
+            "timestamp": "02:50 - 03:00",
+            "type": "New_Scene",
+            "source_text": "温馨结尾。",
+            "lyrics": "Pet Together. Better care, together.",
+            "image_prompt": "统一可爱3D动画电影风格：圆润而清晰的轮廓、略大头部与可读眼神、细腻短绒毛和柔软棉布材质；奶油白、杏桃橙、鼠尾草绿、温柔紫为固定色系；左上方柔和暖主光、右后方淡冷轮廓光，软阴影；35毫米等效镜头感，轻微景深，温暖灰色棚拍背景；高品质但不过度写实，角色参考板横向16:9。 Mochi和Pip在前景猫窝安睡，Noah与Emma只以模糊背影坐在后景；右侧干净留白。 禁止写实摄影、二维动漫、塑料皮肤、毛色或年龄漂移、衣服或项圈变化、多角色混入同一设定板、重复肢体、裁切脚尾与耳尖、遮挡视图、乱码长文字、剧情环境、海报排版。",
+            "video_prompt": "subject_definitions:\n<Subject 1> = Mochi, 来自 <Picture 1>。\n<Subject 2> = Pip, 来自 <Picture 2>。\n\nsummary:\n[reference generation] 两只猫在主人之间安心熟睡，镜头升起留白，后期叠加真实品牌标志与英文结尾。\n\nretention_analysis:\n<Picture 1>: fully_preserved，保留Mochi的固定身份、毛纹或服装、色彩和比例。\n<Picture 2>: fully_preserved，保留Pip的固定身份、毛纹或服装、色彩和比例。\n\ndetailed_description:\n[Shot 1] 两只猫在主人之间安心熟睡，镜头升起留白，后期叠加真实品牌标志与英文结尾。 画面主角是Mochi。相机轻微平移或缓慢推近，幅度不超过半个主体宽度，保持猫和手机屏幕可读；动作从起始状态逐步抵达镜头末尾。画面文字“Pet Together · Better care, together.”由后期叠加，使用清晰英文无衬线字体。 <Audio 1> 是已混合的英语旁白与低电平配乐；动作、眨眼和剪辑节奏严格跟随它，不重新创作对白或音乐。 <d>[English] Pet Together. Better care, together.</d>\n\noverall_soundscape: 完整复用主音频并保持与画面严格同步。\n\nnon_diegetic_music: N/A",
+            "audio_plan": {
+              "chapter_id": "AUDIO-003",
+              "source_start_seconds": 20,
+              "duration_seconds": 10,
+              "audio_text": "Pet Together. Better care, together.",
+              "tts_language": "English",
+              "speakers": [
+                {
+                  "speaker_label": "(S1)",
+                  "character_name": "Mochi inner voice / narrator",
+                  "voice_description": "年轻、柔和、清晰的英语第一人称旁白",
+                  "voice_id": "VOICE-NARRATOR"
+                }
+              ],
+              "cut_status": "tentative"
+            },
+            "generation_plan": {
+              "model": "minimax-h3",
+              "mode": "Ref2VA",
+              "duration_seconds": 10,
+              "duration_frames": 260,
+              "audio_mode": "drive-audio",
+              "reference_images": [
+                {
+                  "label": "<Picture 1>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 1> 只定义Mochi的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Mochi"
+                },
+                {
+                  "label": "<Picture 2>",
+                  "purpose": "已锁定角色身份、毛纹或服装比例参考",
+                  "prompt": "<Picture 2> 只定义Pip的稳定脸部、毛纹或服装、轮廓与材质；保持统一3D画风。",
+                  "source_character": "Pip"
+                }
+              ]
+            },
+            "on_screen_text": "Pet Together · Better care, together."
+          }
+        ]
+      }
+    ]
+  },
+  "generation_settings": {
+    "image_workflow": "Z-Image-Turbo",
+    "video_workflow": "H3 Turbo Stable 4V4A",
+    "video_orientation": "landscape",
+    "h3": {
+      "generation_mode": "director-routed",
+      "audio_mode": "drive-audio",
+      "video_length_frames": 260,
+      "reference_images": [
+        null,
+        null
+      ]
+    }
+  }
+}
